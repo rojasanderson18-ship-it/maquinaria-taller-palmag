@@ -869,35 +869,70 @@ function buildResumen(){
 // ═══════════════════════════════════════════════════
 function generarTexto(){
   const now=new Date();
-  const fecha=now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
-  const total  =PREOPS.length;
-  const salen  =Object.values(DEC).filter(d=>d.decision==='sale'&&d.confirmado).length;
-  const nosalen=Object.values(DEC).filter(d=>d.decision==='nosale'&&d.confirmado).length;
-  const altasHoy=Object.keys(ALTAS).filter(k=>ALTAS[k].fecha===HOY).length;
-  const dispFinal=total>0?Math.round((salen+altasHoy)/total*100):0;
+  const hora=now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  const fecha=now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const fechaCap=fecha.charAt(0).toUpperCase()+fecha.slice(1);
 
-  const noSalenTxt=Object.entries(DEC).filter(([k,d])=>d.decision==='nosale'&&d.confirmado&&!ALTAS[k])
-    .map(([,d])=>`  🚫 ${d.equipo}${d.notas?' — '+d.notas:''}`).join('\n');
-  const altasTxt=Object.entries(ALTAS).filter(([,a])=>a.fecha===HOY)
-    .map(([,a])=>`  🔵 ${a.equipo} — resuelto en ${a.minutos} min`).join('\n');
-  const salenTxt=Object.entries(DEC).filter(([,d])=>d.decision==='sale'&&d.confirmado)
-    .map(([,d])=>`  ✅ ${d.equipo}`).join('\n');
+  const total    = PREOPS.length;
+  const salen    = Object.values(DEC).filter(d=>d.decision==='sale'&&d.confirmado).length;
+  const nosalen  = Object.values(DEC).filter(d=>d.decision==='nosale'&&d.confirmado).length;
+  const altasHoy = Object.keys(ALTAS).filter(k=>ALTAS[k].fecha===HOY).length;
+  const dispFinal= total>0?Math.round((salen+altasHoy)/total*100):0;
+  const sinRev   = total-(salen+nosalen);
 
-  return `🌴 *REPORTE PREOPERATIVO — FLOTA PALMA*
-📅 ${fecha.charAt(0).toUpperCase()+fecha.slice(1)}
-🔧 Mecánico: ${MECANICO}
+  // Separador visual
+  const sep = '━━━━━━━━━━━━━━━━━━━━━━';
 
-📊 *RESUMEN*
-• Tractores reportados: ${total}
-• ✅ Autorizados directamente: ${salen}
-• 🚫 Retenidos en taller: ${nosalen}
-• 🔵 Dados de alta tras reparación: ${altasHoy}
-• 📋 Disponibilidad final: ${dispFinal}%
-${nosalen-altasHoy>0?`\n🚫 *AÚN RETENIDOS:*\n${noSalenTxt}`:''}
-${altasHoy>0?`\n🔵 *DADOS DE ALTA:*\n${altasTxt}`:''}
-${salen>0?`\n✅ *AUTORIZADOS:*\n${salenTxt}`:''}
+  // Listas detalladas
+  const salenList = Object.entries(DEC)
+    .filter(([,d])=>d.decision==='sale'&&d.confirmado)
+    .map(([,d])=>`   ✅ ${d.equipo}`)
+    .join('\n');
 
-_Generado automáticamente — Taller Palma_`;
+  const noSalenList = Object.entries(DEC)
+    .filter(([k,d])=>d.decision==='nosale'&&d.confirmado&&!ALTAS[k])
+    .map(([,d])=>`   🚫 ${d.equipo}${d.notas?' ('+d.notas+')':''}`)
+    .join('\n');
+
+  const altasList = Object.entries(ALTAS)
+    .filter(([,a])=>a.fecha===HOY)
+    .map(([,a])=>`   🔵 ${a.equipo} — reparado en ${a.minutos} min`)
+    .join('\n');
+
+  // Semáforo disponibilidad
+  const semaforo = dispFinal>=85?'🟢':dispFinal>=60?'🟡':'🔴';
+
+  let msg = '';
+  msg += `🌴 *FLOTA PALMA — REPORTE DIARIO*\n`;
+  msg += `${sep}\n`;
+  msg += `📅 ${fechaCap}\n`;
+  msg += `⏰ Generado: ${hora}\n`;
+  msg += `👷 Mecánico: *${MECANICO}*\n`;
+  msg += `${sep}\n\n`;
+
+  msg += `📊 *RESUMEN DE FLOTA*\n`;
+  msg += `▸ Tractores reportados: *${total}*\n`;
+  msg += `▸ Autorizados para salir: *${salen}*\n`;
+  msg += `▸ Retenidos en taller: *${nosalen-altasHoy}*\n`;
+  if(altasHoy>0) msg += `▸ Dados de alta hoy: *${altasHoy}*\n`;
+  if(sinRev>0)   msg += `▸ Sin revisar aún: *${sinRev}*\n`;
+  msg += `\n${semaforo} *Disponibilidad: ${dispFinal}%*\n`;
+  msg += `${sep}\n`;
+
+  if(salenList){
+    msg += `\n✅ *AUTORIZADOS*\n${salenList}\n`;
+  }
+  if(noSalenList){
+    msg += `\n🚫 *RETENIDOS EN TALLER*\n${noSalenList}\n`;
+  }
+  if(altasList){
+    msg += `\n🔵 *DADOS DE ALTA TRAS REPARACIÓN*\n${altasList}\n`;
+  }
+
+  msg += `\n${sep}\n`;
+  msg += `_Taller Palma — Sistema Automático_`;
+
+  return msg;
 }
 function copiarResumen(){ navigator.clipboard.writeText(generarTexto()).then(()=>toast('✅ Copiado')); }
 function enviarWhatsApp(){
