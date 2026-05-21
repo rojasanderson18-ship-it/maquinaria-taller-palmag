@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Gerencia — Flota Palma</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --verde:#1a4731;--verde-m:#2d6a4f;--verde-s:#52b788;--verde-p:#d8f3dc;--verde-pp:#f0faf2;
+  --dorado:#b7791f;--dorado-p:#fef3c7;
+  --rojo:#991b1b;--rojo-m:#dc2626;--rojo-p:#fee2e2;
+  --amarillo:#92400e;--amarillo-p:#fef3c7;
+  --azul:#1e40af;--azul-p:#dbeafe;
+  --gris:#64748b;--gris-p:#f1f5f9;
+  --bg:#f0f4f1;--surface:#fff;--border:#e2e8f0;--text:#1e293b;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:40px}
+.top-bar{height:5px;background:var(--dorado)}
+header{background:var(--verde);padding:14px 18px 16px;box-shadow:0 2px 16px rgba(0,0,0,.25)}
+.hdr-row{display:flex;align-items:center;justify-content:space-between}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.logo{width:42px;height:42px;background:var(--dorado);border-radius:10px;display:grid;place-items:center;font-size:22px;flex-shrink:0}
+.hdr-title{font-family:'DM Serif Display',serif;font-size:18px;color:#fff}
+.hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
+.hdr-right{text-align:right}
+.hdr-date{font-size:11px;color:rgba(255,255,255,.7);line-height:1.5}
+.live-badge{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.12);border-radius:20px;padding:4px 10px;font-size:10px;color:rgba(255,255,255,.8);margin-top:4px}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+main{max-width:640px;margin:0 auto;padding:18px 14px}
+
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.kpi-card{background:var(--surface);border-radius:14px;padding:18px 14px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.07);position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px}
+.kpi-card.verde::before{background:var(--verde-s)}
+.kpi-card.rojo::before{background:var(--rojo-m)}
+.kpi-card.dorado::before{background:var(--dorado)}
+.kpi-card.azul::before{background:var(--azul)}
+.kpi-num{font-family:'DM Serif Display',serif;font-size:42px;line-height:1;margin-bottom:4px}
+.kpi-card.verde .kpi-num{color:var(--verde-m)}
+.kpi-card.rojo .kpi-num{color:var(--rojo-m)}
+.kpi-card.dorado .kpi-num{color:var(--dorado)}
+.kpi-card.azul .kpi-num{color:var(--azul)}
+.kpi-label{font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.05em}
+.kpi-sub{font-size:10px;color:var(--gris);margin-top:3px}
+
+/* DISPONIBILIDAD BAR */
+.disp-card{background:var(--verde);border-radius:14px;padding:18px;margin-bottom:16px;color:#fff}
+.disp-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.disp-title{font-family:'DM Serif Display',serif;font-size:16px}
+.disp-pct{font-family:'DM Serif Display',serif;font-size:32px;color:var(--dorado)}
+.disp-bar-track{background:rgba(255,255,255,.2);border-radius:20px;height:10px}
+.disp-bar-fill{height:10px;border-radius:20px;background:var(--dorado);transition:width .8s ease}
+.disp-labels{display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.5);margin-top:6px}
+
+/* CARD */
+.card{background:var(--surface);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden;margin-bottom:14px}
+.card-hdr{padding:12px 15px;display:flex;align-items:center;gap:9px;border-left:4px solid var(--dorado)}
+.card-hdr.verde{background:var(--verde)}.card-hdr.rojo{background:var(--rojo)}.card-hdr.dorado{background:var(--dorado)}.card-hdr.amarillo{background:#d97706}.card-hdr.azul{background:var(--azul)}
+.card-hdr-icon{font-size:17px}
+.card-hdr-title{font-family:'DM Serif Display',serif;font-size:14px;color:#fff}
+.card-hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
+
+/* TRACTOR ROWS */
+.tractor-row{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.tractor-row:last-child{border-bottom:none}
+.tr-icon{font-size:22px;flex-shrink:0}
+.tr-info{flex:1}
+.tr-nombre{font-size:13px;font-weight:700}
+.tr-meta{font-size:11px;color:var(--gris);margin-top:2px}
+.tr-niveles{display:flex;gap:6px;margin-top:6px}
+.nivel-chip{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+.pill{display:inline-block;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.pill-ok{background:var(--verde-p);color:var(--verde-m)}
+.pill-warn{background:var(--amarillo-p);color:var(--amarillo)}
+.pill-fail{background:var(--rojo-p);color:var(--rojo)}
+.pill-azul{background:var(--azul-p);color:var(--azul)}
+.pill-gris{background:var(--gris-p);color:var(--gris)}
+
+/* ALERTA */
+.alerta-row{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:10px}
+.alerta-row:last-child{border-bottom:none}
+.al-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+.al-equipo{font-size:13px;font-weight:700}
+.al-desc{font-size:11px;color:var(--gris);margin-top:2px;line-height:1.4}
+
+/* EMPTY */
+.empty{text-align:center;padding:28px 14px;color:var(--gris)}
+.empty-icon{font-size:36px;margin-bottom:8px}
+.empty-title{font-size:13px;font-weight:700;margin-bottom:3px}
+
+/* REFRESH */
+.refresh-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;font-size:11px;color:var(--gris)}
+.refresh-btn{padding:6px 14px;border-radius:8px;border:1.5px solid var(--border);background:#fff;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;cursor:pointer;color:var(--verde)}
+.refresh-btn:active{background:var(--verde-pp)}
+
+/* LOADING */
+.loading{text-align:center;padding:40px 20px;color:var(--gris)}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--verde);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--verde);color:#fff;padding:11px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.15);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;border-left:4px solid var(--dorado);max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+</style>
+</head>
+<body>
+<div class="top-bar"></div>
+<header>
+  <div class="hdr-row">
+    <div class="hdr-left">
+      <div class="logo">🌴</div>
+      <div>
+        <div class="hdr-title">Flota Palma</div>
+        <div class="hdr-sub">Panel de Gerencia — Solo lectura</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-date" id="hdr-date">—</div>
+      <div class="live-badge"><div class="live-dot"></div> En vivo</div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="refresh-row">
+    <span id="ultima-act">Actualizando...</span>
+    <button class="refresh-btn" onclick="cargarDatos()">🔄 Actualizar</button>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-card verde"><div class="kpi-num" id="kpi-total">—</div><div class="kpi-label">Reportados</div><div class="kpi-sub">preoperativos hoy</div></div>
+    <div class="kpi-card verde"><div class="kpi-num" id="kpi-salen">—</div><div class="kpi-label">Autorizados</div><div class="kpi-sub">para trabajar</div></div>
+    <div class="kpi-card rojo"><div class="kpi-num" id="kpi-retenidos">—</div><div class="kpi-label">Retenidos</div><div class="kpi-sub">en taller</div></div>
+    <div class="kpi-card dorado"><div class="kpi-num" id="kpi-mtto">—</div><div class="kpi-label">Alerta Mtto</div><div class="kpi-sub">vencido o próximo</div></div>
+  </div>
+
+  <!-- Disponibilidad -->
+  <div class="disp-card">
+    <div class="disp-top">
+      <div><div class="disp-title">Disponibilidad de flota</div><div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">Objetivo: 85%</div></div>
+      <div class="disp-pct" id="disp-pct">—</div>
+    </div>
+    <div class="disp-bar-track"><div class="disp-bar-fill" id="disp-bar" style="width:0%"></div></div>
+    <div class="disp-labels"><span>0%</span><span>Objetivo 85%</span><span>100%</span></div>
+  </div>
+
+  <!-- Estado tractores -->
+  <div class="card" id="card-tractores">
+    <div class="card-hdr verde"><span class="card-hdr-icon">🚜</span>
+      <div><div class="card-hdr-title">Estado de tractores hoy</div><div class="card-hdr-sub">Preoperativos recibidos</div></div>
+    </div>
+    <div id="lista-tractores">
+      <div class="loading"><div class="spinner"></div><div>Cargando datos...</div></div>
+    </div>
+  </div>
+
+  <!-- Retenidos -->
+  <div class="card" id="card-retenidos" style="display:none">
+    <div class="card-hdr rojo"><span class="card-hdr-icon">🚫</span>
+      <div><div class="card-hdr-title">Retenidos en taller</div><div class="card-hdr-sub">Requieren reparación</div></div>
+    </div>
+    <div id="lista-retenidos"></div>
+  </div>
+
+  <!-- Alertas mantenimiento -->
+  <div class="card" id="card-alertas" style="display:none">
+    <div class="card-hdr amarillo"><span class="card-hdr-icon">⚠️</span>
+      <div><div class="card-hdr-title">Alertas de mantenimiento</div><div class="card-hdr-sub">Equipos que requieren servicio</div></div>
+    </div>
+    <div id="lista-alertas"></div>
+  </div>
+
+  <!-- Tanqueo del día -->
+  <div class="card">
+    <div class="card-hdr azul"><span class="card-hdr-icon">⛽</span>
+      <div><div class="card-hdr-title">Combustible cargado hoy</div><div class="card-hdr-sub">Total de litros tanqueados</div></div>
+    </div>
+    <div id="tanqueo-info" style="padding:16px">
+      <div class="loading"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- Dado de alta -->
+  <div class="card" id="card-altas" style="display:none">
+    <div class="card-hdr azul"><span class="card-hdr-icon">🔵</span>
+      <div><div class="card-hdr-title">Dados de alta hoy</div><div class="card-hdr-sub">Reparados y autorizados</div></div>
+    </div>
+    <div id="lista-altas"></div>
+  </div>
+
+</main>
+<div id="toast"></div>
+
+<script>
+const GS_URL = 'https://script.google.com/macros/s/AKfycby-zBxLt_NK5BJ3DjE-TABirGz6gdAm9VT5Ski7eGM0qIWUEfawLQjW9nSAoIUKvajfDw/exec';
+const HOY = new Date().toLocaleDateString('es-CO');
+
+function init(){
+  const now = new Date();
+  document.getElementById('hdr-date').innerHTML =
+    now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'}).replace('.','')+
+    '<br>'+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  cargarDatos();
+  // Auto-refresh cada 3 minutos
+  setInterval(cargarDatos, 3*60*1000);
+}
+
+async function fetchHoja(hoja){
+  try{
+    const r = await fetch(GS_URL+'?hoja='+hoja);
+    const d = await r.json();
+    return d.ok ? d.datos.filter(f=>f[0]===HOY) : [];
+  }catch{ return []; }
+}
+
+async function cargarDatos(){
+  document.getElementById('ultima-act').textContent = 'Actualizando...';
+  try{
+    const [preops, revisiones, altas, alertasMtto, tanqueos] = await Promise.all([
+      fetchHoja('Preoperativos'),
+      fetchHoja('Revisiones'),
+      fetchHoja('Altas'),
+      fetchHoja('Alertas Mantenimiento'),
+      fetchHoja('Tanqueos'),
+    ]);
+
+    renderKPIs(preops, revisiones, altas);
+    renderTractores(preops, revisiones, altas);
+    renderRetenidos(revisiones, altas);
+    renderAlertas(alertasMtto);
+    renderTanqueo(tanqueos);
+    renderAltas(altas);
+
+    const now = new Date();
+    document.getElementById('ultima-act').textContent =
+      'Última actualización: '+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  }catch(e){
+    document.getElementById('ultima-act').textContent = 'Error al cargar datos';
+    toast('Error de conexión','error');
+  }
+}
+
+// Columnas preop: 0=Fecha,1=Hora,2=Operario,3=Equipo,4=Labor,5=Lote,
+// 6=Horómetro,7=UltMtto,8=ProxMtto,9=HorasRestantes,10=EstadoMtto,
+// 11=Aceite,12=Agua,13=Hidra, 14-21=items, 22=EstadoOperario,23=Novedades
+// 24=Tanqueado,25=Litros
+
+function renderKPIs(preops, revisiones, altas){
+  const total    = preops.length;
+  const salen    = revisiones.filter(r=>r[4]==='AUTORIZADO').length + altas.length;
+  const retenidos= revisiones.filter(r=>r[4]==='RETENIDO').length - altas.length;
+  const mtto     = preops.filter(r=>r[10]==='VENCIDO'||r[10]==='PRÓXIMO').length;
+  const disp     = total>0?Math.round(salen/total*100):0;
+
+  document.getElementById('kpi-total').textContent    = total||'—';
+  document.getElementById('kpi-salen').textContent    = salen||'—';
+  document.getElementById('kpi-retenidos').textContent= Math.max(0,retenidos)||'—';
+  document.getElementById('kpi-mtto').textContent     = mtto||'—';
+  document.getElementById('disp-pct').textContent     = total>0?disp+'%':'—';
+  document.getElementById('disp-bar').style.width     = disp+'%';
+  document.getElementById('disp-bar').style.background=
+    disp>=85?'#4ade80':disp>=60?'#fbbf24':'#f87171';
+}
+
+function ne(v){const n=parseInt(v)||0;return n<25?'🔴':n<50?'🟡':'🟢'}
+
+function getDecision(equipo, revisiones, altas){
+  const rev = revisiones.find(r=>r[2]===equipo||r[1]===equipo);
+  const alta = altas.find(a=>a[2]===equipo||a[1]===equipo);
+  if(alta) return 'alta';
+  if(rev?.r?.[4]==='AUTORIZADO'||rev?.[4]==='AUTORIZADO') return 'autorizado';
+  if(rev?.r?.[4]==='RETENIDO'||rev?.[4]==='RETENIDO') return 'retenido';
+  return 'pendiente';
+}
+
+function renderTractores(preops, revisiones, altas){
+  const el = document.getElementById('lista-tractores');
+  if(!preops.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">🌅</div><div class="empty-title">Sin preoperativos hoy</div><div style="font-size:12px;color:var(--gris)">Los operarios aún no han enviado sus reportes</div></div>';
+    return;
+  }
+
+  el.innerHTML = preops.map(r=>{
+    const dec = getDecision(r[3], revisiones, altas);
+    const pill = dec==='alta'
+      ? '<span class="pill pill-azul">🔵 Alta</span>'
+      : dec==='autorizado'
+      ? '<span class="pill pill-ok">✅ Autorizado</span>'
+      : dec==='retenido'
+      ? '<span class="pill pill-fail">🚫 Retenido</span>'
+      : '<span class="pill pill-gris">⏳ Pendiente</span>';
+
+    const estadoOp = r[22]==='CON NOVEDAD'
+      ? '<span style="font-size:10px;color:var(--amarillo);font-weight:700"> · ⚠️ Con novedad</span>' : '';
+
+    return `
+    <div class="tractor-row">
+      <div class="tr-icon">🚜</div>
+      <div class="tr-info">
+        <div class="tr-nombre">${r[3]||'—'}${estadoOp}</div>
+        <div class="tr-meta">👤 ${r[2]||'—'} · ⏱️ ${r[1]||'—'} · ${r[4]||'—'}</div>
+        <div class="tr-meta">⏱️ Horómetro: ${r[6]||'—'} h · ${r[10]==='VENCIDO'?'<span style="color:var(--rojo-m);font-weight:700">⚠️ Mtto vencido</span>':r[10]==='PRÓXIMO'?'<span style="color:#f59e0b;font-weight:700">⚠️ Mtto próximo</span>':'✅ Mtto OK'}</div>
+        <div class="tr-niveles">
+          <span class="nivel-chip" style="background:var(--gris-p);color:var(--gris)">${ne(r[11])} Aceite ${r[11]||'—'}</span>
+          <span class="nivel-chip" style="background:var(--gris-p);color:var(--gris)">${ne(r[12])} Agua ${r[12]||'—'}</span>
+          <span class="nivel-chip" style="background:var(--gris-p);color:var(--gris)">${ne(r[13])} Hidra ${r[13]||'—'}</span>
+        </div>
+      </div>
+      <div>${pill}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderRetenidos(revisiones, altas){
+  const retenidos = revisiones.filter(r=>r[4]==='RETENIDO' && !altas.find(a=>a[2]===r[2]||a[1]===r[1]));
+  const card = document.getElementById('card-retenidos');
+  const el   = document.getElementById('lista-retenidos');
+  if(!retenidos.length){ card.style.display='none'; return; }
+  card.style.display='block';
+  el.innerHTML = retenidos.map(r=>`
+    <div class="alerta-row">
+      <div class="al-icon">🚫</div>
+      <div>
+        <div class="al-equipo">${r[2]||r[1]||'—'}</div>
+        <div class="al-desc">Op: ${r[3]||'—'} · Retenido: ${r[6]||r[1]||'—'}${r[7]?' · '+r[7]:''}</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderAlertas(alertas){
+  const card = document.getElementById('card-alertas');
+  const el   = document.getElementById('lista-alertas');
+  if(!alertas.length){ card.style.display='none'; return; }
+  card.style.display='block';
+  el.innerHTML = alertas.map(r=>`
+    <div class="alerta-row">
+      <div class="al-icon">${r[7]?.includes('Vencido')?'🔴':'⚠️'}</div>
+      <div>
+        <div class="al-equipo">${r[1]||'—'}</div>
+        <div class="al-desc">${r[7]||'—'} · Horómetro: ${r[3]||'—'} h · Próx: ${r[5]||'—'} h</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderTanqueo(tanqueos){
+  const el = document.getElementById('tanqueo-info');
+  if(!tanqueos.length){
+    el.innerHTML='<div style="text-align:center;padding:12px;color:var(--gris);font-size:13px">Sin tanqueos registrados hoy</div>';
+    return;
+  }
+  const totalL = tanqueos.filter(r=>r[5]==='Sí').reduce((s,r)=>s+(parseFloat(r[6])||0),0);
+  const tanqueados = tanqueos.filter(r=>r[5]==='Sí').length;
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div><div style="font-size:11px;color:var(--gris);font-weight:700;text-transform:uppercase">Total cargado</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:36px;color:var(--azul)">${totalL.toFixed(0)} <span style="font-size:14px">litros</span></div></div>
+      <div style="text-align:right"><div style="font-size:11px;color:var(--gris)">Equipos tanqueados</div>
+      <div style="font-size:24px;font-weight:700;color:var(--verde-m)">${tanqueados}</div></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${tanqueos.map(r=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--gris-p);border-radius:8px;font-size:12px">
+        <span style="font-weight:600">${r[3]||'—'}</span>
+        <span>${r[5]==='Sí'?'<span style="color:var(--azul);font-weight:700">'+r[6]+' L</span>':'<span style="color:var(--gris)">No tanqueado</span>'}</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+function renderAltas(altas){
+  const card = document.getElementById('card-altas');
+  const el   = document.getElementById('lista-altas');
+  if(!altas.length){ card.style.display='none'; return; }
+  card.style.display='block';
+  el.innerHTML = altas.map(r=>`
+    <div class="alerta-row">
+      <div class="al-icon">🔵</div>
+      <div>
+        <div class="al-equipo">${r[2]||'—'}</div>
+        <div class="al-desc">Reparado en ${r[7]||'—'} min · ${r[8]||'—'} · Por: ${r[4]||'—'}</div>
+      </div>
+    </div>`).join('');
+}
+
+function toast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show'+(type?' '+type:'');
+  setTimeout(()=>t.className='',3000);
+}
+
+init();
+</script>
+</body>
+</html>
