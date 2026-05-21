@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Preoperativo — Flota Palma</title>
+<link rel="manifest" href="manifest-preoperativo.json">
+<meta name="theme-color" content="#1a4731">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Preoperativo">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -118,6 +123,10 @@ textarea{min-height:80px;resize:vertical}
 </style>
 </head>
 <body>
+<!-- Barra offline -->
+<div id="offline-bar" style="display:none;background:#92400e;color:#fff;padding:8px 16px;font-size:12px;font-weight:600;align-items:center;justify-content:center;gap:8px;text-align:center">
+  📵 Sin conexión — los registros se guardan localmente y se enviarán al volver la señal
+</div>
 <div class="top-bar"></div>
 <header>
   <div class="hdr-row">
@@ -574,10 +583,10 @@ async function enviar(){
 
   if(GS_URL){
     const cm={'LISTO':'#dcfce7','CON NOVEDAD':'#fef3c7'};
-    try{await fetch(GS_URL,{method:'POST',body:JSON.stringify({hoja:'Preoperativos',fila,encabezados,colorCol:encabezados.indexOf('Estado Operario')+1,color:cm[estadoGeneral==='ok'?'LISTO':'CON NOVEDAD']})});}catch(e){}
+    try{await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Preoperativos',fila,encabezados,colorCol:encabezados.indexOf('Estado Operario')+1,color:cm[estadoGeneral==='ok'?'LISTO':'CON NOVEDAD']})});}catch(e){}
 
     // Tanqueo en hoja separada
-    if(tanqueoSi) try{await fetch(GS_URL,{method:'POST',body:JSON.stringify({
+    if(tanqueoSi) try{await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'Tanqueos',
       fila:[now.toLocaleDateString('es-CO'),now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),v('f-operario'),eq,v('f-labor'),tanqueoSi?'Sí':'No',tanqueoSi?litros:0,horas,'Leanis Argumedo',v('f-tanq-obs')||document.getElementById('tanq-obs-extra').value],
       encabezados:['Fecha','Hora','Operario','Equipo','Labor','Tanqueado','Litros','Horómetro','Responsable','Observaciones'],
@@ -586,10 +595,10 @@ async function enviar(){
 
     // Novedades
     const tieneNov=Object.values(estadoItems).some(v=>v==='warn'||v==='fail')||estadoGeneral==='nov';
-    if(tieneNov){try{await fetch(GS_URL,{method:'POST',body:JSON.stringify({hoja:'Novedades',fila:[now.toLocaleDateString('es-CO'),now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),v('f-operario'),eq,ITEMS.filter(i=>estadoItems[i.id]==='warn'||estadoItems[i.id]==='fail').map(i=>`${i.label}: ${estadoItems[i.id]==='warn'?'Novedad':'FALLA'}`).join(', '),v('f-novedades'),'Pendiente'],encabezados:['Fecha','Hora','Operario','Equipo','Ítems','Descripción','Estado'],colorCol:7,color:'#fef3c7'})});}catch(e){}}
+    if(tieneNov){try{await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Novedades',fila:[now.toLocaleDateString('es-CO'),now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),v('f-operario'),eq,ITEMS.filter(i=>estadoItems[i.id]==='warn'||estadoItems[i.id]==='fail').map(i=>`${i.label}: ${estadoItems[i.id]==='warn'?'Novedad':'FALLA'}`).join(', '),v('f-novedades'),'Pendiente'],encabezados:['Fecha','Hora','Operario','Equipo','Ítems','Descripción','Estado'],colorCol:7,color:'#fef3c7'})});}catch(e){}}
 
     // Alerta mantenimiento
-    if(estadoMtto!=='OK'){try{await fetch(GS_URL,{method:'POST',body:JSON.stringify({hoja:'Alertas Mantenimiento',fila:[now.toLocaleDateString('es-CO'),eq,v('f-operario'),horas,ult,prox,estadoMtto==='VENCIDO'?`Vencido hace ${Math.abs(rest)}h`:`Faltan ${rest}h`,'Pendiente'],encabezados:['Fecha','Equipo','Operario','Horómetro','Últ.Mtto','Próx.Mtto','Observación','Estado'],colorCol:8,color:estadoMtto==='VENCIDO'?'#fee2e2':'#fef3c7'})});}catch(e){}}
+    if(estadoMtto!=='OK'){try{await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Alertas Mantenimiento',fila:[now.toLocaleDateString('es-CO'),eq,v('f-operario'),horas,ult,prox,estadoMtto==='VENCIDO'?`Vencido hace ${Math.abs(rest)}h`:`Faltan ${rest}h`,'Pendiente'],encabezados:['Fecha','Equipo','Operario','Horómetro','Últ.Mtto','Próx.Mtto','Observación','Estado'],colorCol:8,color:estadoMtto==='VENCIDO'?'#fee2e2':'#fef3c7'})});}catch(e){}}
   }
 
   btn.innerHTML='📤 Enviar Preoperativo';btn.disabled=false;
@@ -620,6 +629,93 @@ function nuevo(){
 
 function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(type?' '+type:'');setTimeout(()=>t.className='',3200);}
 init();
+
+// ── PWA: Registrar Service Worker ──────────────────────
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js')
+      .then(reg => {
+        console.log('[PWA] SW registrado');
+        // Pedir sincronización cuando vuelva internet
+        window.addEventListener('online', () => {
+          if(reg.sync) reg.sync.register('sync-preoperativos');
+          toast('🌐 Conexión restaurada — sincronizando datos...');
+          setTimeout(() => location.reload(), 2000);
+        });
+        window.addEventListener('offline', () => {
+          toast('📵 Sin internet — los datos se guardan y suben cuando vuelva la señal', 'warn');
+        });
+      }).catch(err => console.log('[PWA] Error SW:', err));
+  });
+}
+
+// ── Mostrar banner de instalación ──────────────────────
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Mostrar banner después de 3 segundos
+  setTimeout(() => {
+    if(deferredPrompt) {
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a4731;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;z-index:998;box-shadow:0 4px 16px rgba(0,0,0,.3);border-left:4px solid #b7791f;white-space:nowrap';
+      banner.innerHTML = '📲 Instalar app en tu celular';
+      banner.onclick = () => {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(() => { deferredPrompt=null; banner.remove(); });
+      };
+      document.body.appendChild(banner);
+      setTimeout(() => banner.remove(), 8000);
+    }
+  }, 3000);
+});
+
 </script>
+
+<!-- ── SERVICE WORKER + OFFLINE ── -->
+<script>
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/maquinaria-taller-palmag/sw.js')
+    .then(reg => {
+      console.log('SW registrado');
+      // Intentar sincronizar al cargar
+      if(reg.sync) reg.sync.register('sync-preops').catch(()=>{});
+      navigator.serviceWorker.controller?.postMessage({type:'SYNC_NOW'});
+    });
+
+  // Escuchar mensajes del SW
+  navigator.serviceWorker.addEventListener('message', e => {
+    if(e.data?.type === 'SYNC_DONE' && e.data.enviados > 0) {
+      showOfflineToast(`✅ ${e.data.enviados} registro(s) sincronizados con Google Sheets`, 'sync');
+    }
+  });
+}
+
+// Indicador de conexión
+function updateOnlineStatus() {
+  const bar = document.getElementById('offline-bar');
+  if(!bar) return;
+  if(navigator.onLine) {
+    bar.style.display = 'none';
+    // Intentar sincronizar cola pendiente
+    navigator.serviceWorker.controller?.postMessage({type:'SYNC_NOW'});
+  } else {
+    bar.style.display = 'flex';
+  }
+}
+window.addEventListener('online',  updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+
+function showOfflineToast(msg, type='') {
+  const t = document.getElementById('toast');
+  if(!t) return;
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' ' + type : '');
+  setTimeout(() => t.className = '', 4000);
+}
+
+window.addEventListener('load', updateOnlineStatus);
+</script>
+
 </body>
 </html>
