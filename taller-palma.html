@@ -266,8 +266,19 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
     <div style="padding:0" id="res-salen-list"></div>
   </div>
 
-  <button class="copy-btn" onclick="copiarResumen()">📋 Copiar resumen para correo / chat</button>
-  <button class="copy-btn wa-btn" onclick="enviarWhatsApp()">📱 Enviar por WhatsApp</button>
+  <button class="copy-btn" id="btn-imagen" onclick="generarImagen()" style="background:var(--verde)">
+    📸 Generar imagen para Gerencia
+  </button>
+  <button class="copy-btn wa-btn" onclick="enviarWhatsApp()">📱 Enviar texto por WhatsApp</button>
+  <div id="imagen-preview" style="display:none;margin-top:12px">
+    <img id="img-resultado" style="width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15)" />
+    <button class="copy-btn" onclick="compartirImagen()" style="background:var(--verde-m);margin-top:8px">
+      📤 Compartir imagen
+    </button>
+    <button class="copy-btn" onclick="descargarImagen()" style="background:var(--gris);margin-top:6px">
+      💾 Descargar imagen
+    </button>
+  </div>
 </div>
 
 <!-- ══════════════ CONFIG ══════════════ -->
@@ -989,6 +1000,99 @@ window.addEventListener('beforeinstallprompt', e => {
   }, 3000);
 });
 
+</script>
+
+<!-- html2canvas -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════
+//  GENERAR IMAGEN RESUMEN PARA GERENCIA
+// ═══════════════════════════════════════════════
+let imgBlob = null;
+
+async function generarImagen() {
+  const btn = document.getElementById('btn-imagen');
+  btn.innerHTML = '<span class="spinner"></span>Generando imagen...';
+  btn.disabled = true;
+
+  // Primero actualizar el resumen
+  buildResumen();
+
+  // Crear canvas del elemento resumen
+  const el = document.getElementById('sec-resumen');
+  
+  // Activar sección resumen temporalmente si no está visible
+  const wasActive = el.classList.contains('active');
+  if(!wasActive) {
+    el.style.position = 'absolute';
+    el.style.left = '-9999px';
+    el.style.display = 'block';
+  }
+
+  try {
+    const canvas = await html2canvas(el, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#f0f4f1',
+      logging: false,
+      width: el.scrollWidth,
+      height: el.scrollHeight,
+    });
+
+    // Convertir a imagen
+    canvas.toBlob(blob => {
+      imgBlob = blob;
+      const url = URL.createObjectURL(blob);
+      document.getElementById('img-resultado').src = url;
+      document.getElementById('imagen-preview').style.display = 'block';
+    }, 'image/png');
+
+    btn.innerHTML = '📸 Regenerar imagen';
+    btn.disabled = false;
+    toast('✅ Imagen generada — toca Compartir');
+  } catch(e) {
+    btn.innerHTML = '📸 Generar imagen para Gerencia';
+    btn.disabled = false;
+    toast('❌ Error generando imagen', 'error');
+  }
+
+  if(!wasActive) {
+    el.style.position = '';
+    el.style.left = '';
+    el.style.display = '';
+  }
+}
+
+async function compartirImagen() {
+  if(!imgBlob) { toast('Primero genera la imagen','error'); return; }
+  const now = new Date();
+  const nombre = `Reporte-Flota-Palma-${now.toLocaleDateString('es-CO').replace(/\//g,'-')}.png`;
+  const file = new File([imgBlob], nombre, { type: 'image/png' });
+
+  if(navigator.share && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: 'Reporte Flota Palma',
+        text: `Reporte diario — ${now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'})}`,
+      });
+    } catch(e) {
+      if(e.name !== 'AbortError') descargarImagen();
+    }
+  } else {
+    descargarImagen();
+  }
+}
+
+function descargarImagen() {
+  if(!imgBlob) return;
+  const now = new Date();
+  const nombre = `Reporte-Flota-Palma-${now.toLocaleDateString('es-CO').replace(/\//g,'-')}.png`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(imgBlob);
+  a.download = nombre;
+  a.click();
+}
 </script>
 
 <!-- ── SERVICE WORKER + OFFLINE ── -->
