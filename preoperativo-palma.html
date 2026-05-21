@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Preoperativo — Flota Palma</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --verde:#1a4731;--verde-m:#2d6a4f;--verde-s:#52b788;--verde-p:#d8f3dc;--verde-pp:#f0faf2;
+  --dorado:#b7791f;--dorado-p:#fef3c7;
+  --rojo:#991b1b;--rojo-m:#dc2626;--rojo-p:#fee2e2;
+  --amarillo:#92400e;--amarillo-p:#fef3c7;
+  --azul:#1e40af;--azul-p:#dbeafe;
+  --bg:#f0f4f1;--surface:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:48px}
+.top-bar{height:5px;background:var(--dorado)}
+header{background:var(--verde);padding:14px 18px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.25)}
+.hdr-row{display:flex;align-items:center;justify-content:space-between}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.logo{width:40px;height:40px;background:var(--dorado);border-radius:10px;display:grid;place-items:center;font-size:20px;flex-shrink:0}
+.hdr-title{font-family:'DM Serif Display',serif;font-size:18px;color:#fff}
+.hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
+.date-badge{background:rgba(255,255,255,.12);border-radius:8px;padding:5px 12px;font-size:11px;color:rgba(255,255,255,.8);text-align:right;line-height:1.5}
+.prog-wrap{background:rgba(255,255,255,.15);height:4px;margin-top:12px;border-radius:2px}
+.prog-bar{height:4px;border-radius:2px;background:var(--dorado);transition:width .4s ease;width:0%}
+.prog-label{font-size:10px;color:rgba(255,255,255,.5);margin-top:4px;text-align:right}
+.view{display:none}.view.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+main{max-width:540px;margin:0 auto;padding:18px 14px}
+.card{background:var(--surface);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.07),0 4px 16px rgba(0,0,0,.05);overflow:hidden;margin-bottom:14px}
+.card-hdr{background:var(--verde);padding:13px 16px;display:flex;align-items:center;gap:10px;border-left:4px solid var(--dorado)}
+.card-hdr-icon{font-size:18px}
+.card-hdr-title{font-family:'DM Serif Display',serif;font-size:15px;color:#fff}
+.card-hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
+.card-body{padding:18px 16px}
+.field{margin-bottom:16px}.field:last-child{margin-bottom:0}
+label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+label .req{color:var(--rojo-m);margin-left:2px}
+input[type=text],input[type=number],select,textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;font-family:'DM Sans',sans-serif;font-size:15px;color:var(--text);background:var(--surface);transition:border-color .2s,box-shadow .2s;outline:none;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--verde-s);box-shadow:0 0 0 3px rgba(82,183,136,.15)}
+select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:36px}
+textarea{min-height:80px;resize:vertical}
+.check-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.check-item{border:1.5px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;gap:4px;user-select:none;background:var(--surface)}
+.check-item:active{transform:scale(.97)}
+.check-item .ci-icon{font-size:22px}.check-item .ci-label{font-size:13px;font-weight:600;color:var(--text)}.check-item .ci-sub{font-size:11px;color:var(--muted)}
+.check-item.ok{border-color:var(--verde-s);background:var(--verde-pp)}.check-item.ok .ci-label{color:var(--verde-m)}
+.check-item.warn{border-color:#f59e0b;background:#fffbeb}.check-item.warn .ci-label{color:var(--amarillo)}
+.check-item.fail{border-color:var(--rojo-m);background:var(--rojo-p)}.check-item.fail .ci-label{color:var(--rojo)}
+.nivel-wrap{margin-bottom:16px}
+.nivel-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.nivel-name{font-size:13px;font-weight:600}
+.nivel-val{font-size:13px;font-weight:700;color:var(--verde-m);min-width:40px;text-align:right}
+.nivel-track{width:100%;height:10px;border-radius:5px;background:linear-gradient(to right,var(--rojo-m) 0%,#f59e0b 40%,var(--verde-s) 70%);position:relative}
+.nivel-track input[type=range]{width:100%;height:10px;-webkit-appearance:none;background:transparent;padding:0;border:none;box-shadow:none;position:absolute;top:0;left:0}
+.nivel-track input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--verde);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);margin-top:-6px;cursor:pointer}
+.horas-big{font-family:'DM Serif Display',serif;font-size:48px;color:var(--verde);text-align:center;border:none;background:transparent;width:100%;outline:none}
+.horas-unit{text-align:center;font-size:12px;color:var(--muted);margin-top:-8px}
+.mtto-alert{border-radius:12px;padding:14px;margin-top:10px;display:none;font-size:13px;line-height:1.5}
+.mtto-alert.show{display:block}
+.mtto-alert.ok{background:var(--verde-pp);border:1.5px solid var(--verde-s);color:var(--verde-m)}
+.mtto-alert.pronto{background:var(--amarillo-p);border:1.5px solid #f59e0b;color:var(--amarillo)}
+.mtto-alert.vencido{background:var(--rojo-p);border:1.5px solid var(--rojo-m);color:var(--rojo)}
+
+/* TANQUEO */
+.tanq-display{background:var(--verde);border-radius:14px;padding:20px;text-align:center;margin-bottom:14px}
+.tanq-num{font-family:'DM Serif Display',serif;font-size:52px;color:var(--dorado);line-height:1}
+.tanq-unit{font-size:13px;color:rgba(255,255,255,.6);margin-top:4px}
+.tanq-calc{font-size:12px;color:rgba(255,255,255,.5);margin-top:8px;line-height:1.6}
+.input-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tanq-info{background:var(--azul-p);border:1.5px solid #93c5fd;border-radius:10px;padding:12px 14px;font-size:12px;color:var(--azul);margin-bottom:14px;line-height:1.6}
+
+.estado2-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.estado2-opt{border:2px solid var(--border);border-radius:14px;padding:18px 10px;cursor:pointer;transition:all .15s;text-align:center;user-select:none}
+.estado2-opt:active{transform:scale(.97)}
+.estado2-opt .eo-icon{font-size:28px;margin-bottom:6px}
+.estado2-opt .eo-label{font-size:13px;font-weight:700;color:var(--muted)}
+.estado2-opt .eo-sub{font-size:10px;color:var(--muted);margin-top:2px}
+.estado2-opt.sel-ok{border-color:var(--verde-s);background:var(--verde-pp)}.estado2-opt.sel-ok .eo-label{color:var(--verde-m)}
+.estado2-opt.sel-nov{border-color:#f59e0b;background:#fffbeb}.estado2-opt.sel-nov .eo-label{color:var(--amarillo)}
+.novedad-alert{background:var(--rojo-p);border:1.5px solid var(--rojo-m);border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13px;color:var(--rojo);display:none}
+.novedad-alert.show{display:block}
+.info-box{background:var(--azul-p);border:1.5px solid #93c5fd;border-radius:10px;padding:12px 14px;font-size:12px;color:var(--azul);margin-bottom:14px;line-height:1.6}
+.btn-full{width:100%;padding:15px;border-radius:14px;border:none;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;transition:all .2s;margin-top:8px}
+.btn-primary{background:var(--verde);color:#fff;box-shadow:0 4px 16px rgba(26,71,49,.3)}
+.btn-primary:active{transform:scale(.98)}
+.btn-secondary{background:var(--border);color:var(--muted)}
+.btn-gold{background:var(--dorado);color:#fff}
+.btn-row{display:flex;gap:10px}.btn-row .btn-full{margin-top:0}
+.nav-dots{display:flex;justify-content:center;gap:8px;margin:14px 0 2px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .2s;cursor:pointer}
+.dot.active{background:var(--verde);width:24px;border-radius:4px}
+.resumen-item{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
+.resumen-item:last-child{border-bottom:none}
+.ri-icon{font-size:18px;width:28px;text-align:center;flex-shrink:0}
+.ri-label{font-size:12px;color:var(--muted)}
+.ri-val{font-size:13px;font-weight:600;margin-top:1px}
+.pill{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.pill-ok{background:var(--verde-p);color:var(--verde-m)}
+.pill-warn{background:var(--amarillo-p);color:var(--amarillo)}
+.pill-fail{background:var(--rojo-p);color:var(--rojo)}
+.success-wrap{text-align:center;padding:32px 16px}
+.success-icon{font-size:64px;margin-bottom:16px}
+.success-title{font-family:'DM Serif Display',serif;font-size:24px;color:var(--verde);margin-bottom:8px}
+.success-sub{font-size:13px;color:var(--muted);line-height:1.6;max-width:280px;margin:0 auto 24px}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--verde);color:#fff;padding:13px 22px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2);opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap;border-left:4px solid var(--dorado);max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.error{background:var(--rojo)}#toast.warn{background:var(--amarillo)}
+.badge-tag{padding:8px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface);font-size:13px;cursor:pointer;transition:all .15s;user-select:none;display:inline-block}
+.badge-tag:active{transform:scale(.96)}
+.badge-tag.sel{background:var(--verde-p);border-color:var(--verde-s);color:var(--verde-m);font-weight:600}
+.gris-p{background:#f1f5f9}
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="top-bar"></div>
+<header>
+  <div class="hdr-row">
+    <div class="hdr-left">
+      <div class="logo">🌴</div>
+      <div><div class="hdr-title">Preoperativo</div><div class="hdr-sub">Flota Palma — Tractores</div></div>
+    </div>
+    <div class="date-badge" id="date-badge">—</div>
+  </div>
+  <div class="prog-wrap"><div class="prog-bar" id="prog-bar"></div></div>
+  <div class="prog-label" id="prog-label">Paso 1 de 6</div>
+</header>
+
+<main>
+
+<!-- ══════ PASO 1: IDENTIFICACIÓN ══════ -->
+<div class="view active" id="view-1">
+  <div class="nav-dots" id="dots-1"></div>
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-icon">👤</span>
+      <div><div class="card-hdr-title">Identificación</div><div class="card-hdr-sub">Operario y equipo del día</div></div>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>Operario <span class="req">*</span></label>
+        <select id="f-operario">
+          <option value="">— Seleccionar —</option>
+          <option>Jhon Garnica</option>
+          <option>Oswaldo Sanches</option>
+          <option>Cesar Verona</option>
+          <option>Julio Vacca</option>
+          <option>Fernando Leon</option>
+          <option>Sandro Bonilla</option>
+          <option>Ever Clevez</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Equipo asignado <span class="req">*</span></label>
+        <select id="f-equipo" onchange="onEquipoChange()">
+          <option value="">— Seleccionar tractor —</option>
+          <option value="01 - KUBOTA B2441">#1 KUBOTA B2441</option>
+          <option value="02 - KUBOTA B2441">#2 KUBOTA B2441</option>
+          <option value="03 - KUBOTA M9540">#3 KUBOTA M9540</option>
+          <option value="04 - KUBOTA M9540">#4 KUBOTA M9540</option>
+          <option value="05 - JOHN DEERE 2850">#5 JOHN DEERE 2850</option>
+          <option value="06 - KUBOTA 5100">#6 KUBOTA 5100</option>
+          <option value="07 - KUBOTA M108S">#7 KUBOTA M108S</option>
+          <option value="08 - LOVOL TH754-H">#8 LOVOL TH754-H</option>
+          <option value="09 - LOVOL TH754-H">#9 LOVOL TH754-H</option>
+          <option value="10 - LOVOL TH904-X">#10 LOVOL TH904-X</option>
+          <option value="11 - LOVOL TH904-X">#11 LOVOL TH904-X</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Labor del día <span class="req">*</span></label>
+        <select id="f-labor">
+          <option value="">— Seleccionar labor —</option>
+          <option>Cosecha – Recolección de fruto</option>
+          <option>Sanidad – Fumigación</option>
+          <option>Mantenimiento – Rolocuchilla</option>
+          <option>Mantenimiento – Rotospeed</option>
+          <option>Transporte de agua</option>
+          <option>Transporte de personal</option>
+          <option>Fertilización</option>
+          <option>Rastra</option>
+          <option>Caballoneador</option>
+          <option>Cincel</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Lote / Área de trabajo</label>
+        <input type="text" id="f-lote" placeholder="Ej: Lote A – Bloque 3">
+      </div>
+      <button class="btn-full btn-primary" onclick="goTo(2)">Continuar →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PASO 2: HORÓMETRO ══════ -->
+<div class="view" id="view-2">
+  <div class="nav-dots" id="dots-2"></div>
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-icon">⏱️</span>
+      <div><div class="card-hdr-title">Horómetro</div><div class="card-hdr-sub">Lectura antes de arrancar</div></div>
+    </div>
+    <div class="card-body">
+      <div class="field">
+        <label>Horómetro actual <span class="req">*</span></label>
+        <input type="number" class="horas-big" id="f-horas" placeholder="0000" min="0" max="99999" inputmode="numeric" oninput="calcMtto()">
+        <div class="horas-unit">horas</div>
+      </div>
+      <div class="field" id="campo-ult-mtto" style="display:none">
+        <label>Horómetro del último mantenimiento <span class="req">*</span></label>
+        <div class="info-box">📋 Primera vez registrando este equipo. Ingresa las horas del <strong>último mantenimiento</strong> para calcular el próximo cada 250 horas.</div>
+        <input type="number" id="f-ult-mtto-horas" placeholder="Ej: 2150" inputmode="numeric" oninput="calcMtto()">
+      </div>
+      <div class="mtto-alert" id="mtto-alert"></div>
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn-full btn-secondary" onclick="goTo(1)">← Atrás</button>
+        <button class="btn-full btn-primary" onclick="goTo(3)">Continuar →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PASO 3: NIVELES ══════ -->
+<div class="view" id="view-3">
+  <div class="nav-dots" id="dots-3"></div>
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-icon">🛢️</span>
+      <div><div class="card-hdr-title">Niveles de fluidos</div><div class="card-hdr-sub">Revisar con motor frío</div></div>
+    </div>
+    <div class="card-body">
+      <div class="nivel-wrap">
+        <div class="nivel-hdr"><span class="nivel-name">🔧 Aceite de motor</span><span class="nivel-val" id="lbl-aceite">50%</span></div>
+        <div class="nivel-track"><input type="range" id="f-aceite" min="0" max="100" value="50" oninput="updNivel('aceite',this.value)"></div>
+      </div>
+      <div class="nivel-wrap">
+        <div class="nivel-hdr"><span class="nivel-name">💧 Agua / Refrigerante</span><span class="nivel-val" id="lbl-agua">50%</span></div>
+        <div class="nivel-track"><input type="range" id="f-agua" min="0" max="100" value="50" oninput="updNivel('agua',this.value)"></div>
+      </div>
+      <div class="nivel-wrap">
+        <div class="nivel-hdr"><span class="nivel-name">⚙️ Aceite hidráulico</span><span class="nivel-val" id="lbl-hidra">50%</span></div>
+        <div class="nivel-track"><input type="range" id="f-hidra" min="0" max="100" value="50" oninput="updNivel('hidra',this.value)"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn-full btn-secondary" onclick="goTo(2)">← Atrás</button>
+        <button class="btn-full btn-primary" onclick="goTo(4)">Continuar →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PASO 4: INSPECCIÓN VISUAL ══════ -->
+<div class="view" id="view-4">
+  <div class="nav-dots" id="dots-4"></div>
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-icon">🔍</span>
+      <div><div class="card-hdr-title">Inspección visual</div><div class="card-hdr-sub">Toca para cambiar estado</div></div>
+    </div>
+    <div class="card-body">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px">✅ <strong>OK</strong> · ⚠️ <strong>Novedad</strong> · ❌ <strong>Falla</strong> — toca cada ítem para cambiar</p>
+      <div class="check-grid" id="check-grid"></div>
+      <div class="novedad-alert" id="novedad-alert">⚠️ Hay ítems con novedad o falla. Descríbela abajo.</div>
+      <div class="field" style="margin-top:14px">
+        <label>Descripción de novedades</label>
+        <textarea id="f-novedades" placeholder="Describe qué observaste, dónde y cómo..."></textarea>
+      </div>
+      <div class="btn-row">
+        <button class="btn-full btn-secondary" onclick="goTo(3)">← Atrás</button>
+        <button class="btn-full btn-primary" onclick="goTo(5)">Continuar →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PASO 5: TANQUEO ══════ -->
+<div class="view" id="view-5">
+  <div class="nav-dots" id="dots-5"></div>
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-icon">⛽</span>
+      <div><div class="card-hdr-title">Tanqueo</div><div class="card-hdr-sub">Responsable: Leanis Argumedo</div></div>
+    </div>
+    <div class="card-body">
+
+      <div class="field">
+        <label>¿El equipo fue tanqueado hoy? <span class="req">*</span></label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px" id="tanq-sino">
+          <button id="tanq-si" onclick="selTanqueo(true)"
+            style="padding:18px 10px;border-radius:14px;border:2px solid var(--border);background:#fff;font-family:'DM Sans',sans-serif;font-size:18px;font-weight:700;cursor:pointer;transition:all .15s;color:var(--muted)"
+            >✅ SÍ</button>
+          <button id="tanq-no" onclick="selTanqueo(false)"
+            style="padding:18px 10px;border-radius:14px;border:2px solid var(--border);background:#fff;font-family:'DM Sans',sans-serif;font-size:18px;font-weight:700;cursor:pointer;transition:all .15s;color:var(--muted)"
+            >❌ NO</button>
+        </div>
+      </div>
+
+      <div id="tanq-detalles" style="display:none">
+        <div class="field">
+          <label>¿Cuántos litros se cargaron? <span class="req">*</span></label>
+          <input type="number" class="horas-big" id="f-tanq-litros" placeholder="0"
+            min="0" max="500" inputmode="numeric" oninput="calcTanqueo()"
+            style="font-size:52px;color:var(--dorado)">
+          <div class="horas-unit" style="color:var(--dorado)">litros</div>
+        </div>
+
+        <div class="tanq-display" id="tanq-display" style="display:none;margin-top:12px">
+          <div class="tanq-num" id="tanq-total">0</div>
+          <div class="tanq-unit">litros cargados registrados ✅</div>
+        </div>
+
+        <div class="field" style="margin-top:16px">
+          <label>¿Algo para reportar del combustible?</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px" id="tanq-tags">
+            <span class="badge-tag" onclick="toggleTag(this,'tanq-obs-extra')">💧 Con agua</span>
+            <span class="badge-tag" onclick="toggleTag(this,'tanq-obs-extra')">🌫️ Con impurezas</span>
+            <span class="badge-tag" onclick="toggleTag(this,'tanq-obs-extra')">⚠️ Olor inusual</span>
+            <span class="badge-tag" onclick="toggleTag(this,'tanq-obs-extra')">✅ Sin novedad</span>
+          </div>
+          <input type="hidden" id="tanq-obs-extra" value="">
+          <input type="text" id="f-tanq-obs" placeholder="Otra observación (opcional)">
+        </div>
+      </div>
+
+      <div id="tanq-no-msg" style="display:none;background:var(--gris-p,#f1f5f9);border-radius:12px;padding:16px;text-align:center;color:var(--muted);font-size:13px;margin-top:8px">
+        📋 Registrado: <strong>Sin tanqueo hoy</strong>
+      </div>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn-full btn-secondary" onclick="goTo(4)">← Atrás</button>
+        <button class="btn-full btn-primary" onclick="goTo(6)">Continuar →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PASO 6: ESTADO Y ENVÍO ══════ -->
+<div class="view" id="view-6">
+  <div class="nav-dots" id="dots-6"></div>
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-icon">📋</span>
+      <div><div class="card-hdr-title">Resumen final</div><div class="card-hdr-sub">Revisa antes de enviar</div></div>
+    </div>
+    <div class="card-body" id="resumen-body"></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-icon">🚦</span>
+      <div><div class="card-hdr-title">Estado del equipo</div><div class="card-hdr-sub">¿Cómo lo encontraste hoy?</div></div>
+    </div>
+    <div class="card-body">
+      <div class="info-box">ℹ️ Solo informas el estado. <strong>El mecánico decide si el equipo sale o no.</strong></div>
+      <div class="estado2-grid">
+        <div class="estado2-opt" id="eg-ok" onclick="selEstado('ok')">
+          <div class="eo-icon">✅</div><div class="eo-label">LISTO</div><div class="eo-sub">Sin novedades</div>
+        </div>
+        <div class="estado2-opt" id="eg-nov" onclick="selEstado('nov')">
+          <div class="eo-icon">⚠️</div><div class="eo-label">CON NOVEDAD</div><div class="eo-sub">Reportar al taller</div>
+        </div>
+      </div>
+      <button class="btn-full btn-gold" id="btn-enviar" onclick="enviar()" style="margin-top:16px">📤 Enviar Preoperativo</button>
+      <button class="btn-full btn-secondary" onclick="goTo(5)">← Revisar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ ENVIADO ══════ -->
+<div class="view" id="view-ok">
+  <div class="success-wrap">
+    <div class="success-icon">✅</div>
+    <div class="success-title">¡Preoperativo enviado!</div>
+    <div class="success-sub" id="ok-msg">Tu reporte fue registrado. El taller revisará y autorizará la salida.</div>
+    <button class="btn-full btn-primary" style="max-width:300px;margin:0 auto" onclick="nuevo()">Registrar otro equipo</button>
+  </div>
+</div>
+
+</main>
+<div id="toast"></div>
+
+<script>
+const TOTAL=6;
+let estadoGeneral='';
+const ITEMS=[
+  {id:'frenos',  icon:'🛑',label:'Frenos',        sub:'Pedal y freno de mano'},
+  {id:'llantas', icon:'🔵',label:'Llantas',        sub:'Presión y estado'},
+  {id:'luces',   icon:'💡',label:'Luces',          sub:'Delanteras y traseras'},
+  {id:'bateria', icon:'🔋',label:'Batería',        sub:'Carga y bornes'},
+  {id:'escape',  icon:'💨',label:'Escape',         sub:'Sin humo excesivo'},
+  {id:'fugas',   icon:'💧',label:'Sin fugas',      sub:'Aceite, agua, hidráulico'},
+  {id:'mandos',  icon:'🕹️',label:'Mandos',         sub:'Palancas y pedales'},
+  {id:'exterior',icon:'🚜',label:'Estado exterior',sub:'Golpes, piezas sueltas'},
+];
+let estadoItems={};
+ITEMS.forEach(i=>estadoItems[i.id]=null);
+let MTTO_DATA=JSON.parse(localStorage.getItem('palma_mtto_data')||'{}');
+let GS_URL=localStorage.getItem('flota_gs_url')||'';
+let currentStep=1;
+
+function init(){
+  const now=new Date();
+  document.getElementById('date-badge').innerHTML=
+    now.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'}).replace('.','')+
+    '<br>'+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('check-grid').innerHTML=ITEMS.map(it=>`
+    <div class="check-item" id="ci-${it.id}" onclick="cycleItem('${it.id}')">
+      <span class="ci-icon">${it.icon}</span><span class="ci-label">${it.label}</span><span class="ci-sub">${it.sub}</span>
+    </div>`).join('');
+  for(let i=1;i<=TOTAL;i++) renderDots(i);
+  updateProgress(1);
+}
+
+function goTo(step){
+  if(step>currentStep){const e=validate(currentStep);if(e){toast(e,'error');return;}}
+  if(step===6) buildResumen();
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+step).classList.add('active');
+  currentStep=step; updateProgress(step);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function renderDots(step){
+  const el=document.getElementById('dots-'+step);if(!el)return;
+  el.innerHTML=Array.from({length:TOTAL},(_,i)=>
+    `<div class="dot ${i+1===step?'active':''}" onclick="goTo(${i+1})"></div>`).join('');
+}
+function updateProgress(step){
+  document.getElementById('prog-bar').style.width=((step-1)/(TOTAL-1)*100)+'%';
+  document.getElementById('prog-label').textContent=`Paso ${step} de ${TOTAL}`;
+  for(let i=1;i<=TOTAL;i++) renderDots(i);
+}
+
+function validate(step){
+  if(step===1){
+    if(!v('f-operario'))return'⚠️ Selecciona el operario';
+    if(!v('f-equipo'))  return'⚠️ Selecciona el equipo';
+    if(!v('f-labor'))   return'⚠️ Selecciona la labor del día';
+  }
+  if(step===2){
+    if(!v('f-horas'))return'⚠️ Ingresa las horas del horómetro';
+    const eq=v('f-equipo');
+    if(eq&&!MTTO_DATA[eq]&&!v('f-ult-mtto-horas'))return'⚠️ Ingresa el horómetro del último mantenimiento';
+  }
+  if(step===5){
+    if(tanqueoSi===null)return'⚠️ Indica si el equipo fue tanqueado hoy';
+    if(tanqueoSi && !v('f-tanq-litros'))return'⚠️ Ingresa los litros cargados';
+  }
+  return null;
+}
+function v(id){return document.getElementById(id).value.trim()}
+
+function onEquipoChange(){
+  const eq=v('f-equipo');
+  document.getElementById('campo-ult-mtto').style.display=(eq&&!MTTO_DATA[eq])?'block':'none';
+  calcMtto();
+}
+
+function calcMtto(){
+  const horas=parseInt(document.getElementById('f-horas').value)||0;
+  const eq=v('f-equipo'); if(!eq||!horas){document.getElementById('mtto-alert').className='mtto-alert';return;}
+  let ult=MTTO_DATA[eq]||(parseInt(document.getElementById('f-ult-mtto-horas')?.value)||0);
+  if(!ult){document.getElementById('mtto-alert').className='mtto-alert';return;}
+  const prox=ult+250, rest=prox-horas, al=document.getElementById('mtto-alert');
+  if(rest<=0){al.className='mtto-alert vencido show';al.innerHTML=`🔴 <strong>MANTENIMIENTO VENCIDO</strong> — Últ: ${ult}h · Actual: ${horas}h · Venció en ${prox}h (hace ${Math.abs(rest)}h)`;}
+  else if(rest<=25){al.className='mtto-alert pronto show';al.innerHTML=`⚠️ <strong>Mantenimiento próximo</strong> — Faltan <strong>${rest} horas</strong> (a las ${prox}h)`;}
+  else{al.className='mtto-alert ok show';al.innerHTML=`✅ Próximo mantenimiento a las <strong>${prox}h</strong> — Faltan <strong>${rest} horas</strong>`;}
+}
+
+let tanqueoSi = null;
+function selTanqueo(si){
+  tanqueoSi = si;
+  const base='padding:18px 10px;border-radius:14px;border:2px solid;font-family:\'DM Sans\',sans-serif;font-size:18px;font-weight:700;cursor:pointer;transition:all .15s;';
+  document.getElementById('tanq-si').style.cssText=base+(si?'border-color:var(--verde-s);background:var(--verde-pp);color:var(--verde-m)':'border-color:var(--border);background:#fff;color:var(--muted)');
+  document.getElementById('tanq-no').style.cssText=base+(!si?'border-color:var(--rojo-m);background:var(--rojo-p);color:var(--rojo)':'border-color:var(--border);background:#fff;color:var(--muted)');
+  document.getElementById('tanq-detalles').style.display = si?'block':'none';
+  document.getElementById('tanq-no-msg').style.display   = si?'none':'block';
+}
+function calcTanqueo(){
+  const litros=parseFloat(document.getElementById('f-tanq-litros').value)||0;
+  const disp=document.getElementById('tanq-display');
+  if(litros>0){disp.style.display='block';document.getElementById('tanq-total').textContent=litros.toFixed(0);}
+  else{disp.style.display='none';}
+}
+function toggleTag(el, hiddenId){
+  el.classList.toggle('sel');
+  const tags=[...document.querySelectorAll('#tanq-tags .badge-tag.sel')].map(t=>t.textContent.trim()).join(', ');
+  document.getElementById(hiddenId).value=tags;
+}
+
+function updNivel(key,val){
+  const pct=parseInt(val);
+  const lbl=document.getElementById('lbl-'+key);
+  lbl.textContent=pct+'%';
+  lbl.style.color=pct<25?'var(--rojo-m)':pct<50?'var(--amarillo)':'var(--verde-m)';
+}
+
+const CICLO=[null,'ok','warn','fail'];
+function cycleItem(id){
+  const curr=CICLO.indexOf(estadoItems[id]);
+  estadoItems[id]=CICLO[(curr+1)%CICLO.length];
+  document.getElementById('ci-'+id).className='check-item'+(estadoItems[id]?' '+estadoItems[id]:'');
+  const hasNov=Object.values(estadoItems).some(v=>v==='warn'||v==='fail');
+  document.getElementById('novedad-alert').className='novedad-alert'+(hasNov?' show':'');
+  if(hasNov)selEstado('nov');else if(Object.values(estadoItems).every(v=>v==='ok'))selEstado('ok');
+}
+
+function selEstado(val){
+  estadoGeneral=val;
+  ['ok','nov'].forEach(k=>document.getElementById('eg-'+k).className='estado2-opt'+(k===val?' sel-'+k:''));
+}
+
+function ne(v){return v<25?'🔴':v<50?'🟡':'🟢'}
+function iL(v){return v==='ok'?'<span class="pill pill-ok">✅ OK</span>':v==='warn'?'<span class="pill pill-warn">⚠️ Novedad</span>':v==='fail'?'<span class="pill pill-fail">❌ Falla</span>':'<span class="pill" style="background:var(--border)">—</span>'}
+
+function buildResumen(){
+  const eq=v('f-equipo'), horas=v('f-horas');
+  const ult=MTTO_DATA[eq]||(parseInt(document.getElementById('f-ult-mtto-horas')?.value)||0);
+  const prox=ult+250, rest=prox-(parseInt(horas)||0);
+  const litros=v('f-tanq-litros');
+  const tanqTexto = tanqueoSi ? (litros+' L cargados') : 'Sin tanqueo hoy';
+
+  document.getElementById('resumen-body').innerHTML=`
+    <div class="resumen-item"><span class="ri-icon">👤</span><div><div class="ri-label">Operario</div><div class="ri-val">${v('f-operario')}</div></div></div>
+    <div class="resumen-item"><span class="ri-icon">🚜</span><div><div class="ri-label">Equipo</div><div class="ri-val">${eq}</div></div></div>
+    <div class="resumen-item"><span class="ri-icon">⚒️</span><div><div class="ri-label">Labor</div><div class="ri-val">${v('f-labor')}</div></div></div>
+    <div class="resumen-item"><span class="ri-icon">⏱️</span><div><div class="ri-label">Horómetro</div><div class="ri-val">${horas}h · Próx. mtto: ${prox}h (faltan ${Math.max(0,rest)}h)</div></div></div>
+    <div class="resumen-item"><span class="ri-icon">⛽</span><div><div class="ri-label">Tanqueo</div><div class="ri-val">${tanqTexto}</div></div></div>
+    <div class="resumen-item"><span class="ri-icon">${ne(parseInt(document.getElementById('f-aceite').value))}</span><div><div class="ri-label">Aceite motor</div><div class="ri-val">${document.getElementById('f-aceite').value}%</div></div></div>
+    <div class="resumen-item"><span class="ri-icon">${ne(parseInt(document.getElementById('f-agua').value))}</span><div><div class="ri-label">Agua / Refrigerante</div><div class="ri-val">${document.getElementById('f-agua').value}%</div></div></div>
+    <div class="resumen-item"><span class="ri-icon">${ne(parseInt(document.getElementById('f-hidra').value))}</span><div><div class="ri-label">Aceite hidráulico</div><div class="ri-val">${document.getElementById('f-hidra').value}%</div></div></div>
+    ${ITEMS.map(it=>`<div class="resumen-item"><span class="ri-icon">${it.icon}</span><div style="flex:1"><div class="ri-label">${it.label}</div></div>${iL(estadoItems[it.id])}</div>`).join('')}
+    ${v('f-novedades')?`<div class="resumen-item"><span class="ri-icon">📝</span><div><div class="ri-label">Novedades</div><div class="ri-val">${v('f-novedades')}</div></div></div>`:''}
+  `;
+}
+
+async function enviar(){
+  if(!estadoGeneral){toast('⚠️ Selecciona el estado del equipo','warn');return;}
+  const now=new Date(), eq=v('f-equipo'), horas=parseInt(v('f-horas'))||0;
+  if(!MTTO_DATA[eq]){const um=parseInt(document.getElementById('f-ult-mtto-horas')?.value)||0;if(um){MTTO_DATA[eq]=um;localStorage.setItem('palma_mtto_data',JSON.stringify(MTTO_DATA));}}
+  const ult=MTTO_DATA[eq]||0, prox=ult+250, rest=prox-horas;
+  const estadoMtto=rest<=0?'VENCIDO':rest<=25?'PRÓXIMO':'OK';
+  const litros=parseFloat(v('f-tanq-litros'))||0;
+
+  const fila=[
+    now.toLocaleDateString('es-CO'),
+    now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
+    v('f-operario'),eq,v('f-labor'),v('f-lote'),
+    horas,ult,prox,Math.max(0,rest),estadoMtto,
+    document.getElementById('f-aceite').value+'%',
+    document.getElementById('f-agua').value+'%',
+    document.getElementById('f-hidra').value+'%',
+    ...ITEMS.map(i=>estadoItems[i.id]||'Sin revisar'),
+    estadoGeneral==='ok'?'LISTO':'CON NOVEDAD',
+    v('f-novedades'),
+    // Tanqueo
+    tanqueoSi?'Sí':'No',
+    tanqueoSi?litros:0,
+    v('f-tanq-obs')||document.getElementById('tanq-obs-extra').value,
+  ];
+
+  const encabezados=[
+    'Fecha','Hora','Operario','Equipo','Labor','Lote',
+    'Horómetro','Últ.Mtto(h)','Próx.Mtto(h)','H.Restantes','EstadoMtto',
+    'Aceite Motor','Agua/Refrig.','Aceite Hidráulico',
+    ...ITEMS.map(i=>i.label),
+    'Estado Operario','Novedades',
+    'Tanqueado','Litros Cargados','Obs. Combustible',
+  ];
+
+  const local=JSON.parse(localStorage.getItem('palma_preop')||'[]');
+  local.push({fila,fecha:now.toISOString()});
+  localStorage.setItem('palma_preop',JSON.stringify(local));
+
+  const btn=document.getElementById('btn-enviar');
+  btn.innerHTML='<span class="spinner"></span>Enviando...';btn.disabled=true;
+
+  if(GS_URL){
+    const cm={'LISTO':'#dcfce7','CON NOVEDAD':'#fef3c7'};
+    try{await fetch(GS_URL,{method:'POST',body:JSON.stringify({hoja:'Preoperativos',fila,encabezados,colorCol:encabezados.indexOf('Estado Operario')+1,color:cm[estadoGeneral==='ok'?'LISTO':'CON NOVEDAD']})});}catch(e){}
+
+    // Tanqueo en hoja separada
+    if(tanqueoSi) try{await fetch(GS_URL,{method:'POST',body:JSON.stringify({
+      hoja:'Tanqueos',
+      fila:[now.toLocaleDateString('es-CO'),now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),v('f-operario'),eq,v('f-labor'),tanqueoSi?'Sí':'No',tanqueoSi?litros:0,horas,'Leanis Argumedo',v('f-tanq-obs')||document.getElementById('tanq-obs-extra').value],
+      encabezados:['Fecha','Hora','Operario','Equipo','Labor','Tanqueado','Litros','Horómetro','Responsable','Observaciones'],
+      colorCol:7,color:'#dbeafe'
+    })});}catch(e){}
+
+    // Novedades
+    const tieneNov=Object.values(estadoItems).some(v=>v==='warn'||v==='fail')||estadoGeneral==='nov';
+    if(tieneNov){try{await fetch(GS_URL,{method:'POST',body:JSON.stringify({hoja:'Novedades',fila:[now.toLocaleDateString('es-CO'),now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),v('f-operario'),eq,ITEMS.filter(i=>estadoItems[i.id]==='warn'||estadoItems[i.id]==='fail').map(i=>`${i.label}: ${estadoItems[i.id]==='warn'?'Novedad':'FALLA'}`).join(', '),v('f-novedades'),'Pendiente'],encabezados:['Fecha','Hora','Operario','Equipo','Ítems','Descripción','Estado'],colorCol:7,color:'#fef3c7'})});}catch(e){}}
+
+    // Alerta mantenimiento
+    if(estadoMtto!=='OK'){try{await fetch(GS_URL,{method:'POST',body:JSON.stringify({hoja:'Alertas Mantenimiento',fila:[now.toLocaleDateString('es-CO'),eq,v('f-operario'),horas,ult,prox,estadoMtto==='VENCIDO'?`Vencido hace ${Math.abs(rest)}h`:`Faltan ${rest}h`,'Pendiente'],encabezados:['Fecha','Equipo','Operario','Horómetro','Últ.Mtto','Próx.Mtto','Observación','Estado'],colorCol:8,color:estadoMtto==='VENCIDO'?'#fee2e2':'#fef3c7'})});}catch(e){}}
+  }
+
+  btn.innerHTML='📤 Enviar Preoperativo';btn.disabled=false;
+  document.getElementById('ok-msg').textContent=estadoGeneral==='nov'
+    ?'Preoperativo de '+eq+' enviado con novedades. El taller revisará antes de autorizar.'
+    :'Preoperativo de '+eq+' enviado. '+(tanqueoSi?litros+'L cargados. ':'')+' ¡Buen día!';
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-ok').classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function nuevo(){
+  ['f-lote','f-novedades','f-tanq-litros','f-tanq-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  tanqueoSi=null;const bstyle='padding:18px 10px;border-radius:14px;border:2px solid var(--border);background:#fff;font-family:\'DM Sans\',sans-serif;font-size:18px;font-weight:700;cursor:pointer;color:var(--muted)';document.getElementById('tanq-si').style.cssText=bstyle;document.getElementById('tanq-no').style.cssText=bstyle;document.getElementById('tanq-detalles').style.display='none';document.getElementById('tanq-no-msg').style.display='none';document.getElementById('tanq-display').style.display='none';
+  document.querySelectorAll('#tanq-tags .badge-tag').forEach(t=>t.classList.remove('sel'));
+  document.getElementById('tanq-obs-extra').value='';
+  ['f-operario','f-equipo','f-labor','f-horas','f-ult-mtto-horas'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('campo-ult-mtto').style.display='none';
+  document.getElementById('mtto-alert').className='mtto-alert';
+  document.getElementById('tanq-display').style.display='none';
+  ['f-aceite','f-agua','f-hidra'].forEach(id=>{document.getElementById(id).value=50;updNivel(id.replace('f-',''),50);});
+  ITEMS.forEach(i=>{estadoItems[i.id]=null;document.getElementById('ci-'+i.id).className='check-item';});
+  estadoGeneral='';
+  ['ok','nov'].forEach(k=>document.getElementById('eg-'+k).className='estado2-opt');
+  document.getElementById('novedad-alert').className='novedad-alert';
+  goTo(1);
+}
+
+function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(type?' '+type:'');setTimeout(()=>t.className='',3200);}
+init();
+</script>
+</body>
+</html>
