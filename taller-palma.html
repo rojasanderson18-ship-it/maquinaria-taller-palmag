@@ -329,9 +329,15 @@ async function recargar(){
       fetchHoja('Revisiones'),
       fetchHoja('Altas'),
     ]);
-    // Deduplicar preops: un preop por equipo por día
-    const visto={};
-    PREOPS=PREOPS.filter(r=>{ const k=(r[3]||'').trim(); if(visto[k])return false; visto[k]=true; return true; });
+    // Deduplicar preops: un preop por equipo por día (último registro)
+    const vistoP={};
+    PREOPS=[...PREOPS].reverse().filter(r=>{ const k=(r[3]||'').trim(); if(vistoP[k])return false; vistoP[k]=true; return true; }).reverse();
+    // Deduplicar revisiones: última decisión por equipo
+    const vistoR={};
+    REVISIONES=[...REVISIONES].reverse().filter(r=>{ const k=(r[2]||'').trim(); if(vistoR[k])return false; vistoR[k]=true; return true; }).reverse();
+    // Deduplicar altas: una alta por equipo
+    const vistoA={};
+    ALTAS=[...ALTAS].reverse().filter(r=>{ const k=(r[2]||'').trim(); if(vistoA[k])return false; vistoA[k]=true; return true; }).reverse();
     renderNovedades();
     updateKPIs();
   }catch(e){
@@ -352,7 +358,18 @@ function getRevision(equipo){
 function getAlta(equipo){
   return ALTAS.find(a=>(a[2]||'').trim()===(equipo||'').trim());
 }
-function ne(v){const n=parseInt(v)||0;return n<25?'🔴':n<50?'🟡':'🟢'}
+function parseNivel(v){
+  if(v===null||v===undefined||v==='')return 50;
+  const s=String(v);
+  // Sheets decimal: "0.5" -> 50
+  if(s.includes('.')&&!s.includes('%')){const f=parseFloat(s);if(f>0&&f<=1)return Math.round(f*100);}
+  // String with %: "50%"
+  if(s.includes('%'))return parseInt(s)||50;
+  // Plain number
+  const n=parseInt(s);
+  return isNaN(n)?50:n;
+}
+function ne(v){const n=parseNivel(v);return n<25?'🔴':n<50?'🟡':'🟢'}
 
 function updateKPIs(){
   const salen   =REVISIONES.filter(r=>r[4]==='AUTORIZADO').length;
@@ -390,9 +407,9 @@ function renderCard(r){
 
   const itemsFalla=ITEMS_INSP.map((lbl,i)=>({lbl,val:r[14+i]})).filter(x=>x.val==='warn'||x.val==='fail');
   const nivBajos=[];
-  if(parseInt(r[11])<30)nivBajos.push('🔧 Aceite: '+r[11]);
-  if(parseInt(r[12])<30)nivBajos.push('💧 Agua: '+r[12]);
-  if(parseInt(r[13])<30)nivBajos.push('⚙️ Hidráulico: '+r[13]);
+  if(parseNivel(r[11])<30)nivBajos.push('🔧 Aceite: '+parseNivel(r[11])+'%');
+  if(parseNivel(r[12])<30)nivBajos.push('💧 Agua: '+parseNivel(r[12])+'%');
+  if(parseNivel(r[13])<30)nivBajos.push('⚙️ Hidráulico: '+parseNivel(r[13])+'%');
 
   const decActual = alta?'alta':rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='RETENIDO'?'nosale':'';
 
@@ -415,7 +432,7 @@ function renderCard(r){
         <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.05em;margin-bottom:9px">📋 Reporte del operario</div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px">
           ${['🔧 Aceite','💧 Agua','⚙️ Hidráulico'].map((lbl,i)=>{
-            const pct=parseInt(r[11+i])||0;
+            const pct=parseNivel(r[11+i]);
             const color=pct<25?'var(--rojo-m)':pct<50?'#f59e0b':'var(--verde-s)';
             return '<div style="background:#fff;border-radius:7px;padding:7px 5px;text-align:center;border:1px solid var(--border)"><div style="font-size:10px;color:var(--gris);margin-bottom:2px">'+lbl+'</div><div style="font-size:15px;font-weight:700;color:'+color+'">'+pct+'%</div></div>';
           }).join('')}
@@ -439,7 +456,7 @@ function renderCard(r){
             ${itemsFalla.map(x=>`<div style="padding:6px 10px;border-radius:9px;${x.val==='fail'?'background:var(--rojo-p);border:1.5px solid var(--rojo-m)':'background:var(--amarillo-p);border:1.5px solid #f59e0b'}"><div style="font-size:11px;font-weight:700;${x.val==='fail'?'color:var(--rojo)':'color:var(--amarillo)'}">${x.val==='fail'?'❌ FALLA':'⚠️ NOVEDAD'}</div><div style="font-size:12px;font-weight:600;color:var(--text);margin-top:1px">${x.lbl}</div></div>`).join('')}
           </div>
         </div>`:'<div style="margin-top:8px;font-size:12px;color:var(--verde-m);font-weight:600">✅ Todos los ítems OK</div>'}
-        ${nivBajos.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${nivBajos.map(n=>`<span style="padding:3px 9px;border-radius:20px;background:var(--amarillo-p);color:var(--amarillo);font-size:11px;font-weight:700">${n}</span>`).join('')}</div>`:''}
+
       </div>
       ${r[23]?`<div style="background:var(--rojo-p);border-left:4px solid var(--rojo-m);border-radius:8px;padding:10px 12px;margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:var(--rojo);text-transform:uppercase;margin-bottom:3px">📝 Descripción del operario</div><div style="font-size:13px;color:var(--text);line-height:1.5">${r[23]}</div></div>`:''}
 

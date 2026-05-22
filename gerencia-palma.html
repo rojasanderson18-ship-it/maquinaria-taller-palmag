@@ -278,7 +278,18 @@ function renderKPIs(preops, revisiones, altas){
     disp>=85?'#4ade80':disp>=60?'#fbbf24':'#f87171';
 }
 
-function ne(v){const n=parseInt(v)||0;return n<25?'🔴':n<50?'🟡':'🟢'}
+function parseNivel(v){
+  if(v===null||v===undefined||v==='')return 50;
+  const s=String(v);
+  // Sheets decimal: "0.5" -> 50
+  if(s.includes('.')&&!s.includes('%')){const f=parseFloat(s);if(f>0&&f<=1)return Math.round(f*100);}
+  // String with %: "50%"
+  if(s.includes('%'))return parseInt(s)||50;
+  // Plain number
+  const n=parseInt(s);
+  return isNaN(n)?50:n;
+}
+function ne(v){const n=parseNivel(v);return n<25?'🔴':n<50?'🟡':'🟢'}
 
 function getDecision(equipo, revisiones, altas){
   const rev = revisiones.find(r=>r[2]===equipo||r[1]===equipo);
