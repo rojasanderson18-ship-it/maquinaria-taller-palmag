@@ -186,7 +186,7 @@ select:focus,input:focus{border-color:var(--verde-s);box-shadow:0 0 0 3px rgba(8
 <div id="toast"></div>
 
 <script>
-const GS_URL = 'https://script.google.com/macros/s/AKfycbxvEmmxlELJwQo6HeLaALt5h8SEG2oW9a_SExAC6iB6Co3dx21m1r44BLKs1zPJTsDnwA/exec';
+const GS_URL = 'https://script.google.com/macros/s/AKfycbxIAeeD9aLMUiyNnQ0FvuUWk2tSSyAblwnoffkI0eSs678YWxqfGhMouIb4s-FEZbKlKQ/exec';
 
 const TRACTORES = [
   {num:'01',nombre:'KUBOTA B2441'},
@@ -330,21 +330,38 @@ function renderTractoresForm(){
   }
   const bloqueados = getTractoresAsignadosHoy();
 
-  cont.innerHTML = TRACTORES.map((t,i)=>{
+  // Mostrar resumen de tractores ya asignados por otros
+  const bloqueadosList = Object.entries(bloqueados);
+  const resumenBloq = bloqueadosList.length > 0 ? `
+    <div style="background:var(--amarillo-p);border:1.5px solid #f59e0b;border-radius:12px;padding:13px 14px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--amarillo);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">
+        🔒 Ya programados hoy por otro supervisor
+      </div>
+      ${bloqueadosList.map(([num,sup])=>{
+        const t2=TRACTORES.find(t=>t.num===num);
+        return `<div style="font-size:12px;color:var(--text);padding:4px 0;border-bottom:1px solid rgba(0,0,0,.06)">
+          🚜 <strong>#${num} ${t2?t2.nombre:''}</strong> — ${sup}
+        </div>`;
+      }).join('')}
+    </div>` : '';
+
+  const disponibles = TRACTORES.filter(t=>!bloqueados[t.num]);
+  const resumenDisp = disponibles.length > 0 ? '' :
+    `<div style="background:var(--verde-pp);border:1.5px solid var(--verde-s);border-radius:12px;padding:16px;text-align:center;color:var(--verde-m);font-weight:700">
+      ✅ Todos los tractores ya están programados hoy
+    </div>`;
+
+  cont.innerHTML = resumenBloq + resumenDisp + TRACTORES.map((t,i)=>{
     const bloq = bloqueados[t.num];
     return `
-    <div class="tractor-form-row" style="${bloq?'border-left-color:var(--rojo-m);opacity:.75':''}">
+    <div class="tractor-form-row" style="display:${bloq?'none':'block'}">
       <div class="tf-header">
-        <div class="tf-num" style="${bloq?'background:var(--rojo-m)':''}">${t.num}</div>
+        <div class="tf-num">${t.num}</div>
         <div style="flex:1">
-          <div class="tf-nombre" style="${bloq?'color:var(--rojo)':''}">#${t.num} ${t.nombre}</div>
-          ${bloq?`<div style="font-size:10px;color:var(--rojo-m);font-weight:700;margin-top:2px">🔒 Asignado por ${bloq}</div>`:''}
+          <div class="tf-nombre">#${t.num} ${t.nombre}</div>
         </div>
       </div>
-      ${bloq ? `
-      <div style="background:var(--rojo-p);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--rojo);text-align:center">
-        🚫 Este tractor ya fue programado hoy por <strong>${bloq}</strong>
-      </div>` : `
+      ${bloq ? '' : `
       <div class="tf-fields">
         <div class="field-group">
           <div class="field-label">Labor</div>
@@ -455,15 +472,61 @@ function enviarWhatsApp(){
 async function guardarYCerrar(){
   if(!programacionActual){ cerrarModal(); return; }
 
-  // Guardar local
+  const { fecha, supervisor, asignaciones } = programacionActual;
+  const asignados = asignaciones.filter(a=>a.labor);
+
+  // ── Verificación de último momento: confirmar que los tractores siguen libres ──
+  if(GS_URL){
+    try{
+      const r = await fetch(GS_URL+'?hoja=Programacion');
+      const d = await r.json();
+      if(d.ok){
+        const fechaObj = new Date(fecha+'T12:00:00');
+        const fechaES = fechaObj.toLocaleDateString('es-CO');
+        const yaAsignados = d.datos.filter(row=>{
+          let f = row[0]||'';
+          if(typeof f==='object') f=f.toLocaleDateString('es-CO');
+          return (f===fechaES||f===fecha) && row[1]!==supervisor && (row[3]||'');
+        });
+        // Extraer números de tractores ya tomados
+        const numerosOcupados = yaAsignados.map(row=>{
+          const m=(row[2]||'').match(/#?0*(\d+)/);
+          return m?m[1].padStart(2,'0'):null;
+        }).filter(Boolean);
+
+        const conflictos = asignados.filter(a=>{
+          const m=a.tractor.match(/#?0*(\d+)/);
+          const num=m?m[1].padStart(2,'0'):null;
+          return num && numerosOcupados.includes(num);
+        });
+
+        if(conflictos.length>0){
+          const nombres = conflictos.map(a=>a.tractor).join(', ');
+          const supConflicto = yaAsignados.find(row=>{
+            const m=(row[2]||'').match(/#?0*(\d+)/);
+            return m && conflictos.some(c=>c.tractor.includes(m[1]));
+          });
+          alert(`⚠️ Conflicto detectado
+
+${nombres}
+
+Ya fue(ron) asignado(s) por otro supervisor mientras programabas.
+
+Cierra y vuelve a cargar para ver la disponibilidad actual.`);
+          cerrarModal();
+          PROG_CARGADA=false;
+          await cargarProgHoy();
+          return;
+        }
+      }
+    }catch(e){}
+  }
+
+  // Sin conflictos — guardar
   const local = JSON.parse(localStorage.getItem('palma_prog')||'[]');
   local.unshift(programacionActual);
   if(local.length>30) local.pop();
   localStorage.setItem('palma_prog', JSON.stringify(local));
-
-  // Guardar en Sheets
-  const { fecha, supervisor, asignaciones } = programacionActual;
-  const asignados = asignaciones.filter(a=>a.labor);
 
   if(GS_URL){
     try{
@@ -482,7 +545,6 @@ async function guardarYCerrar(){
   cerrarModal();
   limpiarForm();
   renderHistorial();
-  // Recargar desde Sheets para que otros vean los bloqueos
   PROG_CARGADA = false;
   await cargarProgHoy();
 }
