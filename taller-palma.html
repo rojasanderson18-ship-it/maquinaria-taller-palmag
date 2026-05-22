@@ -460,9 +460,35 @@ function renderCard(r){
       </div>
       ${r[23]?`<div style="background:var(--rojo-p);border-left:4px solid var(--rojo-m);border-radius:8px;padding:10px 12px;margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:var(--rojo);text-transform:uppercase;margin-bottom:3px">📝 Descripción del operario</div><div style="font-size:13px;color:var(--text);line-height:1.5">${r[23]}</div></div>`:''}
 
-      ${alta ? renderAltaHecha(alta) : renderDecision(equipo, safeId, r, rev)}
+      ${alta ? renderAltaHecha(alta) : (rev && rev[4] ? renderDecisionConfirmada(equipo, safeId, r, rev) : renderDecision(equipo, safeId, r, rev))}
     </div>
   </div>`;
+}
+
+function renderDecisionConfirmada(equipo, safeId, r, rev){
+  const esAutorizado = rev[4]==='AUTORIZADO';
+  const noSale = rev[4]==='RETENIDO';
+  return `
+    <div style="background:${esAutorizado?'var(--verde-pp)':'var(--rojo-p)'};border-radius:11px;padding:13px;margin-bottom:10px;border:1.5px solid ${esAutorizado?'var(--verde-s)':'var(--rojo-m)'}">
+      <div style="font-size:12px;font-weight:700;color:${esAutorizado?'var(--verde-m)':'var(--rojo)'};margin-bottom:4px">
+        ${esAutorizado?'✅ AUTORIZADO — Sale a trabajar':'🚫 RETENIDO EN TALLER'}
+      </div>
+      <div style="font-size:11px;color:var(--gris)">Revisado por: ${rev[5]||'—'} · ${rev[6]||'—'}${rev[7]?' · '+rev[7]:''}</div>
+    </div>
+    ${noSale?`
+    <div class="alta-section show" id="alta-sec-${safeId}">
+      <div class="alta-title">🔵 Dar alta — Reparación completada</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px" id="alta-tags-${safeId}">
+        ${ALTA_TAGS.map(t=>`<span class="badge-tag" onclick="toggleAltaTag(this,'alta-notas-${safeId}','alta-tags-${safeId}')">${t.l}</span>`).join('')}
+      </div>
+      <div class="alta-fields">
+        <textarea id="alta-notas-${safeId}" placeholder="Detalle del trabajo realizado..."></textarea>
+        <input type="time" id="alta-hora-${safeId}" value="${new Date().toTimeString().slice(0,5)}">
+      </div>
+      <button class="alta-btn" onclick="darAlta('${equipo}','${r[3]||''}','${r[0]||''}','${r[1]||''}')">
+        🔵 Confirmar alta — Equipo listo para salir
+      </button>
+    </div>`:''}`;
 }
 
 function renderAltaHecha(alta){
