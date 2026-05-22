@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Programación Diaria — Flota Palma</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --verde:#1a4731;--verde-m:#2d6a4f;--verde-s:#52b788;--verde-p:#d8f3dc;--verde-pp:#f0faf2;
+  --dorado:#b7791f;--dorado-p:#fef3c7;
+  --rojo:#991b1b;--rojo-m:#dc2626;--rojo-p:#fee2e2;
+  --azul:#1e40af;--azul-p:#dbeafe;
+  --gris:#64748b;--gris-p:#f1f5f9;
+  --bg:#f0f4f1;--surface:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:48px}
+.top-bar{height:5px;background:var(--dorado)}
+header{background:var(--verde);padding:14px 18px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.25)}
+.hdr-row{display:flex;align-items:center;justify-content:space-between}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.logo{width:40px;height:40px;background:var(--dorado);border-radius:10px;display:grid;place-items:center;font-size:20px;flex-shrink:0}
+.hdr-title{font-family:'DM Serif Display',serif;font-size:18px;color:#fff}
+.hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
+.date-badge{background:rgba(255,255,255,.12);border-radius:8px;padding:5px 12px;font-size:11px;color:rgba(255,255,255,.8);text-align:right;line-height:1.5}
+
+.view{display:none}.view.active{display:block;animation:fadeUp .3s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.tabs{display:flex;gap:4px;margin-top:11px}
+.tab{flex:1;padding:7px 4px;border-radius:8px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:600;transition:all .2s;text-align:center}
+.tab.active{background:var(--dorado);color:#fff}
+.tab:not(.active){background:rgba(255,255,255,.1);color:rgba(255,255,255,.7)}
+
+main{max-width:600px;margin:0 auto;padding:18px 14px}
+
+.card{background:var(--surface);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.07),0 4px 16px rgba(0,0,0,.05);overflow:hidden;margin-bottom:14px}
+.card-hdr{background:var(--verde);padding:13px 16px;display:flex;align-items:center;gap:10px;border-left:4px solid var(--dorado)}
+.card-hdr-icon{font-size:18px}
+.card-hdr-title{font-family:'DM Serif Display',serif;font-size:15px;color:#fff}
+.card-hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
+.card-body{padding:16px}
+
+/* Tractor rows en formulario */
+.tractor-form-row{background:var(--gris-p);border-radius:12px;padding:14px;margin-bottom:10px;border-left:4px solid var(--verde-s)}
+.tractor-form-row:last-child{margin-bottom:0}
+.tf-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.tf-num{width:32px;height:32px;border-radius:50%;background:var(--verde);color:#fff;display:grid;place-items:center;font-size:13px;font-weight:700;flex-shrink:0}
+.tf-nombre{font-size:14px;font-weight:700;color:var(--verde)}
+.tf-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tf-fields.full{grid-template-columns:1fr}
+.field-group{display:flex;flex-direction:column;gap:4px}
+.field-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+select,input[type=text]{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:#fff;outline:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+input[type=text]{background-image:none;padding-right:12px}
+select:focus,input:focus{border-color:var(--verde-s);box-shadow:0 0 0 3px rgba(82,183,136,.15)}
+
+/* Fecha selector */
+.fecha-row{display:flex;align-items:center;gap:10px;margin-bottom:16px;background:var(--verde-pp);border-radius:12px;padding:12px 14px;border:1.5px solid var(--verde-s)}
+.fecha-row input[type=date]{border:none;background:transparent;font-size:15px;font-weight:700;color:var(--verde);font-family:'DM Sans',sans-serif;outline:none;flex:1;background-image:none;padding:0}
+.fecha-icon{font-size:20px}
+
+/* Supervisor */
+.supervisor-row{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.supervisor-row input{flex:1}
+
+/* Botones */
+.btn-full{width:100%;padding:14px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;margin-top:8px}
+.btn-primary{background:var(--verde);color:#fff;box-shadow:0 4px 16px rgba(26,71,49,.3)}
+.btn-primary:active{transform:scale(.98)}
+.btn-gold{background:var(--dorado);color:#fff;box-shadow:0 4px 16px rgba(183,121,31,.3)}
+.btn-secondary{background:var(--border);color:var(--muted)}
+.btn-row{display:flex;gap:10px}.btn-row .btn-full{margin-top:0}
+
+/* Vista previa WhatsApp */
+.wa-preview{background:#e8f5e9;border-radius:14px;padding:16px;margin-bottom:14px;border:1.5px solid #a5d6a7}
+.wa-preview-title{font-size:11px;font-weight:700;color:#2e7d32;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.wa-text{font-family:monospace;font-size:12px;color:#1b5e20;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+
+/* Historial */
+.hist-card{background:var(--surface);border-radius:12px;padding:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.07);border-left:4px solid var(--verde-s)}
+.hist-fecha{font-size:12px;font-weight:700;color:var(--verde);margin-bottom:4px}
+.hist-super{font-size:11px;color:var(--muted);margin-bottom:8px}
+.hist-item{font-size:12px;color:var(--text);padding:4px 0;border-bottom:1px solid var(--border);display:flex;gap-8px}
+.hist-item:last-child{border-bottom:none}
+
+/* Toast */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--verde);color:#fff;padding:13px 22px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2);opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap;border-left:4px solid var(--dorado);max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.error{background:var(--rojo)}
+
+.empty{text-align:center;padding:32px 14px;color:var(--muted)}
+.empty-icon{font-size:40px;margin-bottom:10px}
+.spinner{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--verde);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 8px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="top-bar"></div>
+<header>
+  <div class="hdr-row">
+    <div class="hdr-left">
+      <div class="logo">📋</div>
+      <div><div class="hdr-title">Programación</div><div class="hdr-sub">Flota Palma — Supervisores</div></div>
+    </div>
+    <div class="date-badge" id="date-badge">—</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('nueva',this)">➕ Nueva</button>
+    <button class="tab" onclick="showTab('historial',this)">📅 Historial</button>
+  </div>
+</header>
+
+<main>
+
+<!-- ══════ NUEVA PROGRAMACIÓN ══════ -->
+<div class="view active" id="view-nueva">
+
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-icon">📋</span>
+      <div><div class="card-hdr-title">Nueva programación diaria</div>
+      <div class="card-hdr-sub">Asigna labor, lote e implemento a cada tractor</div></div>
+    </div>
+    <div class="card-body">
+
+      <!-- Fecha y supervisor -->
+      <div class="fecha-row">
+        <span class="fecha-icon">📅</span>
+        <input type="date" id="prog-fecha" onchange="PROG_CARGADA=false;cargarProgHoy()">
+      </div>
+      <div class="supervisor-row">
+        <span style="font-size:16px">👷</span>
+        <select id="prog-supervisor" onchange="renderTractoresForm()" style="background-image:url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%2364748b\' d=\'M6 8L1 3h10z\'/%3E%3C/svg%3E');background-repeat:no-repeat;background-position:right 10px center;padding-right:30px">
+          <option value="">— Seleccionar supervisor —</option>
+          <option>Juan Carlos Oviedo — Cosecha</option>
+          <option>Brayan Farid Perez — Cosecha</option>
+          <option>Ing. Luis Fernando — Mantenimiento</option>
+        </select>
+      </div>
+
+      <!-- Tractores -->
+      <div id="tractores-form"></div>
+
+      <div class="btn-row" style="margin-top:16px">
+        <button class="btn-full btn-secondary" onclick="limpiarForm()">Limpiar</button>
+        <button class="btn-full btn-primary" onclick="generarProgramacion()">Ver programación →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ HISTORIAL ══════ -->
+<div class="view" id="view-historial">
+  <div class="card">
+    <div class="card-hdr"><span class="card-hdr-icon">📅</span>
+      <div><div class="card-hdr-title">Historial de programaciones</div>
+      <div class="card-hdr-sub">Programaciones guardadas</div></div>
+    </div>
+    <div class="card-body" id="historial-list">
+      <div class="empty"><div class="empty-icon">📋</div><div style="font-size:14px;font-weight:700">Sin programaciones aún</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ MODAL VISTA PREVIA ══════ -->
+<div id="modal-preview" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;overflow-y:auto;padding:20px 14px">
+  <div style="max-width:560px;margin:0 auto;background:var(--surface);border-radius:16px;overflow:hidden">
+    <div style="background:var(--verde);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-left:4px solid var(--dorado)">
+      <div style="font-family:'DM Serif Display',serif;font-size:15px;color:#fff">Vista previa — WhatsApp</div>
+      <button onclick="cerrarModal()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700">✕ Cerrar</button>
+    </div>
+    <div style="padding:16px">
+      <div class="wa-preview">
+        <div class="wa-preview-title">📱 Así se verá en WhatsApp</div>
+        <div class="wa-text" id="preview-text"></div>
+      </div>
+      <button class="btn-full btn-gold" onclick="copiarWhatsApp()">📋 Copiar para WhatsApp</button>
+      <button class="btn-full" style="background:#25d366;color:#fff;margin-top:8px;border:none;padding:14px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer" onclick="enviarWhatsApp()">📱 Abrir WhatsApp</button>
+      <button class="btn-full btn-primary" onclick="guardarYCerrar()" style="margin-top:8px">💾 Guardar programación</button>
+    </div>
+  </div>
+</div>
+
+</main>
+<div id="toast"></div>
+
+<script>
+const GS_URL = 'https://script.google.com/macros/s/AKfycbxvEmmxlELJwQo6HeLaALt5h8SEG2oW9a_SExAC6iB6Co3dx21m1r44BLKs1zPJTsDnwA/exec';
+
+const TRACTORES = [
+  {num:'01',nombre:'KUBOTA B2441'},
+  {num:'02',nombre:'KUBOTA B2441'},
+  {num:'03',nombre:'KUBOTA M9540'},
+  {num:'04',nombre:'KUBOTA M9540'},
+  {num:'05',nombre:'JOHN DEERE 2850'},
+  {num:'06',nombre:'KUBOTA 5100'},
+  {num:'07',nombre:'KUBOTA M108S'},
+  {num:'08',nombre:'LOVOL TH754-H'},
+  {num:'09',nombre:'LOVOL TH754-H'},
+  {num:'10',nombre:'LOVOL TH904-X'},
+  {num:'11',nombre:'LOVOL TH904-X'},
+];
+
+const LABORES = [
+  '— Sin asignar —',
+  'Cosecha – Recolección de fruto',
+  'Sanidad – Fumigación',
+  'Mantenimiento – Rolocuchilla',
+  'Mantenimiento – Rotospeed',
+  'Transporte de agua',
+  'Transporte de personal',
+  'Fertilización',
+  'Rastra',
+  'Caballoneador',
+  'Cincel',
+];
+
+const IMPLEMENTOS = [
+  '— Ninguno —',
+  'Tijeras hidráulicas',
+  'Remolque quinta rueda',
+  'Remolque zorrillo',
+  'Rotospeed',
+  'Rolocuchilla',
+  'Rastra 20 discos',
+  'Bomba Jacto',
+  'Voladoras JAC 1500',
+  'Caballoneador',
+  'Cincel',
+];
+
+let programacionActual = null;
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+function init(){
+  const now = new Date();
+  document.getElementById('date-badge').innerHTML =
+    now.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'}).replace('.','')+
+    '<br>'+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+
+  // Fecha por defecto: mañana
+  const manana = new Date(now); manana.setDate(manana.getDate()+1);
+  document.getElementById('prog-fecha').value = manana.toISOString().split('T')[0];
+
+  renderTractoresForm();
+  renderHistorial();
+  // Cargar programación del día desde Sheets
+  cargarProgHoy();
+}
+
+function showTab(name, btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  btn.classList.add('active');
+  if(name==='historial') renderHistorial();
+}
+
+// ══════════════════════════════════════════
+//  RENDER FORMULARIO TRACTORES
+// ══════════════════════════════════════════
+// Cache de programación del día desde Sheets
+let PROG_HOY = []; // [{fecha, supervisor, tractor, labor, lote, impl, hora}]
+let PROG_CARGADA = false;
+
+async function cargarProgHoy(){
+  const fecha = document.getElementById('prog-fecha').value;
+  if(!fecha) return;
+  try{
+    const r = await fetch(GS_URL+'?hoja=Programacion');
+    const d = await r.json();
+    if(d.ok){
+      // Normalizar fechas y filtrar por fecha seleccionada
+      PROG_HOY = d.datos.filter(row=>{
+        let f = row[0]||'';
+        if(typeof f==='object') f=f.toLocaleDateString('es-CO');
+        // Comparar con fecha seleccionada (formato yyyy-mm-dd vs dd/mm/yyyy)
+        const fechaObj = new Date(fecha+'T12:00:00');
+        const fechaES = fechaObj.toLocaleDateString('es-CO');
+        return f===fechaES || f===fecha;
+      });
+    }
+    PROG_CARGADA = true;
+  }catch(e){
+    // Fallback a localStorage
+    const local = JSON.parse(localStorage.getItem('palma_prog')||'[]');
+    const fechaObj = new Date(fecha+'T12:00:00');
+    const fechaES = fechaObj.toLocaleDateString('es-CO');
+    PROG_HOY = [];
+    local.filter(p=>p.fecha===fecha).forEach(p=>{
+      p.asignaciones.filter(a=>a.labor).forEach(a=>{
+        PROG_HOY.push([fechaES, p.supervisor, a.tractor, a.labor, a.lote, a.impl, a.hora]);
+      });
+    });
+    PROG_CARGADA = true;
+  }
+  renderTractoresForm();
+}
+
+function getTractoresAsignadosHoy(){
+  const supervisor = document.getElementById('prog-supervisor').value;
+  if(!supervisor) return {};
+  const asignados = {};
+  PROG_HOY.forEach(row=>{
+    // row: [fecha, supervisor, tractor, labor, lote, impl, hora]
+    const supRow = row[1]||'';
+    const tractor = row[2]||'';
+    const labor   = row[3]||'';
+    if(supRow !== supervisor && labor){
+      // Extraer número del tractor ("#05 - JOHN DEERE..." → "05")
+      const match = tractor.match(/#?0*(\d+)/);
+      if(match) asignados[match[1].padStart(2,'0')] = supRow;
+    }
+  });
+  return asignados;
+}
+
+function renderTractoresForm(){
+  const cont = document.getElementById('tractores-form');
+  const supervisor = document.getElementById('prog-supervisor').value;
+  const fecha = document.getElementById('prog-fecha').value;
+
+  // Si no se ha cargado aún y hay fecha, mostrar cargando
+  if(supervisor && fecha && !PROG_CARGADA){
+    cont.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)"><div class="spinner"></div><div style="font-size:12px">Verificando disponibilidad...</div></div>';
+    return;
+  }
+  const bloqueados = getTractoresAsignadosHoy();
+
+  cont.innerHTML = TRACTORES.map((t,i)=>{
+    const bloq = bloqueados[t.num];
+    return `
+    <div class="tractor-form-row" style="${bloq?'border-left-color:var(--rojo-m);opacity:.75':''}">
+      <div class="tf-header">
+        <div class="tf-num" style="${bloq?'background:var(--rojo-m)':''}">${t.num}</div>
+        <div style="flex:1">
+          <div class="tf-nombre" style="${bloq?'color:var(--rojo)':''}">#${t.num} ${t.nombre}</div>
+          ${bloq?`<div style="font-size:10px;color:var(--rojo-m);font-weight:700;margin-top:2px">🔒 Asignado por ${bloq}</div>`:''}
+        </div>
+      </div>
+      ${bloq ? `
+      <div style="background:var(--rojo-p);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--rojo);text-align:center">
+        🚫 Este tractor ya fue programado hoy por <strong>${bloq}</strong>
+      </div>` : `
+      <div class="tf-fields">
+        <div class="field-group">
+          <div class="field-label">Labor</div>
+          <select id="labor-${i}">
+            ${LABORES.map(l=>`<option value="${l==='— Sin asignar —'?'':l}">${l}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Lote / Área</div>
+          <input type="text" id="lote-${i}" placeholder="Ej: Lote A">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Implemento</div>
+          <select id="impl-${i}">
+            ${IMPLEMENTOS.map(im=>`<option value="${im==='— Ninguno —'?'':im}">${im}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Hora de inicio</div>
+          <input type="text" id="hora-${i}" placeholder="Ej: 06:00 a.m.">
+        </div>
+      </div>`}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+//  GENERAR PROGRAMACIÓN
+// ══════════════════════════════════════════
+function generarProgramacion(){
+  const fecha = document.getElementById('prog-fecha').value;
+  const supervisor = document.getElementById('prog-supervisor').value;
+
+  if(!fecha){ toast('⚠️ Selecciona la fecha','error'); return; }
+  if(!supervisor){ toast('⚠️ Escribe el nombre del supervisor','error'); return; }
+
+  const bloqueados = getTractoresAsignadosHoy();
+  const asignaciones = TRACTORES.map((t,i)=>({
+    tractor: `#${t.num} ${t.nombre}`,
+    num: t.num,
+    bloqueado: !!bloqueados[t.num],
+    labor: bloqueados[t.num] ? '' : (document.getElementById('labor-'+i)?.value||''),
+    lote:  bloqueados[t.num] ? '' : (document.getElementById('lote-'+i)?.value.trim()||''),
+    impl:  bloqueados[t.num] ? '' : (document.getElementById('impl-'+i)?.value||''),
+    hora:  bloqueados[t.num] ? '' : (document.getElementById('hora-'+i)?.value.trim()||''),
+  }));
+
+  const asignados = asignaciones.filter(a=>a.labor);
+  if(!asignados.length){ toast('⚠️ Asigna al menos una labor','error'); return; }
+
+  programacionActual = { fecha, supervisor, asignaciones, timestamp: new Date().toISOString() };
+
+  // Generar texto WhatsApp
+  const fechaObj = new Date(fecha+'T12:00:00');
+  const fechaStr = fechaObj.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const fechaCap = fechaStr.charAt(0).toUpperCase()+fechaStr.slice(1);
+  const sep = '━━━━━━━━━━━━━━━━━━━━━━';
+
+  let msg = `🌴 *PROGRAMACIÓN FLOTA PALMA*\n${sep}\n`;
+  msg += `📅 ${fechaCap}\n`;
+  msg += `👷 Supervisor: *${supervisor}*\n`;
+  msg += `${sep}\n\n`;
+
+  asignados.forEach(a=>{
+    msg += `🚜 *${a.tractor}*\n`;
+    msg += `   ⚒️ Labor: ${a.labor}\n`;
+    if(a.lote)  msg += `   📍 Lote: ${a.lote}\n`;
+    if(a.impl)  msg += `   🔧 Implemento: ${a.impl}\n`;
+    if(a.hora)  msg += `   ⏰ Hora: ${a.hora}\n`;
+    msg += '\n';
+  });
+
+  // Tractores sin asignar
+  const sinAsignar = asignaciones.filter(a=>!a.labor);
+  if(sinAsignar.length){
+    msg += `${sep}\n`;
+    msg += `⏸️ *Sin asignar hoy:*\n`;
+    sinAsignar.forEach(a=>{ msg += `   • ${a.tractor}\n`; });
+    msg += '\n';
+  }
+
+  msg += `${sep}\n`;
+  msg += `_Flota Palma — Programación automática_`;
+
+  document.getElementById('preview-text').textContent = msg;
+  document.getElementById('modal-preview').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+// ══════════════════════════════════════════
+//  MODAL
+// ══════════════════════════════════════════
+function cerrarModal(){
+  document.getElementById('modal-preview').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function copiarWhatsApp(){
+  const txt = document.getElementById('preview-text').textContent;
+  navigator.clipboard.writeText(txt).then(()=>toast('✅ Copiado — pégalo en WhatsApp'));
+}
+
+function enviarWhatsApp(){
+  const txt = document.getElementById('preview-text').textContent;
+  window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');
+}
+
+async function guardarYCerrar(){
+  if(!programacionActual){ cerrarModal(); return; }
+
+  // Guardar local
+  const local = JSON.parse(localStorage.getItem('palma_prog')||'[]');
+  local.unshift(programacionActual);
+  if(local.length>30) local.pop();
+  localStorage.setItem('palma_prog', JSON.stringify(local));
+
+  // Guardar en Sheets
+  const { fecha, supervisor, asignaciones } = programacionActual;
+  const asignados = asignaciones.filter(a=>a.labor);
+
+  if(GS_URL){
+    try{
+      for(const a of asignados){
+        await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
+          hoja:'Programacion',
+          fila:[fecha, supervisor, a.tractor, a.labor, a.lote, a.impl, a.hora],
+          encabezados:['Fecha','Supervisor','Tractor','Labor','Lote','Implemento','Hora Inicio'],
+          colorCol:4, color:'#d8f3dc'
+        })});
+      }
+    }catch(e){}
+  }
+
+  toast('✅ Programación guardada');
+  cerrarModal();
+  limpiarForm();
+  renderHistorial();
+  // Recargar desde Sheets para que otros vean los bloqueos
+  PROG_CARGADA = false;
+  await cargarProgHoy();
+}
+
+// ══════════════════════════════════════════
+//  HISTORIAL
+// ══════════════════════════════════════════
+function renderHistorial(){
+  const local = JSON.parse(localStorage.getItem('palma_prog')||'[]');
+  const el = document.getElementById('historial-list');
+
+  if(!local.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div style="font-size:14px;font-weight:700;margin-bottom:4px">Sin programaciones</div><div style="font-size:12px;color:var(--muted)">Las programaciones guardadas aparecerán aquí</div></div>';
+    return;
+  }
+
+  el.innerHTML = local.map((p,idx)=>{
+    const fechaObj = new Date(p.fecha+'T12:00:00');
+    const fechaStr = fechaObj.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'});
+    const asignados = p.asignaciones.filter(a=>a.labor);
+    return `
+    <div class="hist-card">
+      <div class="hist-fecha">📅 ${fechaStr.charAt(0).toUpperCase()+fechaStr.slice(1)}</div>
+      <div class="hist-super">👷 ${p.supervisor} · ${asignados.length} tractores asignados</div>
+      ${asignados.map(a=>`
+        <div class="hist-item" style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="font-weight:700;color:var(--verde);min-width:40px">#${a.num}</span>
+          <span style="flex:1;font-size:12px">${a.labor}</span>
+          ${a.lote?`<span style="font-size:11px;color:var(--muted)">${a.lote}</span>`:''}
+        </div>`).join('')}
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="reenviar(${idx})" style="flex:1;padding:8px;border-radius:8px;border:none;background:var(--verde-p);color:var(--verde-m);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer">📱 Reenviar</button>
+        <button onclick="eliminar(${idx})" style="padding:8px 12px;border-radius:8px;border:none;background:var(--rojo-p);color:var(--rojo);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function reenviar(idx){
+  const local = JSON.parse(localStorage.getItem('palma_prog')||'[]');
+  programacionActual = local[idx];
+  const { fecha, supervisor, asignaciones } = programacionActual;
+  const fechaObj = new Date(fecha+'T12:00:00');
+  const fechaStr = fechaObj.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const fechaCap = fechaStr.charAt(0).toUpperCase()+fechaStr.slice(1);
+  const sep = '━━━━━━━━━━━━━━━━━━━━━━';
+  const asignados = asignaciones.filter(a=>a.labor);
+  let msg = `🌴 *PROGRAMACIÓN FLOTA PALMA*\n${sep}\n📅 ${fechaCap}\n👷 Supervisor: *${supervisor}*\n${sep}\n\n`;
+  asignados.forEach(a=>{
+    msg += `🚜 *${a.tractor}*\n   ⚒️ ${a.labor}\n`;
+    if(a.lote) msg+=`   📍 ${a.lote}\n`;
+    if(a.impl) msg+=`   🔧 ${a.impl}\n`;
+    if(a.hora) msg+=`   ⏰ ${a.hora}\n`;
+    msg+='\n';
+  });
+  msg+=`${sep}\n_Flota Palma — Programación automática_`;
+  document.getElementById('preview-text').textContent = msg;
+  document.getElementById('modal-preview').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function eliminar(idx){
+  if(!confirm('¿Eliminar esta programación?')) return;
+  const local = JSON.parse(localStorage.getItem('palma_prog')||'[]');
+  local.splice(idx,1);
+  localStorage.setItem('palma_prog',JSON.stringify(local));
+  renderHistorial();
+  toast('🗑️ Eliminada');
+}
+
+function limpiarForm(){
+  TRACTORES.forEach((_,i)=>{
+    document.getElementById('labor-'+i).value='';
+    document.getElementById('lote-'+i).value='';
+    document.getElementById('impl-'+i).value='';
+    document.getElementById('hora-'+i).value='';
+  });
+  document.getElementById('prog-supervisor').value='';
+  const manana = new Date(); manana.setDate(manana.getDate()+1);
+  document.getElementById('prog-fecha').value = manana.toISOString().split('T')[0];
+}
+
+function toast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className='show'+(type?' '+type:'');
+  setTimeout(()=>t.className='',3000);
+}
+
+init();
+</script>
+</body>
+</html>
