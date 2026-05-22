@@ -305,8 +305,19 @@ async function fetchHoja(hoja){
   try{
     const r=await fetch(GS_URL+'?hoja='+hoja);
     const d=await r.json();
-    return d.ok?d.datos.filter(f=>f[0]===HOY):[];
-  }catch{ return []; }
+    if(!d.ok) return [];
+    return d.datos.filter(f=>{
+      const rawDate = f[0]||'';
+      // Normalizar: puede venir como "2026-05-22T05:00:00.000Z" o "22/05/2026"
+      let fecha = rawDate;
+      if(rawDate.includes('T') || rawDate.includes('-')){
+        // Formato ISO → convertir a dd/mm/yyyy
+        const d2 = new Date(rawDate);
+        fecha = d2.toLocaleDateString('es-CO');
+      }
+      return fecha === HOY;
+    });
+  }catch(e){ console.error('fetchHoja error:',e); return []; }
 }
 
 async function recargar(){
