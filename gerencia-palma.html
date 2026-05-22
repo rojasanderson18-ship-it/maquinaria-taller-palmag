@@ -178,7 +178,7 @@ main{max-width:640px;margin:0 auto;padding:18px 14px}
   <!-- Tanqueo del día -->
   <div class="card">
     <div class="card-hdr azul"><span class="card-hdr-icon">⛽</span>
-      <div><div class="card-hdr-title">Combustible cargado hoy</div><div class="card-hdr-sub">Total de litros tanqueados</div></div>
+      <div><div class="card-hdr-title">Combustible cargado hoy</div><div class="card-hdr-sub">Total de galones tanqueados</div></div>
     </div>
     <div id="tanqueo-info" style="padding:16px">
       <div class="loading"><div class="spinner"></div></div>
@@ -259,7 +259,7 @@ async function cargarDatos(){
 // Columnas preop: 0=Fecha,1=Hora,2=Operario,3=Equipo,4=Labor,5=Lote,
 // 6=Horómetro,7=UltMtto,8=ProxMtto,9=HorasRestantes,10=EstadoMtto,
 // 11=Aceite,12=Agua,13=Hidra, 14-21=items, 22=EstadoOperario,23=Novedades
-// 24=Tanqueado,25=Litros
+// 24=Tanqueado,25=Galones
 
 function renderKPIs(preops, revisiones, altas){
   const total    = preops.length;
@@ -369,7 +369,7 @@ function renderTanqueo(tanqueos){
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <div><div style="font-size:11px;color:var(--gris);font-weight:700;text-transform:uppercase">Total cargado</div>
-      <div style="font-family:'DM Serif Display',serif;font-size:36px;color:var(--azul)">${totalL.toFixed(0)} <span style="font-size:14px">litros</span></div></div>
+      <div style="font-family:'DM Serif Display',serif;font-size:36px;color:var(--azul)">${totalL.toFixed(0)} <span style="font-size:14px">galones</span></div></div>
       <div style="text-align:right"><div style="font-size:11px;color:var(--gris)">Equipos tanqueados</div>
       <div style="font-size:24px;font-weight:700;color:var(--verde-m)">${tanqueados}</div></div>
     </div>
@@ -377,7 +377,7 @@ function renderTanqueo(tanqueos){
       ${tanqueos.map(r=>`
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--gris-p);border-radius:8px;font-size:12px">
         <span style="font-weight:600">${r[3]||'—'}</span>
-        <span>${r[5]==='Sí'?'<span style="color:var(--azul);font-weight:700">'+r[6]+' L</span>':'<span style="color:var(--gris)">No tanqueado</span>'}</span>
+        <span>${r[5]==='Sí'?'<span style="color:var(--azul);font-weight:700">'+r[6]+' gal</span>':'<span style="color:var(--gris)">No tanqueado</span>'}</span>
       </div>`).join('')}
     </div>`;
 }

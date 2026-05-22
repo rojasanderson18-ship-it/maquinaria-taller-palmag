@@ -306,16 +306,16 @@ textarea{min-height:80px;resize:vertical}
 
       <div id="tanq-detalles" style="display:none">
         <div class="field">
-          <label>¿Cuántos litros se cargaron? <span class="req">*</span></label>
-          <input type="number" class="horas-big" id="f-tanq-litros" placeholder="0"
+          <label>¿Cuántos galones se cargaron? <span class="req">*</span></label>
+          <input type="number" class="horas-big" id="f-tanq-galones" placeholder="0"
             min="0" max="500" inputmode="numeric" oninput="calcTanqueo()"
             style="font-size:52px;color:var(--dorado)">
-          <div class="horas-unit" style="color:var(--dorado)">litros</div>
+          <div class="horas-unit" style="color:var(--dorado)">galones</div>
         </div>
 
         <div class="tanq-display" id="tanq-display" style="display:none;margin-top:12px">
           <div class="tanq-num" id="tanq-total">0</div>
-          <div class="tanq-unit">litros cargados registrados ✅</div>
+          <div class="tanq-unit">galones cargados registrados ✅</div>
         </div>
 
         <div class="field" style="margin-top:16px">
@@ -450,7 +450,7 @@ function validate(step){
   }
   if(step===5){
     if(tanqueoSi===null)return'⚠️ Indica si el equipo fue tanqueado hoy';
-    if(tanqueoSi && !v('f-tanq-litros'))return'⚠️ Ingresa los litros cargados';
+    if(tanqueoSi && !v('f-tanq-galones'))return'⚠️ Ingresa los galones cargados';
   }
   return null;
 }
@@ -483,9 +483,9 @@ function selTanqueo(si){
   document.getElementById('tanq-no-msg').style.display   = si?'none':'block';
 }
 function calcTanqueo(){
-  const litros=parseFloat(document.getElementById('f-tanq-litros').value)||0;
+  const galones=parseFloat(document.getElementById('f-tanq-galones').value)||0;
   const disp=document.getElementById('tanq-display');
-  if(litros>0){disp.style.display='block';document.getElementById('tanq-total').textContent=litros.toFixed(0);}
+  if(galones>0){disp.style.display='block';document.getElementById('tanq-total').textContent=galones.toFixed(0);}
   else{disp.style.display='none';}
 }
 function toggleTag(el, hiddenId){
@@ -523,8 +523,8 @@ function buildResumen(){
   const eq=v('f-equipo'), horas=v('f-horas');
   const ult=MTTO_DATA[eq]||(parseInt(document.getElementById('f-ult-mtto-horas')?.value)||0);
   const prox=ult+250, rest=prox-(parseInt(horas)||0);
-  const litros=v('f-tanq-litros');
-  const tanqTexto = tanqueoSi ? (litros+' L cargados') : 'Sin tanqueo hoy';
+  const galones=v('f-tanq-galones');
+  const tanqTexto = tanqueoSi ? (galones+' gal cargados') : 'Sin tanqueo hoy';
 
   document.getElementById('resumen-body').innerHTML=`
     <div class="resumen-item"><span class="ri-icon">👤</span><div><div class="ri-label">Operario</div><div class="ri-val">${v('f-operario')}</div></div></div>
@@ -546,7 +546,7 @@ async function enviar(){
   if(!MTTO_DATA[eq]){const um=parseInt(document.getElementById('f-ult-mtto-horas')?.value)||0;if(um){MTTO_DATA[eq]=um;localStorage.setItem('palma_mtto_data',JSON.stringify(MTTO_DATA));}}
   const ult=MTTO_DATA[eq]||0, prox=ult+250, rest=prox-horas;
   const estadoMtto=rest<=0?'VENCIDO':rest<=25?'PRÓXIMO':'OK';
-  const litros=parseFloat(v('f-tanq-litros'))||0;
+  const galones=parseFloat(v('f-tanq-galones'))||0;
 
   const fila=[
     now.toLocaleDateString('es-CO'),
@@ -561,7 +561,7 @@ async function enviar(){
     v('f-novedades'),
     // Tanqueo
     tanqueoSi?'Sí':'No',
-    tanqueoSi?litros:0,
+    tanqueoSi?galones:0,
     v('f-tanq-obs')||document.getElementById('tanq-obs-extra').value,
   ];
 
@@ -571,7 +571,7 @@ async function enviar(){
     'Aceite Motor','Agua/Refrig.','Aceite Hidráulico',
     ...ITEMS.map(i=>i.label),
     'Estado Operario','Novedades',
-    'Tanqueado','Litros Cargados','Obs. Combustible',
+    'Tanqueado','Galones Cargados','Obs. Combustible',
   ];
 
   const local=JSON.parse(localStorage.getItem('palma_preop')||'[]');
@@ -588,8 +588,8 @@ async function enviar(){
     // Tanqueo en hoja separada
     if(tanqueoSi) try{await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'Tanqueos',
-      fila:[now.toLocaleDateString('es-CO'),now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),v('f-operario'),eq,v('f-labor'),tanqueoSi?'Sí':'No',tanqueoSi?litros:0,horas,'Leanis Argumedo',v('f-tanq-obs')||document.getElementById('tanq-obs-extra').value],
-      encabezados:['Fecha','Hora','Operario','Equipo','Labor','Tanqueado','Litros','Horómetro','Responsable','Observaciones'],
+      fila:[now.toLocaleDateString('es-CO'),now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),v('f-operario'),eq,v('f-labor'),tanqueoSi?'Sí':'No',tanqueoSi?galones:0,horas,'Leanis Argumedo',v('f-tanq-obs')||document.getElementById('tanq-obs-extra').value],
+      encabezados:['Fecha','Hora','Operario','Equipo','Labor','Tanqueado','Galones','Horómetro','Responsable','Observaciones'],
       colorCol:7,color:'#dbeafe'
     })});}catch(e){}
 
@@ -604,14 +604,14 @@ async function enviar(){
   btn.innerHTML='📤 Enviar Preoperativo';btn.disabled=false;
   document.getElementById('ok-msg').textContent=estadoGeneral==='nov'
     ?'Preoperativo de '+eq+' enviado con novedades. El taller revisará antes de autorizar.'
-    :'Preoperativo de '+eq+' enviado. '+(tanqueoSi?litros+'L cargados. ':'')+' ¡Buen día!';
+    :'Preoperativo de '+eq+' enviado. '+(tanqueoSi?galones+'gal cargados. ':'')+' ¡Buen día!';
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-ok').classList.add('active');
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
 function nuevo(){
-  ['f-lote','f-novedades','f-tanq-litros','f-tanq-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['f-lote','f-novedades','f-tanq-galones','f-tanq-obs'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   tanqueoSi=null;const bstyle='padding:18px 10px;border-radius:14px;border:2px solid var(--border);background:#fff;font-family:\'DM Sans\',sans-serif;font-size:18px;font-weight:700;cursor:pointer;color:var(--muted)';document.getElementById('tanq-si').style.cssText=bstyle;document.getElementById('tanq-no').style.cssText=bstyle;document.getElementById('tanq-detalles').style.display='none';document.getElementById('tanq-no-msg').style.display='none';document.getElementById('tanq-display').style.display='none';
   document.querySelectorAll('#tanq-tags .badge-tag').forEach(t=>t.classList.remove('sel'));
   document.getElementById('tanq-obs-extra').value='';
