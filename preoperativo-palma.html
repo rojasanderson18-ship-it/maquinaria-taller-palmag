@@ -543,6 +543,16 @@ function buildResumen(){
 async function enviar(){
   if(!estadoGeneral){toast('⚠️ Selecciona el estado del equipo','warn');return;}
   const now=new Date(), eq=v('f-equipo'), horas=parseInt(v('f-horas'))||0;
+  
+  // ID único para este envío: equipo + fecha + hora
+  const submitId = eq + '_' + now.toLocaleDateString('es-CO') + '_' + now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  const enviados = JSON.parse(localStorage.getItem('palma_enviados')||'[]');
+  if(enviados.includes(submitId)){
+    toast('⚠️ Este preoperativo ya fue enviado','warn');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-ok').classList.add('active');
+    return;
+  }
   if(!MTTO_DATA[eq]){const um=parseInt(document.getElementById('f-ult-mtto-horas')?.value)||0;if(um){MTTO_DATA[eq]=um;localStorage.setItem('palma_mtto_data',JSON.stringify(MTTO_DATA));}}
   const ult=MTTO_DATA[eq]||0, prox=ult+250, rest=prox-horas;
   const estadoMtto=rest<=0?'VENCIDO':rest<=25?'PRÓXIMO':'OK';
@@ -574,6 +584,13 @@ async function enviar(){
     'Tanqueado','Galones Cargados','Obs. Combustible',
   ];
 
+  // Marcar como enviado para no duplicar
+  const enviados2 = JSON.parse(localStorage.getItem('palma_enviados')||'[]');
+  enviados2.push(submitId);
+  // Guardar solo los últimos 50 IDs para no crecer indefinidamente
+  if(enviados2.length>50) enviados2.splice(0, enviados2.length-50);
+  localStorage.setItem('palma_enviados', JSON.stringify(enviados2));
+  
   const local=JSON.parse(localStorage.getItem('palma_preop')||'[]');
   local.push({fila,fecha:now.toISOString()});
   localStorage.setItem('palma_preop',JSON.stringify(local));
