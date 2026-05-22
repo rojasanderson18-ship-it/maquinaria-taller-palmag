@@ -4,11 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Taller — Flota Palma</title>
-<link rel="manifest" href="manifest-taller.json">
-<meta name="theme-color" content="#b7791f">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Taller Palma">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -38,72 +33,59 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 .sec{display:none}.sec.active{display:block;animation:fadeUp .3s ease}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
-/* CARD */
 .card{background:var(--surface);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,.07),0 4px 16px rgba(0,0,0,.05);overflow:hidden;margin-bottom:13px}
 .card-hdr{padding:12px 15px;display:flex;align-items:center;gap:9px;border-left:4px solid var(--dorado)}
-.card-hdr.verde{background:var(--verde)}.card-hdr.rojo{background:var(--rojo)}.card-hdr.dorado{background:var(--dorado)}.card-hdr.azul{background:var(--azul)}.card-hdr.gris{background:var(--gris)}
+.card-hdr.verde{background:var(--verde)}.card-hdr.rojo{background:var(--rojo)}.card-hdr.dorado{background:var(--dorado)}.card-hdr.azul{background:var(--azul)}
 .card-hdr-icon{font-size:17px}
 .card-hdr-title{font-family:'DM Serif Display',serif;font-size:14px;color:#fff}
 .card-hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
 .card-body{padding:15px}
 
-/* KPI */
 .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:13px}
 .kpi-card{background:var(--surface);border-radius:12px;padding:14px 10px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.07);border-top:3px solid var(--border)}
-.kpi-card.verde{border-top-color:var(--verde-s)}.kpi-card.rojo{border-top-color:var(--rojo-m)}.kpi-card.dorado{border-top-color:var(--dorado)}.kpi-card.azul{border-top-color:var(--azul)}
+.kpi-card.verde{border-top-color:var(--verde-s)}.kpi-card.rojo{border-top-color:var(--rojo-m)}.kpi-card.azul{border-top-color:var(--azul)}
 .kpi-num{font-family:'DM Serif Display',serif;font-size:30px;line-height:1}
-.kpi-card.verde .kpi-num{color:var(--verde-m)}.kpi-card.rojo .kpi-num{color:var(--rojo-m)}.kpi-card.dorado .kpi-num{color:var(--dorado)}.kpi-card.azul .kpi-num{color:var(--azul)}
+.kpi-card.verde .kpi-num{color:var(--verde-m)}.kpi-card.rojo .kpi-num{color:var(--rojo-m)}.kpi-card.azul .kpi-num{color:var(--azul)}
 .kpi-label{font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
 
-/* NOVEDAD CARD */
-.nov-card{background:var(--surface);border-radius:13px;margin-bottom:11px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden;border-left:5px solid var(--border);transition:box-shadow .2s}
-.nov-card.alta{border-left-color:var(--rojo-m)}.nov-card.media{border-left-color:#f59e0b}.nov-card.libre{border-left-color:var(--verde-s)}.nov-card.resuelta{border-left-color:var(--azul)}
+.nov-card{background:var(--surface);border-radius:13px;margin-bottom:11px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden;border-left:5px solid var(--border)}
+.nov-card.alta{border-left-color:var(--rojo-m)}.nov-card.libre{border-left-color:var(--verde-s)}.nov-card.resuelta{border-left-color:var(--azul)}
 .nov-hdr{padding:12px 13px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .nov-equipo{font-weight:700;font-size:14px}.nov-meta{font-size:11px;color:var(--gris);margin-top:2px}
 .nov-body{padding:0 13px 13px}
-.nov-items{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
-.nip{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
-.nip.warn{background:var(--amarillo-p);color:var(--amarillo)}.nip.fail{background:var(--rojo-p);color:var(--rojo)}
-.nov-desc{background:var(--gris-p);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--text);margin-bottom:11px;font-style:italic}
 .pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
 .pill-ok{background:var(--verde-p);color:var(--verde-m)}.pill-warn{background:var(--amarillo-p);color:var(--amarillo)}.pill-fail{background:var(--rojo-p);color:var(--rojo)}.pill-azul{background:var(--azul-p);color:var(--azul)}.pill-gris{background:var(--gris-p);color:var(--gris)}
 
-/* DECISION BUTTONS */
 .dec-row{display:flex;gap:7px;margin-bottom:9px}
-.dec-btn{flex:1;padding:10px 6px;border-radius:11px;border:2px solid transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;transition:all .15s;text-align:center}
+.dec-btn{flex:1;padding:12px 6px;border-radius:11px;border:2px solid transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;transition:all .15s;text-align:center}
 .dec-btn:active{transform:scale(.97)}
 .dec-sale{background:var(--verde-p);color:var(--verde-m)}.dec-sale.sel{background:var(--verde-m);color:#fff;border-color:var(--verde)}
 .dec-nosale{background:var(--rojo-p);color:var(--rojo)}.dec-nosale.sel{background:var(--rojo-m);color:#fff;border-color:var(--rojo)}
 
-/* ALTA (dar salida después de arreglo) */
+.badge-tag{padding:8px 13px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;cursor:pointer;transition:all .15s;user-select:none;display:inline-block;margin-bottom:4px}
+.badge-tag.sel{background:var(--verde-p);border-color:var(--verde-s);color:var(--verde-m);font-weight:600}
+.badge-tag.rojo.sel{background:var(--rojo-p);border-color:var(--rojo-m);color:var(--rojo)}
+
 .alta-section{background:var(--azul-p);border:1.5px solid #93c5fd;border-radius:11px;padding:13px;margin-top:9px;display:none}
 .alta-section.show{display:block;animation:fadeUp .25s ease}
-.alta-title{font-size:12px;font-weight:700;color:var(--azul);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.alta-title{font-size:12px;font-weight:700;color:var(--azul);margin-bottom:10px}
 .alta-fields{display:flex;flex-direction:column;gap:8px}
 .alta-fields textarea,.alta-fields input{width:100%;border:1.5px solid #93c5fd;border-radius:9px;padding:9px 11px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:#fff;outline:none;resize:vertical}
-.alta-fields textarea:focus,.alta-fields input:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(30,64,175,.1)}
+.alta-fields textarea:focus,.alta-fields input:focus{border-color:var(--azul)}
 .alta-fields textarea{min-height:64px}
-.alta-btn{width:100%;margin-top:8px;padding:11px;border-radius:11px;border:none;background:var(--azul);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
-.alta-btn:active{transform:scale(.98)}
+.alta-btn{width:100%;margin-top:8px;padding:12px;border-radius:11px;border:none;background:var(--azul);color:#fff;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .alta-btn:disabled{background:var(--border);color:var(--gris);cursor:not-allowed}
 
 .mec-notes{width:100%;margin-top:8px;border:1.5px solid var(--border);border-radius:10px;padding:9px 11px;font-family:'DM Sans',sans-serif;font-size:13px;color:var(--text);background:var(--surface);outline:none;resize:vertical;min-height:60px}
-.mec-notes:focus{border-color:var(--verde-s);box-shadow:0 0 0 3px rgba(82,183,136,.15)}
-.conf-btn{width:100%;margin-top:8px;padding:11px;border-radius:11px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:var(--verde);color:#fff;transition:all .2s}
-.conf-btn:disabled{background:var(--border);color:var(--gris);cursor:not-allowed}
+.mec-notes:focus{border-color:var(--verde-s)}
+.conf-btn{width:100%;margin-top:8px;padding:12px;border-radius:11px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;background:var(--verde);color:#fff;transition:all .2s}
 .conf-btn.done{background:var(--gris-p);color:var(--gris)}
 
-/* TIMELINE */
-.timeline{padding:4px 0}
-.tl-item{display:flex;gap:11px;position:relative;padding-bottom:14px}
-.tl-item:last-child{padding-bottom:0}
-.tl-item:not(:last-child)::before{content:'';position:absolute;left:15px;top:30px;bottom:0;width:2px;background:var(--border)}
-.tl-dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:14px;flex-shrink:0;z-index:1}
-.tl-dot.verde{background:var(--verde-p)}.tl-dot.rojo{background:var(--rojo-p)}.tl-dot.azul{background:var(--azul-p)}.tl-dot.gris{background:var(--gris-p)}
-.tl-content{flex:1;padding-top:4px}
-.tl-title{font-size:13px;font-weight:700}.tl-sub{font-size:11px;color:var(--gris);margin-top:2px}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{background:var(--verde);color:rgba(255,255,255,.85);padding:8px 9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-align:left}
+.tbl td{padding:9px;border-bottom:1px solid var(--border)}
+.tbl tr:last-child td{border-bottom:none}
 
-/* EFICIENCIA */
 .ef-card{background:var(--verde);border-radius:14px;padding:18px;color:#fff;margin-bottom:13px}
 .ef-title{font-family:'DM Serif Display',serif;font-size:18px;margin-bottom:3px}
 .ef-sub{font-size:11px;color:rgba(255,255,255,.55);margin-bottom:14px}
@@ -116,7 +98,6 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 .ef-bar-track{background:rgba(255,255,255,.15);border-radius:20px;height:8px}
 .ef-bar-fill{height:8px;border-radius:20px;background:var(--dorado);transition:width .6s ease}
 
-/* RESUMEN */
 .res-gerencia{background:var(--verde);border-radius:14px;padding:18px;color:#fff;margin-bottom:13px}
 .res-g-title{font-family:'DM Serif Display',serif;font-size:19px;margin-bottom:3px}
 .res-g-sub{font-size:11px;color:rgba(255,255,255,.55)}
@@ -124,46 +105,28 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 .res-g-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0}
 .res-g-label{font-size:12px;color:rgba(255,255,255,.65)}
 .res-g-val{font-size:14px;font-weight:700}
-.res-g-val.verde{color:var(--verde-p)}.res-g-val.rojo{color:#fca5a5}.res-g-val.dorado{color:var(--dorado-p)}
 .copy-btn{width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;background:var(--dorado);color:#fff;transition:all .2s;margin-top:5px}
 .copy-btn:active{transform:scale(.98)}
 .wa-btn{background:#25d366;margin-top:7px}
 
-/* TABLE */
-.tbl{width:100%;border-collapse:collapse;font-size:12px}
-.tbl th{background:var(--verde);color:rgba(255,255,255,.85);padding:8px 9px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-align:left}
-.tbl td{padding:9px;border-bottom:1px solid var(--border)}
-.tbl tr:last-child td{border-bottom:none}
-.tbl tr:hover td{background:var(--verde-pp)}
-
-/* CONFIG */
 .cfg-step{background:var(--gris-p);border-radius:11px;padding:14px;margin-bottom:11px;border-left:4px solid var(--verde-s)}
 .cfg-label{font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;display:block}
 .cfg-input{width:100%;border:1.5px solid var(--border);border-radius:9px;padding:10px 12px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);outline:none}
 .cfg-input:focus{border-color:var(--verde-s)}
 .cfg-btn{margin-top:9px;padding:10px 18px;border-radius:9px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;background:var(--verde);color:#fff}
-.badge-tag{padding:8px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;cursor:pointer;transition:all .15s;user-select:none;display:inline-block;margin-bottom:4px}
-.badge-tag:active{transform:scale(.96)}
-.badge-tag.sel{background:var(--verde-p);border-color:var(--verde-s);color:var(--verde-m);font-weight:600}
-.badge-tag.rojo.sel{background:var(--rojo-p);border-color:var(--rojo-m);color:var(--rojo)}
-.script-box{background:#0d1b2a;border-radius:10px;padding:13px;font-family:monospace;font-size:10px;color:#d8f3dc;line-height:1.7;overflow-x:auto;white-space:pre-wrap;margin-bottom:10px}
 
-/* EMPTY */
 .empty{text-align:center;padding:32px 14px;color:var(--gris)}
 .empty-icon{font-size:40px;margin-bottom:9px}.empty-title{font-size:14px;font-weight:700;margin-bottom:3px}.empty-sub{font-size:12px}
+.loading{text-align:center;padding:28px 14px;color:var(--gris)}
+.spinner{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--verde);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--verde);color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap;border-left:4px solid var(--dorado);max-width:90vw;text-align:center}
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-#toast.error{background:var(--rojo)}.toast.warn{background:var(--amarillo)}
-.spinner{width:15px;height:15px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:5px}
-@keyframes spin{to{transform:rotate(360deg)}}
+#toast.error{background:var(--rojo)}
 </style>
 </head>
 <body>
-<!-- Barra offline -->
-<div id="offline-bar" style="display:none;background:#92400e;color:#fff;padding:8px 16px;font-size:12px;font-weight:600;align-items:center;justify-content:center;gap:8px;text-align:center">
-  📵 Sin conexión — los registros se guardan localmente y se enviarán al volver la señal
-</div>
 <div class="top-bar"></div>
 <header>
   <div class="hdr-row">
@@ -184,116 +147,77 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 
 <main>
 
-<!-- ══════════════ NOVEDADES ══════════════ -->
+<!-- NOVEDADES -->
 <div class="sec active" id="sec-novedades">
   <div class="kpi-row">
     <div class="kpi-card verde"><div class="kpi-num" id="kn-salen">—</div><div class="kpi-label">Autorizados</div></div>
     <div class="kpi-card rojo"><div class="kpi-num" id="kn-nosalen">—</div><div class="kpi-label">Retenidos</div></div>
-    <div class="kpi-card azul"><div class="kpi-num" id="kn-alta">—</div><div class="kpi-label">Dados de alta</div></div>
+    <div class="kpi-card azul"><div class="kpi-num" id="kn-alta">—</div><div class="kpi-label">Dados alta</div></div>
   </div>
-  <div id="novedades-list">
-    <div class="empty"><div class="empty-icon">⏳</div><div class="empty-title">Cargando...</div><div class="empty-sub">Conecta tu Google Sheets en ⚙️</div></div>
-  </div>
+  <div id="novedades-list"><div class="loading"><div class="spinner"></div><div>Cargando...</div></div></div>
   <button style="width:100%;padding:11px;border-radius:11px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;background:var(--verde-m);color:#fff;margin-top:4px" onclick="recargar()">🔄 Recargar</button>
 </div>
 
-<!-- ══════════════ FLOTA ══════════════ -->
+<!-- FLOTA -->
 <div class="sec" id="sec-flota">
   <div class="card">
     <div class="card-hdr verde"><span class="card-hdr-icon">🚜</span>
-      <div><div class="card-hdr-title">Estado flota hoy</div><div class="card-hdr-sub">Todos los preoperativos del día</div></div>
+      <div><div class="card-hdr-title">Estado flota hoy</div><div class="card-hdr-sub">Todos los preoperativos</div></div>
     </div>
     <div style="overflow-x:auto" id="flota-wrap">
-      <div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin preoperativos</div><div class="empty-sub">Aparecerán cuando los operarios los envíen</div></div>
+      <div class="loading"><div class="spinner"></div></div>
     </div>
   </div>
 </div>
 
-<!-- ══════════════ EFICIENCIA ══════════════ -->
+<!-- EFICIENCIA -->
 <div class="sec" id="sec-eficiencia">
-  <div class="ef-card" id="ef-card">
+  <div class="ef-card">
     <div class="ef-title">📈 Eficiencia del Mecánico</div>
-    <div class="ef-sub" id="ef-mecanico-name">—</div>
-    <div class="ef-kpis" id="ef-kpis">
-      <div class="ef-kpi"><div class="ef-num" id="ef-total">—</div><div class="ef-lbl">Revisados hoy</div></div>
+    <div class="ef-sub" id="ef-nombre">—</div>
+    <div class="ef-kpis">
+      <div class="ef-kpi"><div class="ef-num" id="ef-total">—</div><div class="ef-lbl">Revisados</div></div>
       <div class="ef-kpi"><div class="ef-num" id="ef-resueltos">—</div><div class="ef-lbl">Resueltos</div></div>
       <div class="ef-kpi"><div class="ef-num" id="ef-tiempo">—</div><div class="ef-lbl">Tiempo prom.</div></div>
       <div class="ef-kpi"><div class="ef-num" id="ef-pct">—</div><div class="ef-lbl">Tasa solución</div></div>
     </div>
     <div class="ef-bar-wrap">
-      <div class="ef-bar-label"><span>Tasa de resolución hoy</span><span id="ef-pct-label">0%</span></div>
+      <div class="ef-bar-label"><span>Tasa de resolución</span><span id="ef-pct-lbl">0%</span></div>
       <div class="ef-bar-track"><div class="ef-bar-fill" id="ef-bar" style="width:0%"></div></div>
     </div>
   </div>
-
   <div class="card">
     <div class="card-hdr dorado"><span class="card-hdr-icon">🕐</span>
-      <div><div class="card-hdr-title">Historial de alta</div><div class="card-hdr-sub">Equipos retenidos y dados de alta</div></div>
+      <div><div class="card-hdr-title">Historial de altas</div><div class="card-hdr-sub">Tiempos de resolución</div></div>
     </div>
-    <div class="card-body" style="padding:0">
-      <div id="historial-alta">
-        <div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin registros aún</div></div>
-      </div>
-    </div>
+    <div id="historial-alta"><div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin registros</div></div></div>
   </div>
 </div>
 
-<!-- ══════════════ RESUMEN GERENCIA ══════════════ -->
+<!-- RESUMEN GERENCIA -->
 <div class="sec" id="sec-resumen">
   <div class="res-gerencia">
     <div class="res-g-title">🌴 Resumen Diario</div>
     <div class="res-g-sub" id="res-fecha-sub">—</div>
     <div class="res-g-div"></div>
     <div class="res-g-row"><span class="res-g-label">Tractores reportados</span><span class="res-g-val" id="rg-total">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">✅ Autorizados para salir</span><span class="res-g-val verde" id="rg-salen">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">🚫 Retenidos en taller</span><span class="res-g-val rojo" id="rg-nosalen">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">🔵 Dados de alta tras reparación</span><span class="res-g-val" style="color:#93c5fd" id="rg-alta">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">📋 Disponibilidad final</span><span class="res-g-val verde" id="rg-disp">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">🔧 Mecánico responsable</span><span class="res-g-val" id="rg-mec">—</span></div>
+    <div class="res-g-row"><span class="res-g-label">✅ Autorizados</span><span class="res-g-val" style="color:var(--verde-p)" id="rg-salen">—</span></div>
+    <div class="res-g-row"><span class="res-g-label">🚫 Retenidos</span><span class="res-g-val" style="color:#fca5a5" id="rg-nosalen">—</span></div>
+    <div class="res-g-row"><span class="res-g-label">🔵 Dados de alta</span><span class="res-g-val" style="color:#93c5fd" id="rg-alta">—</span></div>
+    <div class="res-g-row"><span class="res-g-label">📋 Disponibilidad</span><span class="res-g-val" style="color:var(--verde-p)" id="rg-disp">—</span></div>
+    <div class="res-g-row"><span class="res-g-label">🔧 Mecánico</span><span class="res-g-val" id="rg-mec">—</span></div>
   </div>
-
-  <div class="card" id="res-detalle">
-    <div class="card-hdr rojo"><span class="card-hdr-icon">🚫</span>
-      <div><div class="card-hdr-title">Equipos retenidos</div><div class="card-hdr-sub">Pendientes o en reparación</div></div>
-    </div>
-    <div style="padding:0" id="res-nosalen-list"></div>
-  </div>
-
-  <div class="card" id="res-ok-card">
-    <div class="card-hdr verde"><span class="card-hdr-icon">✅</span>
-      <div><div class="card-hdr-title">Equipos autorizados</div><div class="card-hdr-sub">Listos para trabajar</div></div>
-    </div>
-    <div style="padding:0" id="res-salen-list"></div>
-  </div>
-
-  <button class="copy-btn" id="btn-imagen" onclick="generarImagen()" style="background:var(--verde)">
-    📸 Generar imagen para Gerencia
-  </button>
-  <button class="copy-btn wa-btn" onclick="enviarWhatsApp()">📱 Enviar texto por WhatsApp</button>
-  <div id="imagen-preview" style="display:none;margin-top:12px">
-    <img id="img-resultado" style="width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.15)" />
-    <button class="copy-btn" onclick="compartirImagen()" style="background:var(--verde-m);margin-top:8px">
-      📤 Compartir imagen
-    </button>
-    <button class="copy-btn" onclick="descargarImagen()" style="background:var(--gris);margin-top:6px">
-      💾 Descargar imagen
-    </button>
-  </div>
+  <div class="card"><div class="card-hdr rojo"><span class="card-hdr-icon">🚫</span><div><div class="card-hdr-title">Retenidos</div></div></div><div id="res-nosalen-list"></div></div>
+  <div class="card"><div class="card-hdr verde"><span class="card-hdr-icon">✅</span><div><div class="card-hdr-title">Autorizados</div></div></div><div id="res-salen-list"></div></div>
+  <button class="copy-btn" onclick="copiarResumen()">📋 Copiar resumen</button>
+  <button class="copy-btn wa-btn" onclick="enviarWhatsApp()">📱 Enviar por WhatsApp</button>
 </div>
 
-<!-- ══════════════ CONFIG ══════════════ -->
+<!-- CONFIG -->
 <div class="sec" id="sec-config">
   <div class="card">
-    <div class="card-hdr verde"><span class="card-hdr-icon">⚙️</span>
-      <div><div class="card-hdr-title">Configuración</div><div class="card-hdr-sub">Conexión y preferencias</div></div>
-    </div>
+    <div class="card-hdr verde"><span class="card-hdr-icon">⚙️</span><div><div class="card-hdr-title">Configuración</div></div></div>
     <div class="card-body">
-      <div class="cfg-step">
-        <span class="cfg-label">URL Google Apps Script</span>
-        <input class="cfg-input" type="text" id="cfg-url" placeholder="https://script.google.com/macros/s/XXXXX/exec">
-        <div style="font-size:11px;color:var(--gris);margin-top:5px">Misma URL del formulario de preoperativos</div>
-        <button class="cfg-btn" onclick="guardarConfig()">Guardar y conectar</button>
-      </div>
       <div class="cfg-step">
         <span class="cfg-label">Nombre del mecánico</span>
         <input class="cfg-input" type="text" id="cfg-mecanico" placeholder="Tu nombre">
@@ -305,24 +229,10 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
         <button class="cfg-btn" onclick="guardarWA()">Guardar</button>
       </div>
       <div class="cfg-step" style="border-left-color:var(--rojo-m)">
-        <span class="cfg-label" style="color:var(--rojo)">Limpiar datos locales</span>
-        <div style="font-size:11px;color:var(--gris);margin-bottom:8px">
-          Si ves tractores duplicados, usa este botón para limpiar el caché local. 
-          Los datos en Google Sheets no se borran.
-        </div>
-        <button class="cfg-btn" style="background:var(--rojo-m)" onclick="if(confirm('¿Limpiar caché local?'))limpiarCache()">
-          🗑️ Limpiar caché y recargar
-        </button>
+        <span class="cfg-label" style="color:var(--rojo)">Limpiar caché local</span>
+        <div style="font-size:11px;color:var(--gris);margin-bottom:8px">Si ves duplicados, limpia el caché. Los datos en Sheets no se borran.</div>
+        <button class="cfg-btn" style="background:var(--rojo-m)" onclick="if(confirm('¿Limpiar caché?'))limpiarCache()">🗑️ Limpiar y recargar</button>
       </div>
-    </div>
-  </div>
-  <div class="card">
-    <div class="card-hdr azul"><span class="card-hdr-icon">📋</span>
-      <div><div class="card-hdr-title">Código Apps Script</div><div class="card-hdr-sub">Pegar en Google Sheets → Extensiones → Apps Script</div></div>
-    </div>
-    <div class="card-body">
-      <div class="script-box" id="script-box"></div>
-      <button class="cfg-btn" style="width:100%;background:var(--dorado)" onclick="copiarScript()">Copiar código</button>
     </div>
   </div>
 </div>
@@ -331,86 +241,51 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 <div id="toast"></div>
 
 <script>
-// ═══════════════════════════════════════════════════
-//  APPS SCRIPT
-// ═══════════════════════════════════════════════════
-const SCRIPT = `function doPost(e) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const data = JSON.parse(e.postData.contents);
-  const sheet = ss.getSheetByName(data.hoja) || ss.insertSheet(data.hoja);
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow(data.encabezados);
-    sheet.getRange(1,1,1,data.encabezados.length)
-      .setBackground('#1a4731').setFontColor('#fff').setFontWeight('bold');
-    sheet.setFrozenRows(1);
-  }
-  sheet.appendRow(data.fila);
-  if (data.colorCol && data.color) {
-    const lr = sheet.getLastRow();
-    sheet.getRange(lr,1,1,data.fila.length).setBackground('#ffffff');
-    sheet.getRange(lr,data.colorCol).setBackground(data.color).setFontWeight('bold');
-  }
-  return resp({ok:true, fila: sheet.getLastRow()});
-}
-function doGet(e) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const hoja = e.parameter.hoja || 'Preoperativos';
-  const sheet = ss.getSheetByName(hoja);
-  if (!sheet || sheet.getLastRow() < 2) return resp({ok:true,datos:[],cols:[]});
-  const cols = sheet.getRange(1,1,1,sheet.getLastColumn()).getValues()[0];
-  const datos = sheet.getRange(2,1,sheet.getLastRow()-1,sheet.getLastColumn())
-    .getValues().filter(r=>r[0]!=='');
-  return resp({ok:true,datos,cols});
-}
-function resp(obj){
-  return ContentService.createTextOutput(JSON.stringify(obj))
-    .setMimeType(ContentService.MimeType.JSON);
-}`;
+// ═══════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════
+const GS_URL  = 'https://script.google.com/macros/s/AKfycby-zBxLt_NK5BJ3DjE-TABirGz6gdAm9VT5Ski7eGM0qIWUEfawLQjW9nSAoIUKvajfDw/exec';
+let MECANICO  = localStorage.getItem('palma_mecanico')||'Mecánico';
+let WA_NUM    = localStorage.getItem('palma_wa')||'';
+const HOY     = new Date().toLocaleDateString('es-CO');
 
-document.getElementById('script-box').textContent = SCRIPT;
-
-// ═══════════════════════════════════════════════════
-//  ESTADO
-// ═══════════════════════════════════════════════════
-let GS_URL   = localStorage.getItem('palma_gs_url')||'https://script.google.com/macros/s/AKfycby-zBxLt_NK5BJ3DjE-TABirGz6gdAm9VT5Ski7eGM0qIWUEfawLQjW9nSAoIUKvajfDw/exec';
-let MECANICO = localStorage.getItem('palma_mecanico')||'Mecánico';
-let WA_NUM   = localStorage.getItem('palma_wa')||'';
-
-if(GS_URL)   document.getElementById('cfg-url').value=GS_URL;
 if(MECANICO) document.getElementById('cfg-mecanico').value=MECANICO;
 if(WA_NUM)   document.getElementById('cfg-wa').value=WA_NUM;
 
-// Decisiones: { key: { decision, equipo, operario, notas, hora, confirmado, alta? } }
-let DEC = JSON.parse(localStorage.getItem('palma_dec')||'{}');
-// Altas: { key: { horaRetención, horaAlta, minutosResolucion, trabajo, mecanico } }
-let ALTAS = JSON.parse(localStorage.getItem('palma_altas')||'{}');
+// ═══════════════════════════════════════════════
+//  DATOS — todo desde Sheets
+// ═══════════════════════════════════════════════
+let PREOPS=[], REVISIONES=[], ALTAS=[];
 
-let PREOPS=[], NOVEDADES=[];
-const HOY = new Date().toLocaleDateString('es-CO');
 const ITEMS_INSP=['Frenos','Llantas','Luces','Batería','Escape','Sin fugas','Mandos','Estado exterior'];
 
-// ═══════════════════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════════════════
-// Elimina duplicados: por equipo + fecha, conserva el último registro
-function deduplicar(lista){
-  const mapa = {};
-  lista.forEach(r => {
-    // Clave: equipo + fecha (sin hora, para capturar duplicados aunque la hora difiera levemente)
-    const clave = (r[3]||'').trim() + '_' + (r[0]||'').trim();
-    mapa[clave] = r; // sobreescribe → queda el último
-  });
-  return Object.values(mapa);
-}
+const OBS_TAGS=[
+  {l:'⛽ Falta combustible',r:false},{l:'🔧 Cambio de aceite',r:false},
+  {l:'🛑 Frenos ajustados',r:false},{l:'🔵 Llantas infladas',r:false},
+  {l:'💡 Falla eléctrica',r:true}, {l:'💧 Fuga de aceite',r:true},
+  {l:'💧 Fuga de agua',r:true},    {l:'⚙️ Ajuste mecánico',r:false},
+  {l:'🔋 Batería baja',r:true},    {l:'✅ Sin novedad',r:false},
+];
+const ALTA_TAGS=[
+  {l:'🔧 Se cambió aceite'},{l:'🛑 Se ajustaron frenos'},
+  {l:'💡 Se reparó eléctrico'},{l:'💧 Se reparó fuga'},
+  {l:'⛽ Se tanqueó'},{l:'🔵 Se infló llanta'},
+  {l:'🔋 Se cargó batería'},{l:'⚙️ Ajuste completado'},
+];
 
+// ═══════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════
 function init(){
   const now=new Date();
   document.getElementById('hdr-date').textContent=
     now.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'}).replace('.','');
   document.getElementById('res-fecha-sub').textContent=
     'Flota Palma — '+now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  document.getElementById('ef-mecanico-name').textContent='Responsable: '+MECANICO;
+  document.getElementById('ef-nombre').textContent='Responsable: '+MECANICO;
   recargar();
+  // Auto-refresh cada 90 segundos
+  setInterval(recargar, 90000);
 }
 
 function showTab(name,btn){
@@ -423,722 +298,390 @@ function showTab(name,btn){
   if(name==='eficiencia') buildEficiencia();
 }
 
-// ═══════════════════════════════════════════════════
-//  CARGAR
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  FETCH DESDE SHEETS
+// ═══════════════════════════════════════════════
+async function fetchHoja(hoja){
+  try{
+    const r=await fetch(GS_URL+'?hoja='+hoja);
+    const d=await r.json();
+    return d.ok?d.datos.filter(f=>f[0]===HOY):[];
+  }catch{ return []; }
+}
+
 async function recargar(){
   document.getElementById('novedades-list').innerHTML=
-    '<div class="empty"><div class="empty-icon"><span class="spinner" style="width:28px;height:28px;border-width:3px"></span></div><div class="empty-title">Cargando...</div></div>';
-  if(!GS_URL){
-    PREOPS=deduplicar(JSON.parse(localStorage.getItem('palma_preop')||'[]').map(x=>x.fila));
-    renderNovedades(); return;
-  }
+    '<div class="loading"><div class="spinner"></div><div>Cargando...</div></div>';
   try{
-    const r=await fetch(GS_URL+'?hoja=Preoperativos').then(r=>r.json()).catch(()=>({ok:false,datos:[]}));
-    if(r.ok && r.datos.filter(f=>f[0]===HOY).length>0){
-      // Sheets tiene datos de hoy — usar SOLO Sheets, ignorar localStorage
-      PREOPS=deduplicar(r.datos.filter(f=>f[0]===HOY));
-    } else {
-      // Sin datos en Sheets — usar localStorage
-      PREOPS=deduplicar(JSON.parse(localStorage.getItem('palma_preop')||'[]').map(x=>x.fila));
-    }
+    [PREOPS, REVISIONES, ALTAS] = await Promise.all([
+      fetchHoja('Preoperativos'),
+      fetchHoja('Revisiones'),
+      fetchHoja('Altas'),
+    ]);
+    // Deduplicar preops: un preop por equipo por día
+    const visto={};
+    PREOPS=PREOPS.filter(r=>{ const k=(r[3]||'').trim(); if(visto[k])return false; visto[k]=true; return true; });
     renderNovedades();
+    updateKPIs();
   }catch(e){
-    PREOPS=deduplicar(JSON.parse(localStorage.getItem('palma_preop')||'[]').map(x=>x.fila));
+    toast('Error cargando datos','error');
     renderNovedades();
-    toast('Sin conexión — datos locales','error');
   }
 }
 
-// Limpia cache local del taller (útil cuando hay duplicados)
-function limpiarCache(){
-  localStorage.removeItem('palma_preop');
-  localStorage.removeItem('palma_dec');
-  localStorage.removeItem('palma_altas');
-  DEC={};ALTAS={};PREOPS=[];
-  recargar();
-  toast('✅ Cache limpiado');
+// ═══════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════
+// Revisiones cols: 0=Fecha,1=HoraPreop,2=Equipo,3=Operario,4=Decisión,5=Mecánico,6=HoraRevision,7=Obs
+// Altas cols:      0=Fecha,1=HoraPreop,2=Equipo,3=Operario,4=Mecánico,5=HoraRet,6=HoraAlta,7=Minutos,8=Trabajo
+
+function getRevision(equipo){
+  return REVISIONES.find(r=>(r[2]||'').trim()===(equipo||'').trim());
+}
+function getAlta(equipo){
+  return ALTAS.find(a=>(a[2]||'').trim()===(equipo||'').trim());
+}
+function ne(v){const n=parseInt(v)||0;return n<25?'🔴':n<50?'🟡':'🟢'}
+
+function updateKPIs(){
+  const salen   =REVISIONES.filter(r=>r[4]==='AUTORIZADO').length;
+  const retenidos=REVISIONES.filter(r=>r[4]==='RETENIDO').length-ALTAS.length;
+  const altasN  =ALTAS.length;
+  document.getElementById('kn-salen').textContent  =salen||'—';
+  document.getElementById('kn-nosalen').textContent=Math.max(0,retenidos)||'—';
+  document.getElementById('kn-alta').textContent   =altasN||'—';
 }
 
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  RENDER NOVEDADES
-// ═══════════════════════════════════════════════════
-// Columnas preop: 0=Fecha,1=Hora,2=Operario,3=Equipo,4=Labor,5=Lote,
-// 6=Horómetro,7=UltMtto,8=ProxMtto,9=HorasRestantes,10=EstadoMtto,
-// 11=Comb,12=Aceite,13=Agua,14=Hidra,
-// 15-22=items,23=EstadoOperario,24=Novedades
-
+// ═══════════════════════════════════════════════
 function renderNovedades(){
   updateKPIs();
   if(!PREOPS.length){
     document.getElementById('novedades-list').innerHTML=
-      '<div class="empty"><div class="empty-icon">🌅</div><div class="empty-title">Sin preoperativos hoy</div><div class="empty-sub">Cuando los operarios envíen sus preoperativos aparecerán aquí</div></div>';
+      '<div class="empty"><div class="empty-icon">🌅</div><div class="empty-title">Sin preoperativos hoy</div><div class="empty-sub">Cuando los operarios envíen aparecerán aquí</div></div>';
     return;
   }
-
-  // Ordenar: novedades primero, luego OK
+  // Con novedad primero
   const conNov=PREOPS.filter(r=>r[22]==='CON NOVEDAD');
-  const sinNov=PREOPS.filter(r=>r[23]!=='CON NOVEDAD');
-  const todos=[...conNov,...sinNov];
-
-  document.getElementById('novedades-list').innerHTML=todos.map(r=>{
-    const key=makeKey(r);
-    const dec=DEC[key];
-    const alta=ALTAS[key];
-    const tieneNov=r[22]==='CON NOVEDAD';
-    const severity=tieneNov?'alta':'libre';
-
-    const itemsFalla=ITEMS_INSP.map((lbl,i)=>({lbl,val:r[14+i]}))
-      .filter(x=>x.val==='warn'||x.val==='fail');
-    const nivBajos=[];
-    if(parseInt(r[11])<30) nivBajos.push('🔧 Aceite motor: '+r[11]);
-    if(parseInt(r[12])<30) nivBajos.push('💧 Agua/Refrig.: '+r[12]);
-    if(parseInt(r[13])<30) nivBajos.push('⚙️ Aceite hidráulico: '+r[13]);
-
-    // Si ya fue retenido y dado de alta → mostrar como resuelta
-    const cardClass = alta ? 'resuelta' : (dec?.decision==='sale'?'libre':severity);
-    const safeKey = key.replace(/[^a-z0-9]/gi,'_');
-
-    return `
-    <div class="nov-card ${cardClass}" id="nc-${safeKey}">
-      <div class="nov-hdr">
-        <div>
-          <div class="nov-equipo">${r[3]||'—'}</div>
-          <div class="nov-meta">👤 ${r[2]||'—'} &nbsp;·&nbsp; ⏱️ ${r[1]||''} &nbsp;·&nbsp; ${r[4]||''}</div>
-          ${r[10]==='VENCIDO'?'<div style="font-size:11px;color:var(--rojo-m);margin-top:3px;font-weight:700">⚠️ Mantenimiento vencido</div>':''}
-          ${r[10]==='PRÓXIMO'?'<div style="font-size:11px;color:var(--amarillo);margin-top:3px;font-weight:700">⚠️ Mantenimiento próximo — faltan '+r[9]+' h</div>':''}
-        </div>
-        <span class="pill ${alta?'pill-azul':dec?.decision==='sale'?'pill-ok':tieneNov?'pill-fail':'pill-gris'}">
-          ${alta?'🔵 Alta':dec?.decision==='sale'?'✅ Autorizado':dec?.decision==='nosale'?'🚫 Retenido':r[22]||'LISTO'}
-        </span>
-      </div>
-      <div class="nov-body">
-
-        <!-- ── RESUMEN PREOPERATIVO COMPLETO ── -->
-        <div style="background:var(--gris-p,#f1f5f9);border-radius:11px;padding:13px;margin-bottom:12px">
-          <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px">📋 Reporte del operario</div>
-
-          <!-- Niveles -->
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">
-            ${['🔧 Aceite','💧 Agua','⚙️ Hidráulico'].map((lbl,i)=>{
-              const pct=parseInt(r[11+i])||0;
-              const color=pct<25?'var(--rojo-m)':pct<50?'#f59e0b':'var(--verde-s)';
-              return '<div style="background:#fff;border-radius:8px;padding:8px 6px;text-align:center;border:1px solid var(--border)">'
-                +'<div style="font-size:11px;color:var(--gris);margin-bottom:3px">'+lbl+'</div>'
-                +'<div style="font-size:16px;font-weight:700;color:'+color+'">'+pct+'%</div>'
-                +'</div>';
-            }).join('')}
-          </div>
-
-          <!-- Horómetro y próximo mtto -->
-          <div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border)">
-            <span style="font-size:12px;color:var(--gris)">⏱️ Horómetro</span>
-            <span style="font-size:13px;font-weight:700">${r[6]||'—'} h</span>
-          </div>
-          <div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border);${r[10]==='VENCIDO'?'border-color:var(--rojo-m);background:var(--rojo-p)':r[10]==='PRÓXIMO'?'border-color:#f59e0b;background:#fffbeb':''}">
-            <span style="font-size:12px;color:var(--gris)">🔩 Próx. mantenimiento</span>
-            <span style="font-size:13px;font-weight:700;color:${r[10]==='VENCIDO'?'var(--rojo-m)':r[10]==='PRÓXIMO'?'#f59e0b':'var(--verde-m)'}">${r[10]==='VENCIDO'?'⚠️ VENCIDO':r[10]==='PRÓXIMO'?'⚠️ Faltan '+r[9]+' h':'✅ '+r[9]+' h restantes'}</span>
-          </div>
-
-          <!-- Tanqueo -->
-          <div style="background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border)">
-            <span style="font-size:12px;color:var(--gris)">⛽ Tanqueo</span>
-            <span style="font-size:13px;font-weight:700">${r[24]==='Sí'?r[25]+' L cargados':'No tanqueado'}</span>
-          </div>
-
-          <!-- Items con falla -->
-          ${itemsFalla.length?`
-          <div style="margin-top:4px">
-            <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">🔍 Ítems con novedad</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px">
-              ${itemsFalla.map(x=>`
-              <div style="padding:7px 11px;border-radius:10px;${x.val==='fail'?'background:var(--rojo-p);border:1.5px solid var(--rojo-m)':'background:var(--amarillo-p);border:1.5px solid #f59e0b'}">
-                <div style="font-size:11px;font-weight:700;${x.val==='fail'?'color:var(--rojo)':'color:var(--amarillo)'}">${x.val==='fail'?'❌ FALLA':'⚠️ NOVEDAD'}</div>
-                <div style="font-size:13px;font-weight:600;color:var(--text);margin-top:1px">${x.lbl}</div>
-              </div>`).join('')}
-            </div>
-          </div>`:'<div style="font-size:12px;color:var(--verde-m);font-weight:600">✅ Todos los ítems OK</div>'}
-
-          <!-- Niveles bajos -->
-          ${nivBajos.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${nivBajos.map(n=>`<span class="nip warn">${n}</span>`).join('')}</div>`:''}
-        </div>
-
-        <!-- Novedad escrita por el operario -->
-        ${r[23]?`
-        <div style="background:var(--rojo-p);border-left:4px solid var(--rojo-m);border-radius:8px;padding:11px 13px;margin-bottom:12px">
-          <div style="font-size:10px;font-weight:700;color:var(--rojo);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">📝 Descripción del operario</div>
-          <div style="font-size:13px;color:var(--text);line-height:1.5">${r[23]}</div>
-        </div>`:''}
-
-        ${alta ? renderAltaHecha(alta) : renderDecision(key, safeKey, r, dec)}
-      </div>
-    </div>`;
-  }).join('');
+  const sinNov=PREOPS.filter(r=>r[22]!=='CON NOVEDAD');
+  document.getElementById('novedades-list').innerHTML=
+    [...conNov,...sinNov].map(r=>renderCard(r)).join('');
 }
 
-function renderAltaHecha(alta){
+function renderCard(r){
+  const equipo  = (r[3]||'').trim();
+  const rev     = getRevision(equipo);
+  const alta    = getAlta(equipo);
+  const tieneNov= r[22]==='CON NOVEDAD';
+  const cardClass= alta?'resuelta':rev?.r?.[4]==='AUTORIZADO'||rev?.[4]==='AUTORIZADO'?'libre':tieneNov?'alta':'libre';
+  const safeId  = equipo.replace(/[^a-z0-9]/gi,'_');
+
+  const itemsFalla=ITEMS_INSP.map((lbl,i)=>({lbl,val:r[14+i]})).filter(x=>x.val==='warn'||x.val==='fail');
+  const nivBajos=[];
+  if(parseInt(r[11])<30)nivBajos.push('🔧 Aceite: '+r[11]);
+  if(parseInt(r[12])<30)nivBajos.push('💧 Agua: '+r[12]);
+  if(parseInt(r[13])<30)nivBajos.push('⚙️ Hidráulico: '+r[13]);
+
+  const decActual = alta?'alta':rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='RETENIDO'?'nosale':'';
+
   return `
-  <div class="timeline">
-    <div class="tl-item">
-      <div class="tl-dot rojo">🚫</div>
-      <div class="tl-content"><div class="tl-title">Retenido en taller</div><div class="tl-sub">${alta.horaRetencion||'—'}</div></div>
+  <div class="nov-card ${cardClass}" id="nc-${safeId}">
+    <div class="nov-hdr">
+      <div>
+        <div class="nov-equipo">${equipo||'—'}</div>
+        <div class="nov-meta">👤 ${r[2]||'—'} &nbsp;·&nbsp; ⏱️ ${r[1]||''} &nbsp;·&nbsp; ${r[4]||''}</div>
+        ${r[10]==='VENCIDO'?'<div style="font-size:11px;color:var(--rojo-m);margin-top:2px;font-weight:700">⚠️ Mantenimiento VENCIDO</div>':''}
+        ${r[10]==='PRÓXIMO'?'<div style="font-size:11px;color:#f59e0b;margin-top:2px;font-weight:700">⚠️ Mantenimiento próximo — faltan '+r[9]+' h</div>':''}
+      </div>
+      <span class="pill ${alta?'pill-azul':decActual==='sale'?'pill-ok':tieneNov?'pill-fail':'pill-gris'}">
+        ${alta?'🔵 Alta':decActual==='sale'?'✅ Autorizado':decActual==='nosale'?'🚫 Retenido':r[22]||'LISTO'}
+      </span>
     </div>
-    <div class="tl-item">
-      <div class="tl-dot verde">🔧</div>
-      <div class="tl-content"><div class="tl-title">Reparación: ${alta.trabajo||'—'}</div><div class="tl-sub">Por: ${alta.mecanico||'—'}</div></div>
-    </div>
-    <div class="tl-item">
-      <div class="tl-dot azul">✅</div>
-      <div class="tl-content"><div class="tl-title">Dado de alta — sale a trabajar</div><div class="tl-sub">${alta.horaAlta||'—'} · Tiempo resolución: <strong>${alta.minutos||'—'} min</strong></div></div>
+    <div class="nov-body">
+      <!-- RESUMEN PREOP -->
+      <div style="background:var(--gris-p);border-radius:11px;padding:12px;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.05em;margin-bottom:9px">📋 Reporte del operario</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px">
+          ${['🔧 Aceite','💧 Agua','⚙️ Hidráulico'].map((lbl,i)=>{
+            const pct=parseInt(r[11+i])||0;
+            const color=pct<25?'var(--rojo-m)':pct<50?'#f59e0b':'var(--verde-s)';
+            return '<div style="background:#fff;border-radius:7px;padding:7px 5px;text-align:center;border:1px solid var(--border)"><div style="font-size:10px;color:var(--gris);margin-bottom:2px">'+lbl+'</div><div style="font-size:15px;font-weight:700;color:'+color+'">'+pct+'%</div></div>';
+          }).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between;background:#fff;border-radius:7px;padding:7px 9px;margin-bottom:6px;border:1px solid var(--border)">
+          <span style="font-size:11px;color:var(--gris)">⏱️ Horómetro</span>
+          <span style="font-size:12px;font-weight:700">${r[6]||'—'} h</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;background:#fff;border-radius:7px;padding:7px 9px;margin-bottom:6px;border:1px solid var(--border);${r[10]==='VENCIDO'?'border-color:var(--rojo-m);background:var(--rojo-p)':r[10]==='PRÓXIMO'?'border-color:#f59e0b;background:#fffbeb':''}">
+          <span style="font-size:11px;color:var(--gris)">🔩 Próx. mantenimiento</span>
+          <span style="font-size:12px;font-weight:700;color:${r[10]==='VENCIDO'?'var(--rojo-m)':r[10]==='PRÓXIMO'?'#f59e0b':'var(--verde-m)'}">${r[10]==='VENCIDO'?'⚠️ VENCIDO':r[10]==='PRÓXIMO'?'Faltan '+r[9]+' h':'✅ '+r[9]+' h'}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;background:#fff;border-radius:7px;padding:7px 9px;border:1px solid var(--border)">
+          <span style="font-size:11px;color:var(--gris)">⛽ Tanqueo</span>
+          <span style="font-size:12px;font-weight:700">${r[24]==='Sí'?(r[25]+' L cargados'):'No tanqueado'}</span>
+        </div>
+        ${itemsFalla.length?`
+        <div style="margin-top:9px">
+          <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;margin-bottom:6px">🔍 Ítems con novedad</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px">
+            ${itemsFalla.map(x=>`<div style="padding:6px 10px;border-radius:9px;${x.val==='fail'?'background:var(--rojo-p);border:1.5px solid var(--rojo-m)':'background:var(--amarillo-p);border:1.5px solid #f59e0b'}"><div style="font-size:11px;font-weight:700;${x.val==='fail'?'color:var(--rojo)':'color:var(--amarillo)'}">${x.val==='fail'?'❌ FALLA':'⚠️ NOVEDAD'}</div><div style="font-size:12px;font-weight:600;color:var(--text);margin-top:1px">${x.lbl}</div></div>`).join('')}
+          </div>
+        </div>`:'<div style="margin-top:8px;font-size:12px;color:var(--verde-m);font-weight:600">✅ Todos los ítems OK</div>'}
+        ${nivBajos.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${nivBajos.map(n=>`<span style="padding:3px 9px;border-radius:20px;background:var(--amarillo-p);color:var(--amarillo);font-size:11px;font-weight:700">${n}</span>`).join('')}</div>`:''}
+      </div>
+      ${r[23]?`<div style="background:var(--rojo-p);border-left:4px solid var(--rojo-m);border-radius:8px;padding:10px 12px;margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:var(--rojo);text-transform:uppercase;margin-bottom:3px">📝 Descripción del operario</div><div style="font-size:13px;color:var(--text);line-height:1.5">${r[23]}</div></div>`:''}
+
+      ${alta ? renderAltaHecha(alta) : renderDecision(equipo, safeId, r, rev)}
     </div>
   </div>`;
 }
 
-// Opciones predefinidas mecánico
-const OBS_TAGS = [
-  {label:'⛽ Falta combustible', color:''},
-  {label:'🔧 Cambio de aceite',  color:''},
-  {label:'🛑 Frenos ajustados',  color:''},
-  {label:'🔵 Llantas infladas',  color:''},
-  {label:'💡 Falla eléctrica',   color:'rojo'},
-  {label:'💧 Fuga de aceite',    color:'rojo'},
-  {label:'💧 Fuga de agua',      color:'rojo'},
-  {label:'⚙️ Ajuste mecánico',   color:''},
-  {label:'🔋 Batería baja',      color:'rojo'},
-  {label:'✅ Sin novedad',        color:''},
-];
-const ALTA_TAGS = [
-  {label:'🔧 Se cambió aceite',   color:''},
-  {label:'🛑 Se ajustaron frenos',color:''},
-  {label:'💡 Se reparó eléctrico',color:''},
-  {label:'💧 Se reparó fuga',     color:''},
-  {label:'⛽ Se tanqueó',         color:''},
-  {label:'🔵 Se infló llanta',    color:''},
-  {label:'🔋 Se cargó batería',   color:''},
-  {label:'⚙️ Ajuste completado',  color:''},
-];
+function renderAltaHecha(alta){
+  return `
+  <div style="background:var(--azul-p);border-radius:11px;padding:12px">
+    <div style="font-size:11px;font-weight:700;color:var(--azul);margin-bottom:10px">🔵 HISTORIAL DE RESOLUCIÓN</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:10px;align-items:center"><div style="width:28px;height:28px;border-radius:50%;background:var(--rojo-p);display:grid;place-items:center;font-size:13px">🚫</div><div><div style="font-size:12px;font-weight:700">Retenido en taller</div><div style="font-size:11px;color:var(--gris)">${alta[5]||'—'}</div></div></div>
+      <div style="display:flex;gap:10px;align-items:center"><div style="width:28px;height:28px;border-radius:50%;background:var(--verde-p);display:grid;place-items:center;font-size:13px">🔧</div><div><div style="font-size:12px;font-weight:700">Reparación: ${alta[8]||'—'}</div><div style="font-size:11px;color:var(--gris)">Por: ${alta[4]||'—'}</div></div></div>
+      <div style="display:flex;gap:10px;align-items:center"><div style="width:28px;height:28px;border-radius:50%;background:var(--azul-p);display:grid;place-items:center;font-size:13px">✅</div><div><div style="font-size:12px;font-weight:700">Dado de alta — sale a trabajar</div><div style="font-size:11px;color:var(--gris)">${alta[6]||'—'} · Tiempo: <strong>${alta[7]||'—'} min</strong></div></div></div>
+    </div>
+  </div>`;
+}
 
-function renderDecision(key, safeKey, r, dec){
-  const noSale = dec?.decision==='nosale';
+function renderDecision(equipo, safeId, r, rev){
+  const decActual = rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='RETENIDO'?'nosale':'';
+  const noSale = decActual==='nosale';
   return `
     <div style="font-size:11px;color:var(--gris);margin-bottom:7px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">📋 Decisión del mecánico</div>
     <div class="dec-row">
-      <button class="dec-btn dec-sale ${dec?.decision==='sale'?'sel':''}"
-        onclick="decidir('${key}','sale','${r[3]||''}','${r[2]||''}')">✅ SALE</button>
-      <button class="dec-btn dec-nosale ${dec?.decision==='nosale'?'sel':''}"
-        onclick="decidir('${key}','nosale','${r[3]||''}','${r[2]||''}')">🚫 NO SALE</button>
+      <button class="dec-btn dec-sale ${decActual==='sale'?'sel':''}" onclick="decidir('${equipo}','sale')">✅ SALE</button>
+      <button class="dec-btn dec-nosale ${decActual==='nosale'?'sel':''}" onclick="decidir('${equipo}','nosale')">🚫 NO SALE</button>
     </div>
-    <div style="margin:10px 0 6px;font-size:11px;color:var(--gris);font-weight:600">Observaciones rápidas:</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px" id="obs-tags-${safeKey}">
-      ${OBS_TAGS.map(t=>`<span class="badge-tag ${t.color} ${dec?.notas?.includes(t.label)?'sel':''}"
-        onclick="toggleMecTag(this,'notes-${safeKey}','obs-tags-${safeKey}')">${t.label}</span>`).join('')}
+    <div style="margin:8px 0 6px;font-size:11px;color:var(--gris);font-weight:600">Observaciones rápidas:</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px" id="obs-${safeId}">
+      ${OBS_TAGS.map(t=>`<span class="badge-tag ${t.r?'rojo':''}" onclick="toggleTag(this,'notes-${safeId}','obs-${safeId}')">${t.l}</span>`).join('')}
     </div>
-    <textarea class="mec-notes" id="notes-${safeKey}" placeholder="Detalle adicional (opcional)...">${dec?.notas||''}</textarea>
-    <button class="conf-btn ${dec?.confirmado?'done':''}" id="cbtn-${safeKey}"
-      onclick="confirmar('${key}','${r[3]||''}','${r[2]||''}','${r[0]||''}','${r[1]||''}')">
-      ${dec?.confirmado?'✅ Confirmado — toca para actualizar':'Confirmar decisión'}
+    <textarea class="mec-notes" id="notes-${safeId}" placeholder="Detalle adicional (opcional)...">${rev?.[7]||''}</textarea>
+    <button class="conf-btn ${rev?'done':''}" onclick="confirmar('${equipo}','${r[3]||''}','${r[0]||''}','${r[1]||''}')">
+      ${rev?'✅ Confirmado — toca para actualizar':'Confirmar decisión'}
     </button>
-    ${noSale && dec?.confirmado ? `
-    <div class="alta-section show" id="alta-${safeKey}">
+    ${noSale?`
+    <div class="alta-section show" id="alta-sec-${safeId}">
       <div class="alta-title">🔵 Dar alta — Reparación completada</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px" id="alta-tags-${safeKey}">
-        ${ALTA_TAGS.map(t=>`<span class="badge-tag ${t.color}"
-          onclick="toggleAltaTag(this,'alta-trabajo-${safeKey}','alta-tags-${safeKey}')">${t.label}</span>`).join('')}
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px" id="alta-tags-${safeId}">
+        ${ALTA_TAGS.map(t=>`<span class="badge-tag" onclick="toggleAltaTag(this,'alta-notas-${safeId}','alta-tags-${safeId}')">${t.l}</span>`).join('')}
       </div>
       <div class="alta-fields">
-        <textarea id="alta-trabajo-${safeKey}" placeholder="Detalle del trabajo (opcional si usaste botones arriba)..."></textarea>
-        <input type="time" id="alta-hora-${safeKey}" value="${new Date().toTimeString().slice(0,5)}">
+        <textarea id="alta-notas-${safeId}" placeholder="Detalle del trabajo realizado..."></textarea>
+        <input type="time" id="alta-hora-${safeId}" value="${new Date().toTimeString().slice(0,5)}">
       </div>
-      <button class="alta-btn" onclick="darAlta('${key}','${r[3]||''}','${r[2]||''}','${r[0]||''}','${r[1]||''}')">
+      <button class="alta-btn" onclick="darAlta('${equipo}','${r[3]||''}','${r[0]||''}','${r[1]||''}')">
         🔵 Confirmar alta — Equipo listo para salir
       </button>
-    </div>` : ''}
-  `;
+    </div>`:''}`;
 }
 
-function toggleMecTag(el, textareaId, groupId){
-  el.classList.toggle('sel');
-  const tags=[...document.querySelectorAll('#'+groupId+' .badge-tag.sel')].map(t=>t.textContent.trim()).join(' · ');
-  const ta=document.getElementById(textareaId);
-  // Keep any manually typed text, just update the tags part
-  const manual=ta.dataset.manual||'';
-  ta.value=tags+(manual?' — '+manual:'');
-  ta.dataset.tags=tags;
-}
-function toggleAltaTag(el, textareaId, groupId){
-  el.classList.toggle('sel');
-  const tags=[...document.querySelectorAll('#'+groupId+' .badge-tag.sel')].map(t=>t.textContent.trim()).join(' · ');
-  const ta=document.getElementById(textareaId);
-  ta.dataset.tags=tags;
-  if(!ta.dataset.manual) ta.value=tags;
-  else ta.value=tags+(ta.dataset.manual?' — '+ta.dataset.manual:'');
-}
+// ═══════════════════════════════════════════════
+//  ACCIONES — todo se guarda en Sheets
+// ═══════════════════════════════════════════════
+let decTemp={}; // selección temporal antes de confirmar
 
-// ═══════════════════════════════════════════════════
-//  DECISIONES
-// ═══════════════════════════════════════════════════
-function makeKey(r){ return (r[3]||'')+'_'+(r[0]||'')+'_'+(r[1]||''); }
-function makeKeyStr(equipo,fecha,hora){ return equipo+'_'+fecha+'_'+hora; }
-
-function decidir(key,decision,equipo,operario){
-  if(!DEC[key]) DEC[key]={};
-  DEC[key].decision=decision; DEC[key].equipo=equipo; DEC[key].operario=operario;
-  DEC[key].confirmado=false;
-  localStorage.setItem('palma_dec',JSON.stringify(DEC));
-  renderNovedades();
+function decidir(equipo,decision){
+  decTemp[equipo]=decision;
+  // Re-render solo esa tarjeta actualizando botones
+  const safeId=equipo.replace(/[^a-z0-9]/gi,'_');
+  const salBtn=document.querySelector(`#nc-${safeId} .dec-sale`);
+  const noBtn =document.querySelector(`#nc-${safeId} .dec-nosale`);
+  if(salBtn) salBtn.className='dec-btn dec-sale'+(decision==='sale'?' sel':'');
+  if(noBtn)  noBtn.className ='dec-btn dec-nosale'+(decision==='nosale'?' sel':'');
+  // Mostrar/ocultar sección alta
+  const altaSec=document.getElementById(`alta-sec-${safeId}`);
+  if(altaSec) altaSec.style.display=decision==='nosale'?'block':'none';
 }
 
-async function confirmar(key,equipo,operario,fecha,hora){
-  const safeKey=key.replace(/[^a-z0-9]/gi,'_');
-  const dec=DEC[key];
-  if(!dec?.decision){toast('⚠️ Elige SALE o NO SALE primero','error');return;}
-  const notas=document.getElementById('notes-'+safeKey)?.value||'';
+async function confirmar(equipo,operario,fecha,hora){
+  const decision=decTemp[equipo];
+  if(!decision){toast('⚠️ Elige SALE o NO SALE primero','error');return;}
+  const safeId=equipo.replace(/[^a-z0-9]/gi,'_');
+  const notas=document.getElementById('notes-'+safeId)?.value||'';
   const horaConf=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
-  DEC[key]={...dec,notas,confirmado:true,hora:horaConf};
-  // Si NO SALE → guardar hora de retención para calcular tiempo
-  if(dec.decision==='nosale') DEC[key].horaRetencion=horaConf;
-  localStorage.setItem('palma_dec',JSON.stringify(DEC));
 
-  if(GS_URL){
-    try{
-      await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
-        hoja:'Revisiones',
-        fila:[fecha,hora,equipo,operario,dec.decision==='sale'?'AUTORIZADO':'RETENIDO',MECANICO,horaConf,notas],
-        encabezados:['Fecha','Hora Preop','Equipo','Operario','Decisión','Mecánico','Hora Revisión','Observaciones'],
-        colorCol:5,color:dec.decision==='sale'?'#dcfce7':'#fee2e2'
-      })});
-    }catch(e){}
+  const fila=[fecha,hora,equipo,operario,decision==='sale'?'AUTORIZADO':'RETENIDO',MECANICO,horaConf,notas];
+  const enc=['Fecha','Hora Preop','Equipo','Operario','Decisión','Mecánico','Hora Revisión','Observaciones'];
+
+  try{
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
+      hoja:'Revisiones',fila,encabezados:enc,
+      colorCol:5,color:decision==='sale'?'#dcfce7':'#fee2e2'
+    })});
+    toast(decision==='sale'?`✅ ${equipo} autorizado`:`🚫 ${equipo} retenido`);
+    setTimeout(()=>recargar(),1500);
+  }catch(e){
+    toast('Error guardando','error');
   }
-  toast(dec.decision==='sale'?`✅ ${equipo} autorizado`:`🚫 ${equipo} retenido — queda pendiente de alta`);
-  updateKPIs();
-  renderNovedades();
 }
 
-// ═══════════════════════════════════════════════════
-//  DAR ALTA
-// ═══════════════════════════════════════════════════
-async function darAlta(key,equipo,operario,fecha,hora){
-  const safeKey=key.replace(/[^a-z0-9]/gi,'_');
-  const dec=DEC[key];
-  const trabajoEl=document.getElementById('alta-trabajo-'+safeKey);
-  const horaAltaEl=document.getElementById('alta-hora-'+safeKey);
-  const trabajo=trabajoEl?.value?.trim()||'';
+async function darAlta(equipo,operario,fecha,hora){
+  const safeId=equipo.replace(/[^a-z0-9]/gi,'_');
+  const trabajo=document.getElementById('alta-notas-'+safeId)?.value?.trim()||'';
   if(!trabajo){toast('⚠️ Describe el trabajo realizado','error');return;}
+  const horaAlta=document.getElementById('alta-hora-'+safeId)?.value||new Date().toTimeString().slice(0,5);
+  const rev=getRevision(equipo);
+  const horaRet=rev?.[6]||hora;
 
-  const horaAlta=horaAltaEl?.value||new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
-
-  // Calcular tiempo de resolución en minutos
   let minutos='—';
   try{
-    const horaRet=dec.horaRetencion||hora;
-    const [hR,mR]=horaRet.split(':').map(Number);
-    const [hA,mA]=horaAlta.split(':').map(Number);
-    minutos=((hA*60+mA)-(hR*60+mR));
-    if(minutos<0) minutos+=1440;
+    const[hR,mR]=horaRet.split(':').map(Number);
+    const[hA,mA]=horaAlta.split(':').map(Number);
+    minutos=Math.max(0,(hA*60+mA)-(hR*60+mR));
+    if(minutos<0)minutos+=1440;
   }catch(e){}
 
-  const altaData={horaRetencion:dec.horaRetencion||hora,horaAlta,trabajo,mecanico:MECANICO,minutos,fecha,equipo,operario};
-  ALTAS[key]=altaData;
-  localStorage.setItem('palma_altas',JSON.stringify(ALTAS));
+  const fila=[fecha,hora,equipo,operario,MECANICO,horaRet,horaAlta,minutos,trabajo];
+  const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos Resolución','Trabajo Realizado'];
 
-  if(GS_URL){
-    try{
-      await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
-        hoja:'Altas',
-        fila:[fecha,hora,equipo,operario,MECANICO,dec.horaRetencion||hora,horaAlta,minutos,trabajo],
-        encabezados:['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos Resolución','Trabajo Realizado'],
-        colorCol:9,color:'#dbeafe'
-      })});
-    }catch(e){}
+  try{
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
+      hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'
+    })});
+    toast(`🔵 ${equipo} dado de alta — resuelto en ${minutos} min`);
+    setTimeout(()=>recargar(),1500);
+  }catch(e){
+    toast('Error guardando','error');
   }
-
-  toast(`🔵 ${equipo} dado de alta — resuelto en ${minutos} min`);
-  updateKPIs();
-  renderNovedades();
-  buildEficiencia();
 }
 
-// ═══════════════════════════════════════════════════
-//  KPIs
-// ═══════════════════════════════════════════════════
-function updateKPIs(){
-  const salen  =Object.values(DEC).filter(d=>d.decision==='sale'&&d.confirmado).length;
-  const retenidos=Object.values(DEC).filter(d=>d.decision==='nosale'&&d.confirmado&&!ALTAS[Object.keys(DEC).find(k=>DEC[k]===d)]).length;
-  const altasHoy=Object.keys(ALTAS).filter(k=>ALTAS[k].fecha===HOY).length;
-  document.getElementById('kn-salen').textContent  =salen||'—';
-  document.getElementById('kn-nosalen').textContent=retenidos||'—';
-  document.getElementById('kn-alta').textContent   =altasHoy||'—';
+function toggleTag(el,taId,grpId){
+  el.classList.toggle('sel');
+  const tags=[...document.querySelectorAll('#'+grpId+' .badge-tag.sel')].map(t=>t.textContent.trim()).join(' · ');
+  document.getElementById(taId).value=tags;
+}
+function toggleAltaTag(el,taId,grpId){
+  el.classList.toggle('sel');
+  const tags=[...document.querySelectorAll('#'+grpId+' .badge-tag.sel')].map(t=>t.textContent.trim()).join(' · ');
+  document.getElementById(taId).value=tags;
 }
 
-// ═══════════════════════════════════════════════════
-//  FLOTA TABLE
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  FLOTA
+// ═══════════════════════════════════════════════
 function buildFlota(){
-  if(!PREOPS.length) return;
+  if(!PREOPS.length)return;
   const rows=PREOPS.map(r=>{
-    const key=makeKey(r);
-    const dec=DEC[key]; const alta=ALTAS[key];
+    const eq=r[3]||'—';
+    const rev=getRevision(eq);
+    const alta=getAlta(eq);
     const est=alta?'<span class="pill pill-azul">🔵 Alta</span>'
-      :dec?.decision==='sale'?'<span class="pill pill-ok">✅ Autorizado</span>'
-      :dec?.decision==='nosale'?'<span class="pill pill-fail">🚫 Retenido</span>'
+      :rev?.[4]==='AUTORIZADO'?'<span class="pill pill-ok">✅ Autorizado</span>'
+      :rev?.[4]==='RETENIDO'?'<span class="pill pill-fail">🚫 Retenido</span>'
       :'<span class="pill pill-gris">⏳ Pendiente</span>';
-    return `<tr><td><strong>${r[3]||'—'}</strong></td><td>${r[2]||'—'}</td><td>${r[1]||'—'}</td><td>${r[6]||'—'} h</td><td>${(r[11]||'—')}</td><td>${est}</td></tr>`;
+    return `<tr><td><strong>${eq}</strong></td><td>${r[2]||'—'}</td><td>${r[1]||'—'}</td><td>${r[6]||'—'} h</td><td>${r[22]==='CON NOVEDAD'?'⚠️ Novedad':'✅ OK'}</td><td>${est}</td></tr>`;
   }).join('');
   document.getElementById('flota-wrap').innerHTML=`
     <table class="tbl">
-      <thead><tr><th>Equipo</th><th>Operario</th><th>Hora</th><th>Horómetro</th><th>Aceite Motor</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Equipo</th><th>Operario</th><th>Hora</th><th>Horómetro</th><th>Estado Op.</th><th>Decisión</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 }
 
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  EFICIENCIA
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 function buildEficiencia(){
-  const altasHoy=Object.entries(ALTAS).filter(([,a])=>a.fecha===HOY);
-  const retenidosHoy=Object.values(DEC).filter(d=>d.decision==='nosale'&&d.confirmado).length;
-  const resueltos=altasHoy.length;
-  const tiempos=altasHoy.map(([,a])=>typeof a.minutos==='number'?a.minutos:null).filter(t=>t!==null&&t>=0);
-  const promedio=tiempos.length?Math.round(tiempos.reduce((a,b)=>a+b,0)/tiempos.length):0;
-  const tasa=retenidosHoy>0?Math.round(resueltos/retenidosHoy*100):0;
-
-  document.getElementById('ef-total').textContent    =retenidosHoy||'—';
+  const retenidos=REVISIONES.filter(r=>r[4]==='RETENIDO').length;
+  const resueltos=ALTAS.length;
+  const tiempos=ALTAS.map(a=>typeof a[7]==='number'?a[7]:parseInt(a[7])||0).filter(t=>t>0);
+  const prom=tiempos.length?Math.round(tiempos.reduce((a,b)=>a+b,0)/tiempos.length):0;
+  const tasa=retenidos>0?Math.round(resueltos/retenidos*100):0;
+  document.getElementById('ef-total').textContent    =retenidos||'—';
   document.getElementById('ef-resueltos').textContent=resueltos||'—';
-  document.getElementById('ef-tiempo').textContent   =promedio?promedio+'m':'—';
+  document.getElementById('ef-tiempo').textContent   =prom?prom+'m':'—';
   document.getElementById('ef-pct').textContent      =tasa?tasa+'%':'—';
-  document.getElementById('ef-pct-label').textContent=tasa+'%';
+  document.getElementById('ef-pct-lbl').textContent  =tasa+'%';
   document.getElementById('ef-bar').style.width      =tasa+'%';
-
-  // Historial
   const hist=document.getElementById('historial-alta');
-  if(!altasHoy.length){
-    hist.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin altas registradas hoy</div></div>';
-    return;
-  }
-  hist.innerHTML=`<table class="tbl">
-    <thead><tr><th>Equipo</th><th>Retención</th><th>Alta</th><th>Tiempo</th><th>Trabajo</th></tr></thead>
-    <tbody>
-      ${altasHoy.map(([,a])=>`
-      <tr>
-        <td><strong>${a.equipo||'—'}</strong></td>
-        <td>${a.horaRetencion||'—'}</td>
-        <td>${a.horaAlta||'—'}</td>
-        <td><span class="pill ${a.minutos<=30?'pill-ok':a.minutos<=60?'pill-warn':'pill-fail'}">${a.minutos} min</span></td>
-        <td style="font-size:11px;max-width:160px">${a.trabajo||'—'}</td>
-      </tr>`).join('')}
-    </tbody>
-  </table>`;
+  if(!ALTAS.length){hist.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin altas hoy</div></div>';return;}
+  hist.innerHTML=`<table class="tbl"><thead><tr><th>Equipo</th><th>Retención</th><th>Alta</th><th>Tiempo</th><th>Trabajo</th></tr></thead><tbody>
+    ${ALTAS.map(a=>`<tr><td><strong>${a[2]||'—'}</strong></td><td>${a[5]||'—'}</td><td>${a[6]||'—'}</td>
+    <td><span class="pill ${parseInt(a[7])<=30?'pill-ok':parseInt(a[7])<=60?'pill-warn':'pill-fail'}">${a[7]} min</span></td>
+    <td style="font-size:11px;max-width:140px">${a[8]||'—'}</td></tr>`).join('')}
+  </tbody></table>`;
 }
 
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  RESUMEN GERENCIA
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 function buildResumen(){
   const total   =PREOPS.length;
-  const salen   =Object.values(DEC).filter(d=>d.decision==='sale'&&d.confirmado).length;
-  const nosalen =Object.values(DEC).filter(d=>d.decision==='nosale'&&d.confirmado).length;
-  const altasHoy=Object.keys(ALTAS).filter(k=>ALTAS[k].fecha===HOY).length;
-  const dispFinal=total>0?Math.round((salen+altasHoy)/total*100):0;
-
+  const salen   =REVISIONES.filter(r=>r[4]==='AUTORIZADO').length;
+  const nosalen =REVISIONES.filter(r=>r[4]==='RETENIDO').length-ALTAS.length;
+  const altasN  =ALTAS.length;
+  const disp    =total>0?Math.round((salen+altasN)/total*100):0;
   document.getElementById('rg-total').textContent  =total||'—';
   document.getElementById('rg-salen').textContent  =salen||'—';
-  document.getElementById('rg-nosalen').textContent=nosalen||'—';
-  document.getElementById('rg-alta').textContent   =altasHoy||'—';
-  document.getElementById('rg-disp').textContent   =total>0?dispFinal+'%':'—';
+  document.getElementById('rg-nosalen').textContent=Math.max(0,nosalen)||'—';
+  document.getElementById('rg-alta').textContent   =altasN||'—';
+  document.getElementById('rg-disp').textContent   =total>0?disp+'%':'—';
   document.getElementById('rg-mec').textContent    =MECANICO;
 
-  // No salen
-  const noSalenList=Object.entries(DEC).filter(([k,d])=>d.decision==='nosale'&&d.confirmado&&!ALTAS[k]);
+  const noSalenList=REVISIONES.filter(r=>r[4]==='RETENIDO'&&!getAlta(r[2]));
   document.getElementById('res-nosalen-list').innerHTML=noSalenList.length
-    ?noSalenList.map(([k,d])=>`
-      <div style="padding:11px 13px;border-bottom:1px solid var(--border)">
-        <div style="font-weight:700;font-size:13px">🚫 ${d.equipo||k.split('_')[0]}</div>
-        <div style="font-size:11px;color:var(--gris);margin-top:2px">Op: ${d.operario||'—'} · Retenido: ${d.horaRetencion||d.hora||'—'}</div>
-        ${d.notas?`<div style="font-size:12px;color:var(--rojo);margin-top:3px">⚙️ ${d.notas}</div>`:''}
-      </div>`).join('')
+    ?noSalenList.map(r=>`<div style="padding:11px 13px;border-bottom:1px solid var(--border)"><div style="font-weight:700;font-size:13px">🚫 ${r[2]||'—'}</div><div style="font-size:11px;color:var(--gris);margin-top:2px">Op: ${r[3]||'—'} · ${r[7]||'Sin observaciones'}</div></div>`).join('')
     :'<div style="padding:14px;text-align:center;color:var(--gris);font-size:12px">✅ Ningún equipo retenido</div>';
 
-  // Salen + altas
   const salenList=[
-    ...Object.entries(DEC).filter(([,d])=>d.decision==='sale'&&d.confirmado).map(([,d])=>({equipo:d.equipo,tipo:'directo',hora:d.hora,op:d.operario})),
-    ...Object.entries(ALTAS).filter(([,a])=>a.fecha===HOY).map(([,a])=>({equipo:a.equipo,tipo:'alta',hora:a.horaAlta,op:a.operario,minutos:a.minutos}))
+    ...REVISIONES.filter(r=>r[4]==='AUTORIZADO').map(r=>({eq:r[2],tipo:'directo',hora:r[6],op:r[3]})),
+    ...ALTAS.map(a=>({eq:a[2],tipo:'alta',hora:a[6],op:a[3],min:a[7]}))
   ];
   document.getElementById('res-salen-list').innerHTML=salenList.length
-    ?salenList.map(s=>`
-      <div style="padding:10px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div style="font-weight:700;font-size:13px">${s.tipo==='alta'?'🔵':'✅'} ${s.equipo||'—'}</div>
-          <div style="font-size:11px;color:var(--gris)">Op: ${s.op||'—'} · ${s.hora||'—'}${s.minutos?` · Resuelto en ${s.minutos} min`:''}</div>
-        </div>
-        <span class="pill ${s.tipo==='alta'?'pill-azul':'pill-ok'}">${s.tipo==='alta'?'Reparado':'Directo'}</span>
-      </div>`).join('')
-    :'<div style="padding:14px;text-align:center;color:var(--gris);font-size:12px">— Sin confirmaciones aún</div>';
+    ?salenList.map(s=>`<div style="padding:10px 13px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between"><div><div style="font-weight:700;font-size:13px">${s.tipo==='alta'?'🔵':'✅'} ${s.eq||'—'}</div><div style="font-size:11px;color:var(--gris)">Op: ${s.op||'—'} · ${s.hora||'—'}${s.min?' · '+s.min+' min':''}</div></div><span class="pill ${s.tipo==='alta'?'pill-azul':'pill-ok'}">${s.tipo==='alta'?'Reparado':'Directo'}</span></div>`).join('')
+    :'<div style="padding:14px;text-align:center;color:var(--gris);font-size:12px">— Sin confirmaciones</div>';
 }
 
-// ═══════════════════════════════════════════════════
-//  COPIAR / WHATSAPP
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+//  WHATSAPP
+// ═══════════════════════════════════════════════
 function generarTexto(){
   const now=new Date();
   const hora=now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
   const fecha=now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const fechaCap=fecha.charAt(0).toUpperCase()+fecha.slice(1);
-
-  const total    = PREOPS.length;
-  const salen    = Object.values(DEC).filter(d=>d.decision==='sale'&&d.confirmado).length;
-  const nosalen  = Object.values(DEC).filter(d=>d.decision==='nosale'&&d.confirmado).length;
-  const altasHoy = Object.keys(ALTAS).filter(k=>ALTAS[k].fecha===HOY).length;
-  const dispFinal= total>0?Math.round((salen+altasHoy)/total*100):0;
-  const sinRev   = total-(salen+nosalen);
-
-  // Separador visual
-  const sep = '━━━━━━━━━━━━━━━━━━━━━━';
-
-  // Listas detalladas
-  const salenList = Object.entries(DEC)
-    .filter(([,d])=>d.decision==='sale'&&d.confirmado)
-    .map(([,d])=>`   ✅ ${d.equipo}`)
-    .join('\n');
-
-  const noSalenList = Object.entries(DEC)
-    .filter(([k,d])=>d.decision==='nosale'&&d.confirmado&&!ALTAS[k])
-    .map(([,d])=>`   🚫 ${d.equipo}${d.notas?' ('+d.notas+')':''}`)
-    .join('\n');
-
-  const altasList = Object.entries(ALTAS)
-    .filter(([,a])=>a.fecha===HOY)
-    .map(([,a])=>`   🔵 ${a.equipo} — reparado en ${a.minutos} min`)
-    .join('\n');
-
-  // Semáforo disponibilidad
-  const semaforo = dispFinal>=85?'🟢':dispFinal>=60?'🟡':'🔴';
-
-  let msg = '';
-  msg += `🌴 *FLOTA PALMA — REPORTE DIARIO*\n`;
-  msg += `${sep}\n`;
-  msg += `📅 ${fechaCap}\n`;
-  msg += `⏰ Generado: ${hora}\n`;
-  msg += `👷 Mecánico: *${MECANICO}*\n`;
-  msg += `${sep}\n\n`;
-
-  msg += `📊 *RESUMEN DE FLOTA*\n`;
-  msg += `▸ Tractores reportados: *${total}*\n`;
-  msg += `▸ Autorizados para salir: *${salen}*\n`;
-  msg += `▸ Retenidos en taller: *${nosalen-altasHoy}*\n`;
-  if(altasHoy>0) msg += `▸ Dados de alta hoy: *${altasHoy}*\n`;
-  if(sinRev>0)   msg += `▸ Sin revisar aún: *${sinRev}*\n`;
-  msg += `\n${semaforo} *Disponibilidad: ${dispFinal}%*\n`;
-  msg += `${sep}\n`;
-
-  if(salenList){
-    msg += `\n✅ *AUTORIZADOS*\n${salenList}\n`;
-  }
-  if(noSalenList){
-    msg += `\n🚫 *RETENIDOS EN TALLER*\n${noSalenList}\n`;
-  }
-  if(altasList){
-    msg += `\n🔵 *DADOS DE ALTA TRAS REPARACIÓN*\n${altasList}\n`;
-  }
-
-  msg += `\n${sep}\n`;
-  msg += `_Taller Palma — Sistema Automático_`;
-
+  const total  =PREOPS.length;
+  const salen  =REVISIONES.filter(r=>r[4]==='AUTORIZADO').length;
+  const nosalen=Math.max(0,REVISIONES.filter(r=>r[4]==='RETENIDO').length-ALTAS.length);
+  const altasN =ALTAS.length;
+  const disp   =total>0?Math.round((salen+altasN)/total*100):0;
+  const sem    =disp>=85?'🟢':disp>=60?'🟡':'🔴';
+  const sep    ='━━━━━━━━━━━━━━━━━━━━━━';
+  const salenTxt=REVISIONES.filter(r=>r[4]==='AUTORIZADO').map(r=>`   ✅ ${r[2]}`).join('\n');
+  const noSalenTxt=REVISIONES.filter(r=>r[4]==='RETENIDO'&&!getAlta(r[2])).map(r=>`   🚫 ${r[2]}${r[7]?' ('+r[7]+')':''}`).join('\n');
+  const altasTxt=ALTAS.map(a=>`   🔵 ${a[2]} — resuelto en ${a[7]} min`).join('\n');
+  let msg=`🌴 *FLOTA PALMA — REPORTE DIARIO*\n${sep}\n📅 ${fechaCap}\n⏰ Generado: ${hora}\n👷 Mecánico: *${MECANICO}*\n${sep}\n\n`;
+  msg+=`📊 *RESUMEN DE FLOTA*\n▸ Reportados: *${total}*\n▸ Autorizados: *${salen}*\n▸ Retenidos: *${nosalen}*\n`;
+  if(altasN>0)msg+=`▸ Dados de alta: *${altasN}*\n`;
+  msg+=`\n${sem} *Disponibilidad: ${disp}%*\n${sep}\n`;
+  if(salenTxt)msg+=`\n✅ *AUTORIZADOS*\n${salenTxt}\n`;
+  if(noSalenTxt)msg+=`\n🚫 *RETENIDOS*\n${noSalenTxt}\n`;
+  if(altasTxt)msg+=`\n🔵 *DADOS DE ALTA*\n${altasTxt}\n`;
+  msg+=`\n${sep}\n_Taller Palma — Sistema Automático_`;
   return msg;
 }
-function copiarResumen(){ navigator.clipboard.writeText(generarTexto()).then(()=>toast('✅ Copiado')); }
+function copiarResumen(){navigator.clipboard.writeText(generarTexto()).then(()=>toast('✅ Copiado'));}
 function enviarWhatsApp(){
   const url=WA_NUM?`https://wa.me/${WA_NUM.replace(/\D/g,'')}?text=${encodeURIComponent(generarTexto())}`:`https://wa.me/?text=${encodeURIComponent(generarTexto())}`;
   window.open(url,'_blank');
 }
 
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 //  CONFIG
-// ═══════════════════════════════════════════════════
-function guardarConfig(){GS_URL=document.getElementById('cfg-url').value.trim();localStorage.setItem('palma_gs_url',GS_URL);localStorage.setItem('flota_gs_url',GS_URL);toast('✅ URL guardada');recargar();}
-function guardarMecanico(){MECANICO=document.getElementById('cfg-mecanico').value.trim()||'Mecánico';localStorage.setItem('palma_mecanico',MECANICO);document.getElementById('ef-mecanico-name').textContent='Responsable: '+MECANICO;toast('✅ Guardado');}
+// ═══════════════════════════════════════════════
+function guardarMecanico(){MECANICO=document.getElementById('cfg-mecanico').value.trim()||'Mecánico';localStorage.setItem('palma_mecanico',MECANICO);document.getElementById('ef-nombre').textContent='Responsable: '+MECANICO;toast('✅ Guardado');}
 function guardarWA(){WA_NUM=document.getElementById('cfg-wa').value.trim();localStorage.setItem('palma_wa',WA_NUM);toast('✅ Guardado');}
-function copiarScript(){navigator.clipboard.writeText(SCRIPT).then(()=>toast('✅ Código copiado'));}
+function limpiarCache(){localStorage.removeItem('palma_dec');localStorage.removeItem('palma_altas');recargar();toast('✅ Caché limpiado');}
 function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(type?' '+type:'');setTimeout(()=>t.className='',3000);}
 
 init();
-
-// ── PWA: Registrar Service Worker ──────────────────────
-if('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(reg => {
-        console.log('[PWA] SW registrado');
-        window.addEventListener('online', () => {
-          if(reg.sync) reg.sync.register('sync-preoperativos');
-          toast('🌐 Conexión restaurada — recargando datos...');
-          setTimeout(() => recargar(), 2000);
-        });
-        window.addEventListener('offline', () => {
-          toast('📵 Sin internet — mostrando datos guardados');
-        });
-      }).catch(err => console.log('[PWA] Error SW:', err));
-  });
-}
-
-// ── Banner instalación ──────────────────────────────────
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-  setTimeout(() => {
-    if(deferredPrompt) {
-      const banner = document.createElement('div');
-      banner.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#b7791f;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;z-index:998;box-shadow:0 4px 16px rgba(0,0,0,.3);white-space:nowrap';
-      banner.innerHTML = '📲 Instalar app en tu celular';
-      banner.onclick = () => {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then(() => { deferredPrompt=null; banner.remove(); });
-      };
-      document.body.appendChild(banner);
-      setTimeout(() => banner.remove(), 8000);
-    }
-  }, 3000);
-});
-
 </script>
-
-<!-- html2canvas -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script>
-// ═══════════════════════════════════════════════
-//  GENERAR IMAGEN RESUMEN PARA GERENCIA
-// ═══════════════════════════════════════════════
-let imgBlob = null;
-
-async function generarImagen() {
-  const btn = document.getElementById('btn-imagen');
-  btn.innerHTML = '<span class="spinner"></span>Generando imagen...';
-  btn.disabled = true;
-
-  // Primero actualizar el resumen
-  buildResumen();
-
-  // Crear canvas del elemento resumen
-  const el = document.getElementById('sec-resumen');
-  
-  // Activar sección resumen temporalmente si no está visible
-  const wasActive = el.classList.contains('active');
-  if(!wasActive) {
-    el.style.position = 'absolute';
-    el.style.left = '-9999px';
-    el.style.display = 'block';
-  }
-
-  try {
-    const canvas = await html2canvas(el, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#f0f4f1',
-      logging: false,
-      width: el.scrollWidth,
-      height: el.scrollHeight,
-    });
-
-    // Convertir a imagen
-    canvas.toBlob(blob => {
-      imgBlob = blob;
-      const url = URL.createObjectURL(blob);
-      document.getElementById('img-resultado').src = url;
-      document.getElementById('imagen-preview').style.display = 'block';
-    }, 'image/png');
-
-    btn.innerHTML = '📸 Regenerar imagen';
-    btn.disabled = false;
-    toast('✅ Imagen generada — toca Compartir');
-  } catch(e) {
-    btn.innerHTML = '📸 Generar imagen para Gerencia';
-    btn.disabled = false;
-    toast('❌ Error generando imagen', 'error');
-  }
-
-  if(!wasActive) {
-    el.style.position = '';
-    el.style.left = '';
-    el.style.display = '';
-  }
-}
-
-async function compartirImagen() {
-  if(!imgBlob) { toast('Primero genera la imagen','error'); return; }
-  const now = new Date();
-  const nombre = `Reporte-Flota-Palma-${now.toLocaleDateString('es-CO').replace(/\//g,'-')}.png`;
-  const file = new File([imgBlob], nombre, { type: 'image/png' });
-
-  if(navigator.share && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({
-        files: [file],
-        title: 'Reporte Flota Palma',
-        text: `Reporte diario — ${now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'})}`,
-      });
-    } catch(e) {
-      if(e.name !== 'AbortError') descargarImagen();
-    }
-  } else {
-    descargarImagen();
-  }
-}
-
-function descargarImagen() {
-  if(!imgBlob) return;
-  const now = new Date();
-  const nombre = `Reporte-Flota-Palma-${now.toLocaleDateString('es-CO').replace(/\//g,'-')}.png`;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(imgBlob);
-  a.download = nombre;
-  a.click();
-}
-</script>
-
-<!-- ── SERVICE WORKER + OFFLINE ── -->
-<script>
-if('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/maquinaria-taller-palmag/sw.js')
-    .then(reg => {
-      console.log('SW registrado');
-      // Intentar sincronizar al cargar
-      if(reg.sync) reg.sync.register('sync-preops').catch(()=>{});
-      navigator.serviceWorker.controller?.postMessage({type:'SYNC_NOW'});
-    });
-
-  // Escuchar mensajes del SW
-  navigator.serviceWorker.addEventListener('message', e => {
-    if(e.data?.type === 'SYNC_DONE' && e.data.enviados > 0) {
-      showOfflineToast(`✅ ${e.data.enviados} registro(s) sincronizados con Google Sheets`, 'sync');
-    }
-  });
-}
-
-// Indicador de conexión
-function updateOnlineStatus() {
-  const bar = document.getElementById('offline-bar');
-  if(!bar) return;
-  if(navigator.onLine) {
-    bar.style.display = 'none';
-    // Intentar sincronizar cola pendiente
-    navigator.serviceWorker.controller?.postMessage({type:'SYNC_NOW'});
-  } else {
-    bar.style.display = 'flex';
-  }
-}
-window.addEventListener('online',  updateOnlineStatus);
-window.addEventListener('offline', updateOnlineStatus);
-
-function showOfflineToast(msg, type='') {
-  const t = document.getElementById('toast');
-  if(!t) return;
-  t.textContent = msg;
-  t.className = 'show' + (type ? ' ' + type : '');
-  setTimeout(() => t.className = '', 4000);
-}
-
-window.addEventListener('load', updateOnlineStatus);
-</script>
-
 </body>
 </html>
