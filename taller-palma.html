@@ -284,8 +284,17 @@ function init(){
     'Flota Palma — '+now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('ef-nombre').textContent='Responsable: '+MECANICO;
   recargar();
-  // Auto-refresh cada 90 segundos
-  setInterval(recargar, 90000);
+  // Auto-refresh cada 90 segundos SOLO si no hay nada en edición
+  setInterval(()=>{
+    // No recargar si hay algún textarea con contenido activo o foco
+    const hayFoco = document.activeElement && 
+      (document.activeElement.tagName==='TEXTAREA' || document.activeElement.tagName==='INPUT');
+    const hayContenido = [...document.querySelectorAll('.mec-notes, .alta-fields textarea')]
+      .some(el=>el.value.trim().length>0);
+    if(!hayFoco && !hayContenido){
+      recargar();
+    }
+  }, 90000);
 }
 
 function showTab(name,btn){
@@ -321,6 +330,12 @@ async function fetchHoja(hoja){
 }
 
 async function recargar(){
+  // Guardar contenido en edición antes de recargar
+  const contenidoGuardado = {};
+  document.querySelectorAll('[id^="notes-"], [id^="alta-notas-"]').forEach(el=>{
+    if(el.value.trim()) contenidoGuardado[el.id] = el.value;
+  });
+
   document.getElementById('novedades-list').innerHTML=
     '<div class="loading"><div class="spinner"></div><div>Cargando...</div></div>';
   try{
@@ -340,6 +355,13 @@ async function recargar(){
     ALTAS=[...ALTAS].reverse().filter(r=>{ const k=(r[2]||'').trim(); if(vistoA[k])return false; vistoA[k]=true; return true; }).reverse();
     renderNovedades();
     updateKPIs();
+    // Restaurar contenido guardado
+    setTimeout(()=>{
+      Object.entries(contenidoGuardado).forEach(([id,val])=>{
+        const el=document.getElementById(id);
+        if(el && !el.value.trim()) el.value=val;
+      });
+    }, 100);
   }catch(e){
     toast('Error cargando datos','error');
     renderNovedades();
