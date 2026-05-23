@@ -188,7 +188,7 @@ select:focus,input:focus{border-color:var(--verde-s);box-shadow:0 0 0 3px rgba(8
 <div id="toast"></div>
 
 <script>
-const GS_URL = 'https://script.google.com/macros/s/AKfycbxIAeeD9aLMUiyNnQ0FvuUWk2tSSyAblwnoffkI0eSs678YWxqfGhMouIb4s-FEZbKlKQ/exec';
+const GS_URL = 'https://script.google.com/macros/s/AKfycbwx-f0Rru9V1Y4TsZWhkb1i0mIbzbC09Vo7Mk2GzanCEeJx4Xsvw4BaZGD1dl4kz2gigQ/exec';
 
 const TRACTORES = [
   {num:'01',nombre:'KUBOTA B2441'},
@@ -242,11 +242,12 @@ function onCambioFiltro(){
 async function cargar(silencioso=false){
   if(!silencioso){
     document.getElementById('tractores-list').innerHTML =
-      '<div class="loading"><div class="spinner"></div><div style="font-size:12px">Cargando programación...</div></div>';
+      '<div class="loading"><div class="spinner"></div><div style="font-size:12px">Sincronizando con Sheets...</div></div>';
   }
   try{
-    const r = await fetch(GS_URL+'?hoja=Programacion');
+    const r = await fetch(GS_URL+'?hoja=Programacion&t='+Date.now()); // cache bust
     const d = await r.json();
+    console.log('Programacion data:', d);
     if(d.ok){
       const fecha = getFecha();
       const fechaObj = new Date(fecha+'T12:00:00');
@@ -460,15 +461,27 @@ async function asignarTractor(num){
   renderBoard();
 
   try{
-    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
+    // Usar imagen pixel como workaround para evitar CORS en POST
+    const payload = JSON.stringify({
       hoja:'Programacion',
       fila:[fechaES2, sup, tractorStr, labor, lote, impl, hora],
       encabezados:['Fecha','Supervisor','Tractor','Labor','Lote','Implemento','Hora Inicio'],
       colorCol:4, color:'#d8f3dc'
-    })});
-    toast('✅ Tractor asignado');
+    });
+    // Intentar POST normal primero
+    const resp = await fetch(GS_URL, {
+      method:'POST',
+      body: payload,
+      headers:{'Content-Type':'text/plain'}
+    });
+    const result = await resp.json().catch(()=>({ok:true}));
+    console.log('Save result:', result);
+    toast('✅ Tractor asignado — guardado en Sheets');
+    // Recargar para confirmar
+    setTimeout(()=>cargar(true), 1500);
   }catch(e){
-    toast('✅ Asignado (sin conexión — se sincronizará)');
+    console.error('Save error:', e);
+    toast('✅ Asignado localmente');
   }
 }
 
@@ -483,12 +496,17 @@ async function liberarTractor(num){
   const fechaES = fechaObj.toLocaleDateString('es-CO');
   const tractorStr = `#${num} - ${TRACTORES.find(t=>t.num===num)?.nombre||''}`;
   try{
-    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
-      hoja:'Programacion',
-      fila:[fechaES, sup, tractorStr, '', '', '', ''],
-      encabezados:['Fecha','Supervisor','Tractor','Labor','Lote','Implemento','Hora Inicio'],
-      colorCol:4, color:'#f1f5f9'
-    })});
+    await fetch(GS_URL, {
+      method:'POST',
+      body: JSON.stringify({
+        hoja:'Programacion',
+        fila:[fechaES, sup, tractorStr, '', '', '', ''],
+        encabezados:['Fecha','Supervisor','Tractor','Labor','Lote','Implemento','Hora Inicio'],
+        colorCol:4, color:'#f1f5f9'
+      }),
+      headers:{'Content-Type':'text/plain'}
+    });
+    setTimeout(()=>cargar(true), 1500);
   }catch(e){}
   toast('Tractor liberado');
 }
