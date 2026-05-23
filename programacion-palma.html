@@ -151,7 +151,10 @@ select:focus,input:focus{border-color:var(--verde-s);box-shadow:0 0 0 3px rgba(8
   <!-- TABLERO -->
   <div id="board" style="display:none">
     <div class="board-header">
-      <div class="board-title" id="board-title">Tractores disponibles</div>
+      <div>
+        <div class="board-title" id="board-title">Tractores disponibles</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:2px" id="sync-time">Toca Actualizar para ver cambios de otros</div>
+      </div>
       <button class="board-refresh" onclick="cargar()">🔄 Actualizar</button>
     </div>
     <div id="tractores-list"><div class="loading"><div class="spinner"></div><div>Cargando...</div></div></div>
@@ -221,8 +224,7 @@ function init(){
   // Fecha por defecto: mañana
   const manana = new Date(); manana.setDate(manana.getDate()+1);
   document.getElementById('sel-fecha').value = manana.toISOString().split('T')[0];
-  // Auto-refresh cada 30 segundos
-  setInterval(()=>{ if(getSupervisor()&&getFecha()) cargar(true); }, 30000);
+  // Sin auto-refresh — usar botón Actualizar
 }
 
 function getSupervisor(){ return document.getElementById('sel-supervisor').value; }
@@ -343,6 +345,9 @@ function renderBoard(){
   if(!html) html = '<div class="empty"><div style="font-size:36px;margin-bottom:8px">✅</div><div style="font-weight:700">Todos los tractores están programados</div></div>';
 
   lista.innerHTML = html;
+  const now = new Date();
+  const syncEl = document.getElementById('sync-time');
+  if(syncEl) syncEl.textContent = 'Actualizado: '+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
 }
 
 function renderTractorCard(t, tipo){
@@ -472,8 +477,8 @@ async function asignarTractor(num){
     const r = await fetch(GS_URL+'?'+params.toString());
     const d = await r.json();
     console.log('Save:', d);
-    toast('✅ Tractor asignado');
-    setTimeout(()=>cargar(true), 1000);
+    toast('✅ Tractor asignado — guardado en Sheets');
+    // No recargar para no borrar lo que está trabajando
   }catch(e){
     console.error(e);
     toast('✅ Asignado');
@@ -498,7 +503,7 @@ async function liberarTractor(num){
       tractor: tractorStr
     });
     await fetch(GS_URL+'?'+params.toString());
-    setTimeout(()=>cargar(true), 1000);
+    // Sheets actualizado
   }catch(e){}
   toast('Tractor liberado');
 }
