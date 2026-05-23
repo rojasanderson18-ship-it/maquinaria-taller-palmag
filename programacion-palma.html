@@ -444,9 +444,11 @@ async function asignarTractor(num){
         const fechaObj = new Date(fecha+'T12:00:00');
         const fechaES = fechaObj.toLocaleDateString('es-CO');
         const yaOcupado = d.datos.find(row=>{
-          let f=row[0]||''; if(typeof f==='object') f=f.toLocaleDateString('es-CO');
-          const m=(String(row[2]||'')).match(/[#\s]*0*(\d+)/);
-          return (f===fechaES||f===fecha) && m && m[1].padStart(2,'0')===num && row[1]!==sup && row[3];
+          let f=row[0]||'';
+          if(typeof f==='object') f=f.toLocaleDateString('es-CO');
+          if(typeof f==='string'&&f.includes('T')){const d2=new Date(f);if(!isNaN(d2))f=d2.toLocaleDateString('es-CO');}
+          const m=(String(row[2]||'')).match(/#\s*0*(\d+)/);
+          return (f===fechaES||f===fecha) && m && m[1].padStart(2,'0')===num && row[1]!==sup && (row[3]||'').trim();
         });
         if(yaOcupado){
           toast(`🚫 ${yaOcupado[1]} acaba de asignar este tractor`,'error');
