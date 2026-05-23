@@ -222,7 +222,7 @@ function init(){
   const manana = new Date(); manana.setDate(manana.getDate()+1);
   document.getElementById('sel-fecha').value = manana.toISOString().split('T')[0];
   // Auto-refresh cada 30 segundos
-  setInterval(()=>{ if(getSupervisor()&&getFecha()) cargar(); }, 30000);
+  setInterval(()=>{ if(getSupervisor()&&getFecha()) cargar(true); }, 30000);
 }
 
 function getSupervisor(){ return document.getElementById('sel-supervisor').value; }
@@ -231,7 +231,7 @@ function getFecha(){ return document.getElementById('sel-fecha').value; }
 function onCambioFiltro(){
   if(getSupervisor() && getFecha()){
     document.getElementById('board').style.display='block';
-    PROG = {};
+    PROG = {};  // Reset solo cuando cambia supervisor/fecha
     cargar();
   }
 }
@@ -239,9 +239,11 @@ function onCambioFiltro(){
 // ════════════════════════════════
 //  CARGAR DESDE SHEETS
 // ════════════════════════════════
-async function cargar(){
-  document.getElementById('tractores-list').innerHTML =
-    '<div class="loading"><div class="spinner"></div><div style="font-size:12px">Cargando programación...</div></div>';
+async function cargar(silencioso=false){
+  if(!silencioso){
+    document.getElementById('tractores-list').innerHTML =
+      '<div class="loading"><div class="spinner"></div><div style="font-size:12px">Cargando programación...</div></div>';
+  }
   try{
     const r = await fetch(GS_URL+'?hoja=Programacion');
     const d = await r.json();
@@ -249,17 +251,18 @@ async function cargar(){
       const fecha = getFecha();
       const fechaObj = new Date(fecha+'T12:00:00');
       const fechaES = fechaObj.toLocaleDateString('es-CO');
-      PROG = {};
+      // Solo actualizar tractores que NO son míos (para no pisarme)
+      const sup = getSupervisor();
+      const nuevosProg = {};
       d.datos.forEach(row=>{
         let f = row[0]||'';
         if(typeof f==='object') f=f.toLocaleDateString('es-CO');
         if(f===fechaES || f===fecha){
-          // row: [fecha, supervisor, tractor, labor, lote, impl, hora]
           const tractorStr = String(row[2]||'');
           const m = tractorStr.match(/[#\s]*0*(\d+)/);
           if(m && row[3]){
             const num = m[1].padStart(2,'0');
-            PROG[num] = {
+            nuevosProg[num] = {
               supervisor: row[1]||'',
               labor: row[3]||'',
               lote:  row[4]||'',
@@ -269,9 +272,14 @@ async function cargar(){
           }
         }
       });
+      // Merge: conservar mis asignaciones locales, actualizar las de otros
+      Object.keys(PROG).forEach(num=>{
+        if(PROG[num].supervisor===sup) nuevosProg[num]=PROG[num];
+      });
+      PROG = nuevosProg;
     }
   }catch(e){
-    // Sin conexión — continuar sin datos de Sheets
+    // Sin conexión — mantener estado actual
   }
   renderBoard();
 }
