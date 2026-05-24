@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="HandheldFriendly" content="true">
+<title>Programación — Palma</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --verde:#1a4731;--verde-m:#2d6a4f;--verde-s:#52b788;--verde-p:#d8f3dc;--verde-pp:#f0faf2;
+  --dorado:#b7791f;--dorado-p:#fef3c7;
+  --rojo:#991b1b;--rojo-m:#dc2626;--rojo-p:#fee2e2;
+  --naranja:#c2410c;--naranja-p:#ffedd5;
+  --azul:#1e40af;--azul-p:#dbeafe;
+  --morado:#6d28d9;--morado-p:#ede9fe;
+  --gris:#64748b;--gris-p:#f1f5f9;
+  --bg:#f0f4f1;--surface:#fff;--border:#e2e8f0;--text:#1e293b;
+}
+html{font-size:16px}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:60px;-webkit-text-size-adjust:100%}
+.top-bar{height:5px;background:var(--dorado)}
+header{background:var(--verde);padding:13px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+.hdr-row{display:flex;align-items:center;justify-content:space-between}
+.hdr-left{display:flex;align-items:center;gap:11px}
+.logo{width:40px;height:40px;background:var(--dorado);border-radius:10px;display:grid;place-items:center;font-size:20px;flex-shrink:0}
+.hdr-title{font-family:'DM Serif Display',serif;font-size:18px;color:#fff}
+.hdr-sub{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px}
+.hdr-badge{background:rgba(255,255,255,.12);border-radius:8px;padding:5px 11px;font-size:11px;color:rgba(255,255,255,.8);text-align:right;line-height:1.5}
+
+/* TABS */
+.tabs{display:flex;gap:4px;margin-top:11px}
+.tab{flex:1;padding:8px 4px;border-radius:8px;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;transition:all .2s;text-align:center}
+.tab.active{background:var(--dorado);color:#fff}
+.tab:not(.active){background:rgba(255,255,255,.1);color:rgba(255,255,255,.7)}
+
+main{max-width:600px;margin:0 auto;padding:16px 16px}
+.sec{display:none}.sec.active{display:block;animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ID CARD */
+.id-card{background:var(--surface);border-radius:13px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.id-hdr{background:var(--verde);padding:12px 15px;border-left:4px solid var(--dorado);display:flex;align-items:center;gap:9px}
+.id-hdr-icon{font-size:18px}
+.id-hdr-title{font-family:'DM Serif Display',serif;font-size:15px;color:#fff}
+.id-body{padding:15px;display:flex;flex-direction:column;gap:10px}
+select,input[type=text]{width:100%;border:1.5px solid var(--border);border-radius:9px;padding:13px 15px;font-family:'DM Sans',sans-serif;font-size:16px;color:var(--text);background:#fff;outline:none;-webkit-appearance:none}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:36px}
+select:focus,input:focus{border-color:var(--verde-s);box-shadow:0 0 0 3px rgba(82,183,136,.15)}
+
+/* KPI ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:13px}
+.kpi{background:var(--surface);border-radius:10px;padding:11px 6px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.07);border-top:3px solid var(--border)}
+.kpi.kt{border-top-color:var(--verde-s)}.kpi.kp{border-top-color:var(--azul)}.kpi.ke{border-top-color:var(--morado)}.kpi.ki{border-top-color:var(--naranja)}
+.kpi-n{font-family:'DM Serif Display',serif;font-size:26px;line-height:1}
+.kt .kpi-n{color:var(--verde-m)}.kp .kpi-n{color:var(--azul)}.ke .kpi-n{color:var(--morado)}.ki .kpi-n{color:var(--naranja)}
+.kpi-l{font-size:9px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.04em;margin-top:3px}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sync-l{font-size:11px;color:var(--gris)}
+.btn-ref{padding:8px 14px;border-radius:8px;border:1.5px solid var(--verde-s);background:var(--verde-pp);color:var(--verde-m);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;cursor:pointer}
+
+/* SECTION LABEL */
+.slbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px;padding-left:2px;display:flex;align-items:center;gap:6px}
+
+/* RESOURCE CARD */
+.rc{background:var(--surface);border-radius:12px;margin-bottom:9px;overflow:hidden;border-left:5px solid var(--border);box-shadow:0 1px 3px rgba(0,0,0,.06);transition:transform .1s}
+.rc.libre{border-left-color:var(--verde-s);cursor:pointer}.rc.libre:active{transform:scale(.99)}
+.rc.pend{border-left-color:var(--naranja);cursor:pointer}
+.rc.prog{border-left-color:var(--azul)}
+.rc.otro{border-left-color:var(--gris);opacity:.75}
+.rc-top{padding:13px 14px;display:flex;align-items:center;gap:10px}
+.rc-icon{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:16px;flex-shrink:0;color:#fff}
+.libre .rc-icon{background:var(--verde-m)}.pend .rc-icon{background:var(--naranja)}.prog .rc-icon{background:var(--azul)}.otro .rc-icon{background:var(--gris)}
+.rc-info{flex:1}
+.rc-nombre{font-size:15px;font-weight:700}
+.rc-sub{font-size:12px;color:var(--gris);margin-top:2px}
+.pill{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap}
+.pl{background:var(--verde-p);color:var(--verde-m)}.pp{background:var(--naranja-p);color:var(--naranja)}.pf{background:var(--azul-p);color:var(--azul)}.po{background:var(--gris-p);color:var(--gris)}
+
+/* FORM */
+.rc-form{display:none;padding:0 14px 14px;border-top:1px solid var(--border)}
+.rc.expandido .rc-form{display:block;animation:fi .2s ease}
+@keyframes fi{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
+.fg{display:flex;flex-direction:column;gap:5px}
+.fg label{font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.05em}
+.fg select,.fg input{padding:10px 12px;font-size:14px;border-radius:8px}
+.fbtns{display:flex;gap:8px;margin-top:11px}
+.btn{padding:12px 18px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer}
+.btn:active{transform:scale(.97)}
+.btn-v{background:var(--verde);color:#fff}.btn-g{background:var(--gris-p);color:var(--gris)}
+.btn-r{background:var(--rojo-p);color:var(--rojo);padding:9px 13px;font-size:12px}
+.btn:disabled{background:var(--border);color:var(--gris);cursor:not-allowed}
+.sp{width:13px;height:13px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:5px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* INSUMO ESPECIAL */
+.insumo-card{background:var(--surface);border-radius:12px;margin-bottom:9px;overflow:hidden;border-left:5px solid var(--naranja);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.ins-top{padding:13px 14px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.ins-icon{width:36px;height:36px;border-radius:50%;background:var(--naranja);display:grid;place-items:center;font-size:16px;color:#fff;flex-shrink:0}
+.ins-badge{background:var(--naranja-p);color:var(--naranja);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
+
+/* RESUMEN GENERAL */
+.resumen-box{background:var(--verde);border-radius:13px;padding:16px;margin-bottom:13px}
+.res-title{font-family:'DM Serif Display',serif;font-size:17px;color:#fff;margin-bottom:12px}
+.res-section{margin-bottom:12px}
+.res-sec-title{font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.res-item{display:flex;gap:9px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.res-item:last-child{border-bottom:none}
+.res-num{font-size:12px;font-weight:700;color:var(--dorado);min-width:28px}
+.res-det{flex:1}
+.res-nombre{font-size:13px;font-weight:600;color:#fff}
+.res-info{font-size:11px;color:rgba(255,255,255,.6);margin-top:1px}
+
+/* WA BUTTON */
+.cta{width:100%;padding:15px;border-radius:12px;border:none;background:var(--dorado);color:#fff;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;cursor:pointer;display:none;margin-top:8px}
+.cta.show{display:block}
+
+/* MODAL */
+.mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;overflow-y:auto;padding:18px 14px}
+.mbg.show{display:block}
+.mc{max-width:540px;margin:0 auto;background:var(--surface);border-radius:14px;overflow:hidden}
+.mh{background:var(--verde);padding:13px 15px;display:flex;align-items:center;justify-content:space-between;border-left:4px solid var(--dorado)}
+.mh-t{font-family:'DM Serif Display',serif;font-size:15px;color:#fff}
+.mh-c{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:7px;padding:6px 12px;cursor:pointer;font-size:13px;font-weight:700}
+.mb{padding:15px}
+.wa-pre{background:#e8f5e9;border-radius:10px;padding:14px;margin-bottom:12px;font-family:monospace;font-size:12px;color:#1b5e20;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:45vh;overflow-y:auto}
+.btn-f{width:100%;padding:13px;border-radius:11px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+.btn-d{background:var(--dorado);color:#fff}.btn-w{background:#25d366;color:#fff}
+
+/* LOADING */
+.loading{text-align:center;padding:28px;color:var(--gris)}
+.sp-lg{width:26px;height:26px;border:3px solid var(--border);border-top-color:var(--verde);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
+
+/* TOAST */
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--verde);color:#fff;padding:12px 20px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.2);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;border-left:4px solid var(--dorado);max-width:90vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+#toast.err{background:var(--rojo)}
+</style>
+</head>
+<body>
+
+<!-- PIN SCREEN -->
+<div id="pin-screen" style="position:fixed;inset:0;background:#1c2b23;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px">
+  <div style="text-align:center;margin-bottom:32px">
+    <div style="width:64px;height:64px;background:rgba(255,255,255,.1);border-radius:16px;display:grid;place-items:center;font-size:32px;margin:0 auto 16px">📋</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:22px;color:#fff;margin-bottom:6px">Palma Grande S.A.S</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.5)">Programación Diaria — Supervisores</div>
+  </div>
+  <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:24px;width:100%;max-width:300px">
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;text-align:center">Ingresa tu PIN</div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px" id="pin-dots">
+      <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-0"></div>
+      <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-1"></div>
+      <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-2"></div>
+      <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-3"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="pin-keypad">
+      <button onclick="pinInput('1')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">1</button>
+      <button onclick="pinInput('2')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">2</button>
+      <button onclick="pinInput('3')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">3</button>
+      <button onclick="pinInput('4')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">4</button>
+      <button onclick="pinInput('5')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">5</button>
+      <button onclick="pinInput('6')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">6</button>
+      <button onclick="pinInput('7')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">7</button>
+      <button onclick="pinInput('8')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">8</button>
+      <button onclick="pinInput('9')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">9</button>
+      <div></div>
+      <button onclick="pinInput('0')" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:22px;font-weight:600;cursor:pointer">0</button>
+      <button onclick="pinDelete()" style="padding:18px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:18px;font-weight:600;cursor:pointer">⌫</button>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.3);text-align:center;margin-top:16px" id="pin-error"></div>
+    <button onclick="history.back()" style="width:100%;margin-top:14px;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.5);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer">← Volver</button>
+  </div>
+
+  <a href="https://rojasanderson18-ship-it.github.io/maquinaria-taller-palmag/" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:20px;color:rgba(255,255,255,.4);font-size:13px;font-weight:600;text-decoration:none;padding:11px 20px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05)">← Volver a la página principal</a>
+</div>
+<style>@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}</style>
+<script>
+var pinVal='';
+var correctPin='2025';
+function pinInput(n){if(pinVal.length>=4)return;pinVal+=n;updateDots();if(pinVal.length===4)checkPin();}
+function pinDelete(){pinVal=pinVal.slice(0,-1);updateDots();document.getElementById('pin-error').textContent='';}
+function updateDots(){for(var i=0;i<4;i++){var d=document.getElementById('dot-'+i);d.style.background=i<pinVal.length?'#fff':'transparent';d.style.borderColor=i<pinVal.length?'#fff':'rgba(255,255,255,.3)';}}
+function checkPin(){
+  if(pinVal===correctPin){document.getElementById('pin-screen').style.display='none';}
+  else{pinVal='';updateDots();var err=document.getElementById('pin-error');err.textContent='PIN incorrecto. Inténtalo de nuevo.';err.style.color='#fca5a5';var kp=document.getElementById('pin-keypad');kp.style.animation='none';setTimeout(function(){kp.style.animation='shake .4s ease';},10);}
+}
+</script>
+
+<div class="top-bar"></div>
+<header>
+  <div class="hdr-row">
+    <div class="hdr-left">
+      <div class="logo">🌴</div>
+      <div><div class="hdr-title">Programación</div><div class="hdr-sub">Palma de Aceite — Supervisores</div></div>
+    </div>
+    <div class="hdr-badge" id="hdr-date">—</div>
+  </div>
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('tractores',this)">🚜 Tractores</button>
+    <button class="tab" onclick="showTab('personal',this)">👷 Personal</button>
+    <button class="tab" onclick="showTab('equipos',this)">⚙️ Equipos</button>
+    <button class="tab" onclick="showTab('insumos',this)">🧪 Insumos</button>
+    <button class="tab" onclick="showTab('resumen',this)">📋 Resumen</button>
+  </div>
+</header>
+
+<main>
+  <!-- IDENTIFICACIÓN -->
+  <div class="id-card">
+    <div class="id-hdr"><span class="id-hdr-icon">👷</span><div class="id-hdr-title">¿Quién programa?</div></div>
+    <div class="id-body">
+      <select id="sel-sup" onchange="onFiltro()">
+        <option value="">— Seleccionar supervisor —</option>
+        <option>Juan Carlos Oviedo — Cosecha</option>
+        <option>Brayan Farid Perez — Cosecha</option>
+        <option>Ing. Luis Fernando — Mantenimiento</option>
+      </select>
+      <select id="sel-fecha" onchange="onFiltro()">
+        <option value="">— Seleccionar fecha —</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-row" id="kpi-row" style="display:none">
+    <div class="kpi kt"><div class="kpi-n" id="kn-t">—</div><div class="kpi-l">Tractores</div></div>
+    <div class="kpi kp"><div class="kpi-n" id="kn-p">—</div><div class="kpi-l">Personal</div></div>
+    <div class="kpi ke"><div class="kpi-n" id="kn-e">—</div><div class="kpi-l">Equipos</div></div>
+    <div class="kpi ki"><div class="kpi-n" id="kn-i">—</div><div class="kpi-l">Insumos</div></div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar" id="toolbar" style="display:none">
+    <div class="sync-l" id="sync-l">Toca Actualizar para sincronizar</div>
+    <button class="btn-ref" onclick="cargar()">🔄 Actualizar</button>
+  </div>
+
+  <!-- SECCIONES -->
+  <div class="sec active" id="sec-tractores">
+    <div id="lista-tractores"><div class="loading"><div class="sp-lg"></div></div></div>
+  </div>
+
+  <div class="sec" id="sec-personal">
+    <div id="lista-personal"><div class="loading"><div class="sp-lg"></div></div></div>
+  </div>
+
+  <div class="sec" id="sec-equipos">
+    <div id="lista-equipos"><div class="loading"><div class="sp-lg"></div></div></div>
+  </div>
+
+  <div class="sec" id="sec-insumos">
+    <div id="lista-insumos"></div>
+    <button class="btn" style="width:100%;padding:14px;border-radius:11px;border:1.5px dashed var(--border);background:var(--gris-p);color:var(--gris);font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px" onclick="agregarInsumo()">+ Agregar insumo</button>
+  </div>
+
+  <div class="sec" id="sec-resumen">
+    <div id="resumen-content"></div>
+    <button class="cta show" id="cta-wa" onclick="abrirWA()" style="display:block">📱 Generar mensaje WhatsApp</button>
+  </div>
+</main>
+
+<!-- MODAL WA -->
+<div class="mbg" id="wa-modal">
+  <div class="mc">
+    <div class="mh"><div class="mh-t">📱 Mensaje WhatsApp</div><button class="mh-c" onclick="cerrarWA()">✕</button></div>
+    <div class="mb">
+      <div class="wa-pre" id="wa-txt"></div>
+      <button class="btn-f btn-d" onclick="copiarWA()">📋 Copiar mensaje</button>
+      <button class="btn-f btn-w" style="border:none;border-radius:11px;cursor:pointer" onclick="enviarWA()">💬 Abrir WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  DATOS
+// ═══════════════════════════════════════════════════
+var TRACTORES=[
+  {n:'01',m:'KUBOTA B2441'},{n:'02',m:'KUBOTA B2441'},
+  {n:'03',m:'KUBOTA M9540'},{n:'04',m:'KUBOTA M9540'},
+  {n:'05',m:'JOHN DEERE 2850'},{n:'06',m:'KUBOTA 5100'},
+  {n:'07',m:'KUBOTA M108S'},{n:'08',m:'LOVOL TH754-H'},
+  {n:'09',m:'LOVOL TH754-H'},{n:'10',m:'LOVOL TH904-X'},
+  {n:'11',m:'LOVOL TH904-X'}
+];
+var PERSONAL=[
+  'Jhon Garnica','Oswaldo Sanches','Cesar Verona',
+  'Julio Vacca','Fernando Leon','Sandro Bonilla','Ever Clevez',
+  // Agrega más cuando tengas la lista completa
+  'Personal 1','Personal 2','Personal 3','Personal 4','Personal 5'
+];
+var EQUIPOS=[
+  'Motobomba 1','Motobomba 2',
+  'Fumigadora espalda 1','Fumigadora espalda 2','Fumigadora espalda 3',
+  'Carretilla 1','Carretilla 2',
+  'Equipo menor 1','Equipo menor 2'
+  // Agrega los equipos reales
+];
+var INSUMOS_LISTA=[
+  'Fertilizante (urea)','Fertilizante (KCl)','Herbicida','Fungicida',
+  'Insecticida','Aceite de palma (para mezclas)','Combustible ACPM',
+  'Insumo 1','Insumo 2'
+];
+var UNIDADES=['kg','ton','litros','galones','bultos','unidades'];
+var LABORES=[
+  'Cosecha – Recolección de fruto',
+  'Sanidad – Fumigación',
+  'Mantenimiento – Rolocuchilla',
+  'Mantenimiento – Rotospeed',
+  'Transporte de agua','Transporte de personal',
+  'Fertilización','Rastra','Caballoneador','Cincel',
+  'Control de malezas','Poda','Polinización asistida',
+  'Aplicación de herbicida','Aplicación de fungicida'
+];
+var IMPLEMENTOS=['Ninguno','Tijeras hidráulicas','Remolque quinta rueda','Remolque zorrillo','Rotospeed','Rolocuchilla','Rastra 20 discos','Bomba Jacto','Voladoras JAC 1500','Caballoneador','Cincel'];
+var LOTES=['Sin especificar','Lote A','Lote B','Lote C','Lote D','Lote E','Lote F','Lote 1','Lote 2','Lote 3','Lote 4','Lote 5'];
+
+// ═══════════════════════════════════════════════════
+//  ESTADO
+// ═══════════════════════════════════════════════════
+var PROG_T={}, PROG_P={}, PROG_E={};
+var INSUMOS=[];
+var FORM_T={}, FORM_P={}, FORM_E={};
+var expandidoT=null, expandidoP=null, expandidoE=null, expandidoI=null;
+var tabActual='tractores';
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+function init(){
+  var now=new Date();
+  document.getElementById('hdr-date').innerHTML=
+    now.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'}).replace('.','')+
+    '<br>'+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  var sel=document.getElementById('sel-fecha');
+  for(var i=0;i<=7;i++){
+    var d=new Date(); d.setDate(d.getDate()+i);
+    var lbl=i===0?'Hoy':i===1?'Mañana':d.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'});
+    var val=d.toLocaleDateString('es-CO');
+    var o=document.createElement('option');
+    o.value=val; o.textContent=lbl+' — '+val;
+    if(i===1) o.selected=true;
+    sel.appendChild(o);
+  }
+}
+
+function showTab(name,btn){
+  document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(b){b.classList.remove('active');});
+  document.getElementById('sec-'+name).classList.add('active');
+  btn.classList.add('active');
+  tabActual=name;
+  if(name==='resumen') buildResumen();
+}
+
+function getSup(){ return document.getElementById('sel-sup').value; }
+function getFecha(){ return document.getElementById('sel-fecha').value; }
+
+function onFiltro(){
+  if(getSup()&&getFecha()){
+    document.getElementById('kpi-row').style.display='grid';
+    document.getElementById('toolbar').style.display='flex';
+    PROG_T={}; PROG_P={}; PROG_E={}; INSUMOS=[];
+    FORM_T={}; FORM_P={}; FORM_E={};
+    expandidoT=null; expandidoP=null; expandidoE=null;
+    cargar();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  CARGAR
+// ═══════════════════════════════════════════════════
+function cargar(){
+  ['tractores','personal','equipos'].forEach(function(t){
+    document.getElementById('lista-'+t).innerHTML=
+      '<div class="loading"><div class="sp-lg"></div><div style="font-size:12px;color:var(--gris)">Cargando...</div></div>';
+  });
+  google.script.run
+    .withSuccessHandler(function(res){
+      if(!res||!res.ok){ renderAll(); return; }
+      var d=res.datos;
+      // Tractores
+      PROG_T={};
+      (d.tractores||[]).forEach(function(r){
+        var m=String(r[2]||'').match(/#?\s*0*(\d+)/);
+        if(m) PROG_T[m[1].padStart(2,'0')]={supervisor:r[1],labor:r[3],lote:r[4],operario:r[5],impl:r[6],hora:r[7]};
+      });
+      // Personal
+      PROG_P={};
+      (d.personal||[]).forEach(function(r){
+        if(r[2]) PROG_P[String(r[2])]={supervisor:r[1],labor:r[3],lote:r[4],hora:r[5]};
+      });
+      // Equipos
+      PROG_E={};
+      (d.equipos||[]).forEach(function(r){
+        if(r[2]) PROG_E[String(r[2])]={supervisor:r[1],labor:r[3],lote:r[4],responsable:r[5],hora:r[6]};
+      });
+      // Insumos
+      INSUMOS=d.insumos||[];
+      // Limpiar FORM de los ya guardados
+      Object.keys(FORM_T).forEach(function(k){ if(PROG_T[k]) delete FORM_T[k]; });
+      Object.keys(FORM_P).forEach(function(k){ if(PROG_P[k]) delete FORM_P[k]; });
+      Object.keys(FORM_E).forEach(function(k){ if(PROG_E[k]) delete FORM_E[k]; });
+      document.getElementById('sync-l').textContent='Actualizado: '+new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+      renderAll();
+    })
+    .withFailureHandler(function(e){
+      console.error(e);
+      document.getElementById('sync-l').textContent='Error al cargar';
+      renderAll();
+    })
+    .getProgramacion(getFecha());
+}
+
+function renderAll(){
+  renderTractores();
+  renderPersonal();
+  renderEquipos();
+  renderInsumos();
+  updateKPIs();
+}
+
+function updateKPIs(){
+  var sup=getSup();
+  var pt=TRACTORES.filter(function(t){ return PROG_T[t.n]&&PROG_T[t.n].supervisor===sup; }).length;
+  var pp=PERSONAL.filter(function(p){ return PROG_P[p]&&PROG_P[p].supervisor===sup; }).length;
+  var pe=EQUIPOS.filter(function(e){ return PROG_E[e]&&PROG_E[e].supervisor===sup; }).length;
+  var pi=INSUMOS.filter(function(r){ return String(r[1])===sup; }).length;
+  document.getElementById('kn-t').textContent=pt;
+  document.getElementById('kn-p').textContent=pp;
+  document.getElementById('kn-e').textContent=pe;
+  document.getElementById('kn-i').textContent=pi;
+}
+
+// ═══════════════════════════════════════════════════
+//  TRACTORES
+// ═══════════════════════════════════════════════════
+function renderTractores(){
+  var sup=getSup();
+  var libres=[],pend=[],misProg=[],otrosProg=[];
+  TRACTORES.forEach(function(t){
+    if(PROG_T[t.n]){
+      if(PROG_T[t.n].supervisor===sup) misProg.push(t); else otrosProg.push(t);
+    } else if(FORM_T[t.n]){ pend.push(t); } else { libres.push(t); }
+  });
+  var html='';
+  if(pend.length){ html+='<div class="slbl" style="color:var(--naranja)">⏳ Pendientes ('+pend.length+')</div>'; pend.forEach(function(t){html+=rcHTML(t,'t','pend');}); }
+  if(misProg.length){ html+='<div class="slbl" style="color:var(--azul)">✅ Programados por mí ('+misProg.length+')</div>'; misProg.forEach(function(t){html+=rcHTML(t,'t','prog');}); }
+  if(libres.length){ html+='<div class="slbl" style="color:var(--verde-m)">🟢 Libres ('+libres.length+')</div>'; libres.forEach(function(t){html+=rcHTML(t,'t','libre');}); }
+  if(otrosProg.length){ html+='<div class="slbl" style="color:var(--gris)">🔒 Tomados ('+otrosProg.length+')</div>'; otrosProg.forEach(function(t){html+=rcHTML(t,'t','otro');}); }
+  document.getElementById('lista-tractores').innerHTML=html||'<div style="text-align:center;padding:20px;color:var(--gris)">✅ Todos los tractores programados</div>';
+}
+
+function rcHTML(item, tipo, estado){
+  var key=tipo==='t'?item.n:item;
+  var label=tipo==='t'?('#'+item.n+' '+item.m):item;
+  var icon=tipo==='t'?'🚜':tipo==='p'?'👷':'⚙️';
+  var prog=tipo==='t'?PROG_T[key]:tipo==='p'?PROG_P[key]:PROG_E[key];
+  var form=tipo==='t'?FORM_T[key]:tipo==='p'?FORM_P[key]:FORM_E[key];
+  var data=estado==='prog'?prog:(form||{});
+  var exp=(tipo==='t'?expandidoT:tipo==='p'?expandidoP:expandidoE)===key;
+  var click=(estado!=='otro')?' onclick="expandir(\''+tipo+'\',\''+key+'\')"':'';
+  var sub=estado==='libre'?'Toca para asignar'
+    :estado==='pend'?(data.labor||'En edición...')
+    :estado==='prog'?((prog.labor||'')+(prog.lote&&prog.lote!=='Sin especificar'?' · '+prog.lote:''))
+    :'🔒 '+(prog.supervisor||'');
+  var pill=estado==='libre'?'<span class="pill pl">Libre</span>'
+    :estado==='pend'?'<span class="pill pp">⏳ Pendiente</span>'
+    :estado==='prog'?'<span class="pill pf">✅ Listo</span>'
+    :'<span class="pill po">🔒 Tomado</span>';
+  var formH=estado!=='otro'?buildForm(tipo,key,estado,data,exp):'';
+  return '<div class="rc '+estado+(exp?' expandido':'')+'" id="rc-'+tipo+'-'+key+'">'
+    +'<div class="rc-top"'+click+'>'
+    +'<div class="rc-icon">'+icon+'</div>'
+    +'<div class="rc-info"><div class="rc-nombre">'+label+'</div>'
+    +'<div class="rc-sub">'+sub+'</div></div>'+pill+'</div>'+formH+'</div>';
+}
+
+function buildForm(tipo, key, estado, data, exp){
+  if(estado==='prog'){
+    var prog=tipo==='t'?PROG_T[key]:tipo==='p'?PROG_P[key]:PROG_E[key];
+    return '<div class="rc-form"><div style="background:var(--azul-p);border-radius:9px;padding:11px 13px;margin-top:10px;font-size:13px;color:var(--azul)">'
+      +'<b>Labor:</b> '+(prog.labor||'—')+'<br>'
+      +(prog.lote&&prog.lote!=='Sin especificar'?'<b>Lote:</b> '+prog.lote+'<br>':'')
+      +(prog.operario?'<b>Operario:</b> '+prog.operario+'<br>':'')
+      +(prog.responsable?'<b>Responsable:</b> '+prog.responsable+'<br>':'')
+      +(prog.impl&&prog.impl!=='Ninguno'?'<b>Implemento:</b> '+prog.impl+'<br>':'')
+      +'<b>Hora:</b> '+(prog.hora||'6:10 a.m.')+'</div>'
+      +'<div class="fbtns"><button class="btn btn-g" onclick="expandir(\''+tipo+'\',null)">Cerrar</button>'
+      +'<button class="btn btn-r" onclick="liberarRC(\''+tipo+'\',\''+key+'\')">🗑️ Liberar</button></div></div>';
+  }
+  var labOpts=LABORES.map(function(l){return '<option'+(data.labor===l?' selected':'')+'>'+l+'</option>';}).join('');
+  var loteOpts=LOTES.map(function(l){return '<option'+(data.lote===l?' selected':'')+'>'+l+'</option>';}).join('');
+  var extraFields='';
+  if(tipo==='t'){
+    var opOpts='<option value="">— Operario —</option>'+PERSONAL.slice(0,7).map(function(p){return '<option'+(data.operario===p?' selected':'')+'>'+p+'</option>';}).join('');
+    var impOpts=IMPLEMENTOS.map(function(im){return '<option'+(data.impl===im?' selected':'')+'>'+im+'</option>';}).join('');
+    extraFields='<div class="fg"><label>Operario</label><select id="op-'+key+'">'+opOpts+'</select></div>'
+      +'<div class="fg" style="grid-column:1/-1"><label>Implemento</label><select id="im-'+key+'">'+impOpts+'</select></div>';
+  } else if(tipo==='e'){
+    var respOpts='<option value="">— Responsable —</option>'+PERSONAL.slice(0,7).map(function(p){return '<option'+(data.responsable===p?' selected':'')+'>'+p+'</option>';}).join('');
+    extraFields='<div class="fg"><label>Responsable</label><select id="rs-'+key+'">'+respOpts+'</select></div>';
+  }
+  return '<div class="rc-form"><div class="fgrid">'
+    +'<div class="fg" style="grid-column:1/-1"><label>Labor *</label>'
+    +'<select id="lb-'+tipo+'-'+key+'" onchange="updForm(\''+tipo+'\',\''+key+'\')">'
+    +'<option value="">— Seleccionar —</option>'+labOpts+'</select></div>'
+    +'<div class="fg"><label>Lote</label><select id="lt-'+tipo+'-'+key+'">'+loteOpts+'</select></div>'
+    +'<div class="fg"><label>Hora inicio</label><input type="text" id="hr-'+tipo+'-'+key+'" value="'+(data.hora||'6:10 a.m.')+'"></div>'
+    +extraFields
+    +'</div><div class="fbtns">'
+    +'<button class="btn btn-g" onclick="expandir(\''+tipo+'\',null)">Cancelar</button>'
+    +'<button class="btn btn-v" id="ba-'+tipo+'-'+key+'" onclick="confirmar(\''+tipo+'\',\''+key+'\')">✅ Confirmar</button>'
+    +'</div></div>';
+}
+
+function expandir(tipo, key){
+  if(tipo==='t'){ expandidoT=(expandidoT===key)?null:key; renderTractores(); }
+  else if(tipo==='p'){ expandidoP=(expandidoP===key)?null:key; renderPersonal(); }
+  else if(tipo==='e'){ expandidoE=(expandidoE===key)?null:key; renderEquipos(); }
+  if(key){ setTimeout(function(){ var el=document.getElementById('rc-'+tipo+'-'+key); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },100); }
+}
+
+function updForm(tipo, key){
+  var labor=document.getElementById('lb-'+tipo+'-'+key)&&document.getElementById('lb-'+tipo+'-'+key).value;
+  var store=tipo==='t'?FORM_T:tipo==='p'?FORM_P:FORM_E;
+  if(labor){ store[key]={labor:labor}; } else { delete store[key]; }
+  updateKPIs();
+}
+
+function confirmar(tipo, key){
+  var sup=getSup(), fecha=getFecha();
+  var labor=document.getElementById('lb-'+tipo+'-'+key)&&document.getElementById('lb-'+tipo+'-'+key).value;
+  if(!labor){ toast('⚠️ Selecciona la labor','err'); return; }
+  var lote=document.getElementById('lt-'+tipo+'-'+key)&&document.getElementById('lt-'+tipo+'-'+key).value||'Sin especificar';
+  var hora=document.getElementById('hr-'+tipo+'-'+key)&&document.getElementById('hr-'+tipo+'-'+key).value||'6:10 a.m.';
+  var btn=document.getElementById('ba-'+tipo+'-'+key);
+  if(btn){ btn.disabled=true; btn.innerHTML='<span class="sp"></span>Guardando...'; }
+
+  var fn, args;
+  if(tipo==='t'){
+    var operario=document.getElementById('op-'+key)&&document.getElementById('op-'+key).value||'';
+    var impl=document.getElementById('im-'+key)&&document.getElementById('im-'+key).value||'Ninguno';
+    fn='asignarTractor'; args=[fecha,sup,key,labor,lote,operario,impl,hora];
+  } else if(tipo==='p'){
+    fn='asignarPersonal'; args=[fecha,sup,key,labor,lote,hora];
+  } else {
+    var resp=document.getElementById('rs-'+key)&&document.getElementById('rs-'+key).value||'';
+    fn='asignarEquipo'; args=[fecha,sup,key,labor,lote,resp,hora];
+  }
+
+  var runner=google.script.run.withSuccessHandler(function(r){
+    if(r&&r.conflict){
+      toast('🚫 Ya tomado por '+r.conflictSup,'err');
+      var store=tipo==='t'?FORM_T:tipo==='p'?FORM_P:FORM_E;
+      delete store[key];
+      if(tipo==='t') expandidoT=null; else if(tipo==='p') expandidoP=null; else expandidoE=null;
+      cargar(); return;
+    }
+    if(!r||!r.ok){ toast('Error al guardar','err'); if(btn){btn.disabled=false;btn.innerHTML='✅ Confirmar';} return; }
+    var store=tipo==='t'?FORM_T:tipo==='p'?FORM_P:FORM_E;
+    var progStore=tipo==='t'?PROG_T:tipo==='p'?PROG_P:PROG_E;
+    progStore[key]={supervisor:sup,labor:labor,lote:lote,hora:hora};
+    delete store[key];
+    if(tipo==='t') expandidoT=null; else if(tipo==='p') expandidoP=null; else expandidoE=null;
+    if(tipo==='t') renderTractores(); else if(tipo==='p') renderPersonal(); else renderEquipos();
+    updateKPIs();
+    toast('✅ Asignado correctamente');
+  }).withFailureHandler(function(e){
+    console.error(e); if(btn){btn.disabled=false;btn.innerHTML='✅ Confirmar';} toast('Error','err');
+  });
+  runner[fn].apply(runner, args);
+}
+
+function liberarRC(tipo, key){
+  if(!confirm('¿Liberar este recurso?')) return;
+  var sup=getSup(), fecha=getFecha();
+  var progStore=tipo==='t'?PROG_T:tipo==='p'?PROG_P:PROG_E;
+  delete progStore[key];
+  if(tipo==='t') expandidoT=null; else if(tipo==='p') expandidoP=null; else expandidoE=null;
+  if(tipo==='t') renderTractores(); else if(tipo==='p') renderPersonal(); else renderEquipos();
+  updateKPIs();
+  var hoja=tipo==='t'?'ProgTractores':tipo==='p'?'ProgPersonal':'ProgEquipos';
+  google.script.run.withSuccessHandler(function(){ toast('Liberado'); }).liberarRecurso(hoja,fecha,sup,key);
+}
+
+// ═══════════════════════════════════════════════════
+//  PERSONAL
+// ═══════════════════════════════════════════════════
+function renderPersonal(){
+  var sup=getSup();
+  var libres=[],pend=[],misProg=[],otrosProg=[];
+  PERSONAL.forEach(function(p){
+    if(PROG_P[p]){ if(PROG_P[p].supervisor===sup) misProg.push(p); else otrosProg.push(p); }
+    else if(FORM_P[p]){ pend.push(p); } else { libres.push(p); }
+  });
+  var html='';
+  if(pend.length){ html+='<div class="slbl" style="color:var(--naranja)">⏳ Pendientes ('+pend.length+')</div>'; pend.forEach(function(p){html+=rcHTML(p,'p','pend');}); }
+  if(misProg.length){ html+='<div class="slbl" style="color:var(--azul)">✅ Asignados por mí ('+misProg.length+')</div>'; misProg.forEach(function(p){html+=rcHTML(p,'p','prog');}); }
+  if(libres.length){ html+='<div class="slbl" style="color:var(--verde-m)">🟢 Sin asignar ('+libres.length+')</div>'; libres.forEach(function(p){html+=rcHTML(p,'p','libre');}); }
+  if(otrosProg.length){ html+='<div class="slbl" style="color:var(--gris)">🔒 Asignados por otro ('+otrosProg.length+')</div>'; otrosProg.forEach(function(p){html+=rcHTML(p,'p','otro');}); }
+  document.getElementById('lista-personal').innerHTML=html||'<div style="text-align:center;padding:20px;color:var(--gris)">✅ Todo el personal asignado</div>';
+}
+
+// ═══════════════════════════════════════════════════
+//  EQUIPOS MENORES
+// ═══════════════════════════════════════════════════
+function renderEquipos(){
+  var sup=getSup();
+  var libres=[],pend=[],misProg=[],otrosProg=[];
+  EQUIPOS.forEach(function(e){
+    if(PROG_E[e]){ if(PROG_E[e].supervisor===sup) misProg.push(e); else otrosProg.push(e); }
+    else if(FORM_E[e]){ pend.push(e); } else { libres.push(e); }
+  });
+  var html='';
+  if(pend.length){ html+='<div class="slbl" style="color:var(--naranja)">⏳ Pendientes ('+pend.length+')</div>'; pend.forEach(function(e){html+=rcHTML(e,'e','pend');}); }
+  if(misProg.length){ html+='<div class="slbl" style="color:var(--azul)">✅ Asignados por mí ('+misProg.length+')</div>'; misProg.forEach(function(e){html+=rcHTML(e,'e','prog');}); }
+  if(libres.length){ html+='<div class="slbl" style="color:var(--verde-m)">🟢 Disponibles ('+libres.length+')</div>'; libres.forEach(function(e){html+=rcHTML(e,'e','libre');}); }
+  if(otrosProg.length){ html+='<div class="slbl" style="color:var(--gris)">🔒 Asignados por otro ('+otrosProg.length+')</div>'; otrosProg.forEach(function(e){html+=rcHTML(e,'e','otro');}); }
+  document.getElementById('lista-equipos').innerHTML=html||'<div style="text-align:center;padding:20px;color:var(--gris)">✅ Todos los equipos asignados</div>';
+}
+
+// ═══════════════════════════════════════════════════
+//  INSUMOS
+// ═══════════════════════════════════════════════════
+function renderInsumos(){
+  var sup=getSup();
+  var misInsumos=INSUMOS.filter(function(r){ return String(r[1])===sup; });
+  var html='';
+  if(misInsumos.length){
+    html+='<div class="slbl" style="color:var(--naranja)">🧪 Mis requerimientos ('+misInsumos.length+')</div>';
+    misInsumos.forEach(function(r,i){
+      html+='<div class="insumo-card"><div class="ins-top">'
+        +'<div class="ins-icon">🧪</div>'
+        +'<div class="rc-info"><div class="rc-nombre">'+r[2]+'</div>'
+        +'<div class="rc-sub">'+r[3]+' '+r[4]+' · '+r[5]+'</div></div>'
+        +'<span class="ins-badge">'+r[3]+' '+r[4]+'</span>'
+        +'</div></div>';
+    });
+  }
+  document.getElementById('lista-insumos').innerHTML=html;
+}
+
+function agregarInsumo(){
+  var sup=getSup(), fecha=getFecha();
+  if(!sup||!fecha){ toast('Selecciona supervisor y fecha primero','err'); return; }
+  var insumo=prompt('¿Qué insumo necesitas?\n'+INSUMOS_LISTA.map(function(i,n){return (n+1)+'. '+i;}).join('\n')+'\n\nEscribe el nombre del insumo:');
+  if(!insumo) return;
+  var cantidad=prompt('¿Cuánto? (número):');
+  if(!cantidad) return;
+  var unidad=prompt('¿Unidad?\n'+UNIDADES.join(', '));
+  if(!unidad) return;
+  var lote=prompt('¿Para qué lote? (o deja vacío):');
+  var labor=prompt('¿Para qué labor? (o deja vacío):');
+  google.script.run
+    .withSuccessHandler(function(r){
+      if(r&&r.ok){ INSUMOS.push([fecha,sup,insumo,cantidad,unidad,lote||'',labor||'']); renderInsumos(); updateKPIs(); toast('✅ Insumo agregado'); }
+      else toast('Error al guardar','err');
+    })
+    .asignarInsumo(fecha,sup,insumo,cantidad,unidad,lote||'',labor||'');
+}
+
+// ═══════════════════════════════════════════════════
+//  RESUMEN
+// ═══════════════════════════════════════════════════
+function buildResumen(){
+  var sup=getSup(), fecha=getFecha();
+  var misTractores=TRACTORES.filter(function(t){ return PROG_T[t.n]&&PROG_T[t.n].supervisor===sup; });
+  var misPersonal=PERSONAL.filter(function(p){ return PROG_P[p]&&PROG_P[p].supervisor===sup; });
+  var misEquipos=EQUIPOS.filter(function(e){ return PROG_E[e]&&PROG_E[e].supervisor===sup; });
+  var misInsumos=INSUMOS.filter(function(r){ return String(r[1])===sup; });
+
+  var html='<div class="resumen-box"><div class="res-title">📋 Mi programación del día</div>';
+
+  if(misTractores.length){
+    html+='<div class="res-section"><div class="res-sec-title">🚜 Tractores ('+misTractores.length+')</div>';
+    misTractores.forEach(function(t,i){
+      var p=PROG_T[t.n];
+      html+='<div class="res-item"><div class="res-num">#'+t.n+'</div><div class="res-det">'
+        +'<div class="res-nombre">'+t.m+'</div>'
+        +'<div class="res-info">'+p.labor+(p.lote&&p.lote!=='Sin especificar'?' · '+p.lote:'')+(p.operario?' · '+p.operario:'')+'</div>'
+        +'</div></div>';
+    });
+    html+='</div>';
+  }
+  if(misPersonal.length){
+    html+='<div class="res-section"><div class="res-sec-title">👷 Personal ('+misPersonal.length+')</div>';
+    misPersonal.forEach(function(p){
+      var d=PROG_P[p];
+      html+='<div class="res-item"><div class="res-num">👷</div><div class="res-det">'
+        +'<div class="res-nombre">'+p+'</div>'
+        +'<div class="res-info">'+d.labor+(d.lote&&d.lote!=='Sin especificar'?' · '+d.lote:'')+'</div></div></div>';
+    });
+    html+='</div>';
+  }
+  if(misEquipos.length){
+    html+='<div class="res-section"><div class="res-sec-title">⚙️ Equipos ('+misEquipos.length+')</div>';
+    misEquipos.forEach(function(e){
+      var d=PROG_E[e];
+      html+='<div class="res-item"><div class="res-num">⚙️</div><div class="res-det">'
+        +'<div class="res-nombre">'+e+'</div>'
+        +'<div class="res-info">'+d.labor+(d.lote&&d.lote!=='Sin especificar'?' · '+d.lote:'')+'</div></div></div>';
+    });
+    html+='</div>';
+  }
+  if(misInsumos.length){
+    html+='<div class="res-section"><div class="res-sec-title">🧪 Insumos ('+misInsumos.length+')</div>';
+    misInsumos.forEach(function(r){
+      html+='<div class="res-item"><div class="res-num">🧪</div><div class="res-det">'
+        +'<div class="res-nombre">'+r[2]+'</div>'
+        +'<div class="res-info">'+r[3]+' '+r[4]+(r[5]?' · '+r[5]:'')+'</div></div></div>';
+    });
+    html+='</div>';
+  }
+  if(!misTractores.length&&!misPersonal.length&&!misEquipos.length&&!misInsumos.length){
+    html+='<div style="text-align:center;color:rgba(255,255,255,.5);padding:16px;font-size:13px">Sin programación aún — ve a las otras pestañas</div>';
+  }
+  html+='</div>';
+  document.getElementById('resumen-content').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════
+//  WHATSAPP
+// ═══════════════════════════════════════════════════
+function abrirWA(){
+  var sup=getSup(), fecha=getFecha();
+  if(!sup||!fecha){ toast('Selecciona supervisor y fecha','err'); return; }
+  var p=fecha.split('/');
+  var fechaObj=new Date(p[2]+'-'+p[1]+'-'+p[0]+'T12:00:00');
+  var fechaStr=fechaObj.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  var sep='━━━━━━━━━━━━━━━━━━━━━━';
+  var misTractores=TRACTORES.filter(function(t){return PROG_T[t.n]&&PROG_T[t.n].supervisor===sup;});
+  var misPersonal=PERSONAL.filter(function(p){return PROG_P[p]&&PROG_P[p].supervisor===sup;});
+  var misEquipos=EQUIPOS.filter(function(e){return PROG_E[e]&&PROG_E[e].supervisor===sup;});
+  var misInsumos=INSUMOS.filter(function(r){return String(r[1])===sup;});
+
+  var msg='🌴 *PROGRAMACIÓN DIARIA — PALMA DE ACEITE*\n'+sep+'\n';
+  msg+='📅 *'+fechaStr.charAt(0).toUpperCase()+fechaStr.slice(1)+'*\n';
+  msg+='👷 Supervisor: *'+sup+'*\n'+sep+'\n\n';
+
+  if(misTractores.length){
+    msg+='🚜 *TRACTORES ('+misTractores.length+')*\n';
+    misTractores.forEach(function(t,i){
+      var d=PROG_T[t.n];
+      msg+=(i+1)+'. *Tractor #'+t.n+' — '+t.m+'*\n';
+      msg+='   ⚒️ '+d.labor+'\n';
+      if(d.lote&&d.lote!=='Sin especificar') msg+='   📍 '+d.lote+'\n';
+      if(d.operario) msg+='   👷 '+d.operario+'\n';
+      if(d.impl&&d.impl!=='Ninguno') msg+='   🔧 '+d.impl+'\n';
+      msg+='   ⏰ '+(d.hora||'6:10 a.m.')+'\n\n';
+    });
+  }
+  if(misPersonal.length){
+    msg+='\n👷 *PERSONAL ('+misPersonal.length+')*\n';
+    misPersonal.forEach(function(p,i){
+      var d=PROG_P[p];
+      msg+=(i+1)+'. *'+p+'*\n';
+      msg+='   ⚒️ '+d.labor+'\n';
+      if(d.lote&&d.lote!=='Sin especificar') msg+='   📍 '+d.lote+'\n';
+      msg+='   ⏰ '+(d.hora||'6:10 a.m.')+'\n\n';
+    });
+  }
+  if(misEquipos.length){
+    msg+='\n⚙️ *EQUIPOS MENORES ('+misEquipos.length+')*\n';
+    misEquipos.forEach(function(e,i){
+      var d=PROG_E[e];
+      msg+=(i+1)+'. *'+e+'*\n';
+      msg+='   ⚒️ '+d.labor+'\n';
+      if(d.lote&&d.lote!=='Sin especificar') msg+='   📍 '+d.lote+'\n';
+      if(d.responsable) msg+='   👷 '+d.responsable+'\n\n';
+    });
+  }
+  if(misInsumos.length){
+    msg+='\n🧪 *INSUMOS REQUERIDOS*\n';
+    misInsumos.forEach(function(r,i){
+      msg+=(i+1)+'. '+r[2]+': *'+r[3]+' '+r[4]+'*';
+      if(r[5]) msg+=' → '+r[5];
+      msg+='\n';
+    });
+  }
+  msg+='\n'+sep+'\n📌 *Instrucciones generales:*\n';
+  msg+='• Hora de inicio: 6:10 a.m.\n';
+  msg+='• Completar preoperativo antes de arrancar\n';
+  msg+='• Reportar novedades al mecánico Tulio\n';
+  msg+=sep+'\n_Palma · '+new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})+' · Sistema Automático_';
+
+  document.getElementById('wa-txt').textContent=msg;
+  document.getElementById('wa-modal').classList.add('show');
+  document.body.style.overflow='hidden';
+}
+function cerrarWA(){ document.getElementById('wa-modal').classList.remove('show'); document.body.style.overflow=''; }
+function copiarWA(){ navigator.clipboard.writeText(document.getElementById('wa-txt').textContent).then(function(){ toast('✅ Copiado'); }); }
+function enviarWA(){ window.open('https://wa.me/?text='+encodeURIComponent(document.getElementById('wa-txt').textContent),'_blank'); }
+function toast(msg,type){ var t=document.getElementById('toast'); t.textContent=msg; t.className='show'+(type?' '+type:''); setTimeout(function(){t.className='';},3200); }
+
+init();
+</script>
+</body>
+</html>

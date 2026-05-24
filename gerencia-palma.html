@@ -160,6 +160,93 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
 </style>
 </head>
 <body>
+
+<!-- PIN SCREEN -->
+<div id="pin-screen" style="position:fixed;inset:0;background:var(--verde);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px">
+  <div style="text-align:center;margin-bottom:32px">
+    <div style="width:64px;height:64px;background:rgba(255,255,255,.1);border-radius:16px;display:grid;place-items:center;font-size:32px;margin:0 auto 16px">📊</div>
+    <div style="font-family:'DM Serif Display',serif;font-size:22px;color:#fff;margin-bottom:6px">Palma Grande S.A.S</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.5)">Panel Ejecutivo — Solo lectura</div>
+  </div>
+  <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:24px;width:100%;max-width:300px">
+    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px;text-align:center">Ingresa tu PIN</div>
+    <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px" id="pin-dots">
+      <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-0"></div>
+      <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-1"></div>
+      <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-2"></div>
+      <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-3"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <button onclick="pinInput('1')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">1</button>
+<button onclick="pinInput('2')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">2</button>
+<button onclick="pinInput('3')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">3</button>
+<button onclick="pinInput('4')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">4</button>
+<button onclick="pinInput('5')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">5</button>
+<button onclick="pinInput('6')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">6</button>
+<button onclick="pinInput('7')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">7</button>
+<button onclick="pinInput('8')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">8</button>
+<button onclick="pinInput('9')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">9</button>
+
+      <div></div>
+      <button onclick="pinInput('0')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">0</button>
+      <button onclick="pinDelete()" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:600;cursor:pointer">⌫</button>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.3);text-align:center;margin-top:16px" id="pin-error"></div>
+    <button onclick="history.back()" style="width:100%;margin-top:14px;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,.15);background:transparent;color:rgba(255,255,255,.5);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer">← Volver</button>
+  </div>
+
+  <a href="https://rojasanderson18-ship-it.github.io/maquinaria-taller-palmag/" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:20px;color:rgba(255,255,255,.4);font-size:13px;font-weight:600;text-decoration:none;padding:11px 20px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05)">← Volver a la página principal</a>
+</div>
+
+<script>
+var pinVal = '';
+var correctPin = '2105';
+
+function pinInput(n){
+  if(pinVal.length>=4) return;
+  pinVal += n;
+  updateDots();
+  if(pinVal.length===4) checkPin();
+}
+function pinDelete(){
+  pinVal = pinVal.slice(0,-1);
+  updateDots();
+  document.getElementById('pin-error').textContent='';
+}
+function updateDots(){
+  for(var i=0;i<4;i++){
+    var d=document.getElementById('dot-'+i);
+    d.style.background = i<pinVal.length ? '#fff' : 'transparent';
+    d.style.borderColor = i<pinVal.length ? '#fff' : 'rgba(255,255,255,.3)';
+  }
+}
+function checkPin(){
+  if(pinVal===correctPin){
+    localStorage.setItem('pin_ok_gerencia','1');
+    document.getElementById('pin-screen').style.display='none';
+  } else {
+    pinVal='';
+    updateDots();
+    var err=document.getElementById('pin-error');
+    err.textContent='PIN incorrecto. Inténtalo de nuevo.';
+    err.style.color='#fca5a5';
+    // Shake animation
+    var screen=document.getElementById('pin-screen').querySelector('[style*="gap:10px"]');
+    if(screen){screen.style.animation='none';setTimeout(()=>{screen.style.animation='shake .4s ease';},10);}
+  }
+}
+// Check if already authenticated
+(function(){
+  if(localStorage.getItem('pin_ok_gerencia')==='1'){
+    var el=document.getElementById('pin-screen');
+    if(el) el.style.display='none';
+  }
+})();
+</script>
+<style>
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+
 <div class="top-bar"></div>
 <header>
   <div class="hdr-inner">
@@ -383,7 +470,7 @@ async function cargarDatos(){
     const total=ph.length,authN=rh.filter(r=>r[4]==='AUTORIZADO').length+ah.length;
     const retN=Math.max(0,rh.filter(r=>r[4]==='RETENIDO').length-ah.length);
     const disp=total>0?Math.round(authN/total*100):0;
-    const litros=th.filter(r=>r[5]==='Sí').reduce((s,r)=>s+(parseFloat(r[6])||0),0);
+    const galones=th.filter(r=>r[5]==='Sí').reduce((s,r)=>s+(parseFloat(r[6])||0),0);
 
     // Hero
     document.getElementById('dh-pct').innerHTML=total>0?disp+'<span class="hm-unit">%</span>':'—';
@@ -396,7 +483,7 @@ async function cargarDatos(){
     document.getElementById('dhs-alta').textContent=ah.length||'—';
 
     // Metrics
-    document.getElementById('kpi-comb').textContent=litros>0?litros.toFixed(0):'—';
+    document.getElementById('kpi-comb').textContent=galones>0?galones.toFixed(0):'—';
     document.getElementById('kpi-prog').textContent=prh.length||'—';
     document.getElementById('kpi-altas').textContent=ah.length||'—';
     document.getElementById('kpi-mtto').textContent=alh.length||'—';
