@@ -311,11 +311,16 @@ document.addEventListener('DOMContentLoaded', function(){
   <div class="tabs">
     <button class="tab-btn active" id="tab-hoy" onclick="showTab('hoy')">Resumen del día</button>
     <button class="tab-btn" id="tab-tanqueo" onclick="showTab('tanqueo')">Combustible</button>
+    <button class="tab-btn" id="tab-varados" onclick="showTab('varados')">🔴 Varados</button>
   </div>
 
   <!-- TAB HOY -->
   <div id="sec-hoy">
     <!-- ALERTAS -->
+    <div class="alert danger" id="alert-varados" style="display:none">
+      <div class="alert-icon">🔴</div>
+      <div><div class="alert-title" id="alert-var-title">—</div><div class="alert-desc" id="alert-var-sub">—</div></div>
+    </div>
     <div class="alert danger" id="alert-retenidos">
       <div class="alert-icon">⚠</div>
       <div><div class="alert-title" id="alert-ret-title">—</div><div class="alert-desc" id="alert-ret-sub">—</div></div>
@@ -451,6 +456,21 @@ document.addEventListener('DOMContentLoaded', function(){
     </div>
   </div>
 
+
+  <!-- TAB VARADOS -->
+  <div id="sec-varados" style="display:none">
+    <div style="background:var(--surface);border-radius:12px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border)">
+      <div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-family:'Playfair Display',serif;font-size:15px">Tractores Varados</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Último reporte de cierre de jornada</div>
+        </div>
+        <span id="varados-count-badge" style="background:#fef2f2;color:#b91c1c;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid #fecaca">—</span>
+      </div>
+      <div id="lista-varados-ger"><div class="loading"><div class="spin"></div></div></div>
+    </div>
+  </div>
+
 </main>
 <div id="toast" style="position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink2);color:#fff;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.15);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;border-left:3px solid var(--gold);max-width:90vw;text-align:center"></div>
 
@@ -492,15 +512,30 @@ function lblDia(f){const p=f.split('/');const d=new Date(p[2]+'-'+p[1]+'-'+p[0])
 async function cargarDatos(){
   document.getElementById('ultima-act').textContent='Actualizando...';
   try{
-    const[preops,revs,altas,alertas,tanqs,prog]=await Promise.all([
+    const[preops,revs,altas,alertas,tanqs,prog,cierres]=await Promise.all([
       fetchH('Preoperativos'),fetchH('Revisiones'),fetchH('Altas'),
-      fetchH('Alertas Mantenimiento'),fetchH('Tanqueos'),fetchH('Programacion')
+      fetchH('Alertas Mantenimiento'),fetchH('Tanqueos'),fetchH('Programacion'),
+      fetchH('CierreJornada')
     ]);
     const ph=hoy(preops),rh=hoy(revs),ah=hoy(altas),alh=hoy(alertas),th=hoy(tanqs),prh=hoy(prog).filter(r=>r[3]&&String(r[3]).trim());
     const total=ph.length,authN=rh.filter(r=>r[4]==='AUTORIZADO').length+ah.length;
     const retN=Math.max(0,rh.filter(r=>r[4]==='RETENIDO').length-ah.length);
     const disp=total>0?Math.round(authN/total*100):0;
     const galones=th.filter(r=>r[5]==='Sí').reduce((s,r)=>s+(parseFloat(r[6])||0),0);
+
+    // Varados del último cierre por tractor
+    const porTractor={};
+    (cierres||[]).forEach(function(row){
+      const m=String(row[3]||'').match(/#.?0*(\d+)/);
+      if(!m)return;
+      const num=m[1].padStart(2,'0');
+      const est=String(row[5]||'').toLowerCase();
+      if(est!=='varado'&&est!=='novedad')return;
+      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const fA=porTractor[num]?new Date(String(porTractor[num][0]||'').split('/').reverse().join('-')):null;
+      if(!fA||fB>=fA)porTractor[num]=row;
+    });
+    const varadosN=Object.values(porTractor).filter(r=>String(r[5]||'').toLowerCase()==='varado').length;
 
     // Hero
     document.getElementById('dh-pct').innerHTML=total>0?disp+'<span class="hm-unit">%</span>':'—';
@@ -525,6 +560,15 @@ async function cargarDatos(){
     const am=document.getElementById('alert-mtto');
     if(alh.length>0){am.classList.add('show');document.getElementById('alert-mtto-title').textContent=alh.length+' equipo'+(alh.length>1?'s':'')+' con alerta de mantenimiento';document.getElementById('alert-mtto-sub').textContent=alh.map(r=>r[1]).join(' · ');}
     else am.classList.remove('show');
+
+    const av=document.getElementById('alert-varados');
+    if(av){
+      if(varadosN>0){
+        av.style.display='flex';
+        document.getElementById('alert-var-title').textContent=varadosN+' tractor'+(varadosN>1?'es':'')+' varado'+(varadosN>1?'s':'')+' por cierre de jornada';
+        document.getElementById('alert-var-sub').textContent=Object.values(porTractor).filter(r=>String(r[5]||'').toLowerCase()==='varado').map(r=>r[3]).join(' · ');
+      } else av.style.display='none';
+    }
 
     // Charts
     const d7=dias7();
@@ -625,12 +669,49 @@ function renderChartComb(labels,data){
 }
 
 // Tabs
+async function renderVaradosGer(){
+  const el=document.getElementById('lista-varados-ger');
+  const badge=document.getElementById('varados-count-badge');
+  if(!el)return;
+  try{
+    const r=await fetchH('CierreJornada');
+    const por={};
+    (r||[]).forEach(function(row){
+      const m=String(row[3]||'').match(/#.?0*(\d+)/);
+      if(!m)return;
+      const num=m[1].padStart(2,'0');
+      const est=String(row[5]||'').toLowerCase();
+      if(est!=='varado'&&est!=='novedad')return;
+      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
+      if(!fA||fB>=fA)por[num]=row;
+    });
+    const lista=Object.values(por);
+    if(badge)badge.textContent=lista.length?lista.length+' equipo'+(lista.length>1?'s':''):'Sin varados';
+    if(!lista.length){el.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">✅</div><div>Sin tractores varados</div></div>';return;}
+    el.innerHTML=lista.map(function(row){
+      const esV=String(row[5]||'').toLowerCase()==='varado';
+      const color=esV?'#b91c1c':'#92400e';
+      const bg=esV?'#fef2f2':'#fffbeb';
+      return '<div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px">'
+        +'<div style="width:28px;height:28px;border-radius:50%;background:'+color+';display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">'+(String(row[3]||'').match(/\d+/)||['?'])[0]+'</div>'
+        +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+(row[3]||'—')+'</div>'
+        +'<div style="font-size:11px;color:var(--muted);margin-top:2px">Op: '+(row[2]||'—')+' · '+(row[0]||'—')+' · '+(row[1]||'—')+'</div>'
+        +(row[6]?'<div style="font-size:12px;color:'+color+';margin-top:4px;background:'+bg+';padding:5px 9px;border-radius:7px">'+(row[6])+'</div>':'')
+        +'</div><span style="background:'+bg+';color:'+color+';font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid '+color+';white-space:nowrap">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span></div>';
+    }).join('');
+  }catch(e){console.error(e);}
+}
+
 function showTab(tab){
+  if(tab==='varados') renderVaradosGer();
   document.getElementById('sec-hoy').style.display=tab==='hoy'?'block':'none';
   document.getElementById('sec-tanqueo').style.display=tab==='tanqueo'?'block':'none';
+  document.getElementById('sec-varados').style.display=tab==='varados'?'block':'none';
   document.getElementById('tab-hoy').className='tab-btn'+(tab==='hoy'?' active':'');
   document.getElementById('tab-tanqueo').className='tab-btn'+(tab==='tanqueo'?' active':'');
-  document.getElementById('toolbar-title').textContent=tab==='hoy'?'Resumen del día':'Análisis de combustible';
+  document.getElementById('tab-varados').className='tab-btn'+(tab==='varados'?' active':'');
+  document.getElementById('toolbar-title').textContent=tab==='hoy'?'Resumen del día':tab==='tanqueo'?'Análisis de combustible':'Tractores Varados';
   if(tab==='tanqueo')cargarTanqueo();
 }
 
