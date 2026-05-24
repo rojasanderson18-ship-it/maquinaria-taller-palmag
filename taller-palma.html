@@ -42,11 +42,11 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 .card-body{padding:15px}
 
 .kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:13px}
-.kpi-card{background:var(--surface);border-radius:12px;padding:14px 10px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.07);border-top:3px solid var(--border)}
+.kpi-card{background:var(--surface);border-radius:12px;padding:18px 10px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.07);border-top:3px solid var(--border)}
 .kpi-card.verde{border-top-color:var(--verde-s)}.kpi-card.rojo{border-top-color:var(--rojo-m)}.kpi-card.azul{border-top-color:var(--azul)}
-.kpi-num{font-family:'DM Serif Display',serif;font-size:30px;line-height:1}
+.kpi-num{font-family:'DM Serif Display',serif;font-size:40px;line-height:1}
 .kpi-card.verde .kpi-num{color:var(--verde-m)}.kpi-card.rojo .kpi-num{color:var(--rojo-m)}.kpi-card.azul .kpi-num{color:var(--azul)}
-.kpi-label{font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.04em;margin-top:4px}
+.kpi-label{font-size:12px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.04em;margin-top:6px}
 
 .nov-card{background:var(--surface);border-radius:13px;margin-bottom:11px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden;border-left:5px solid var(--border)}
 .nov-card.alta{border-left-color:var(--rojo-m)}.nov-card.libre{border-left-color:var(--verde-s)}.nov-card.resuelta{border-left-color:var(--azul)}
@@ -233,9 +233,8 @@ document.addEventListener('DOMContentLoaded', function(){
   </div>
   <div class="tabs">
     <button class="tab active" onclick="showTab('novedades',this)">⚠️ Novedades</button>
-    <button class="tab" onclick="showTab('flota',this)">🚜 Flota</button>
+    <button class="tab" onclick="showTab('flota',this)">🚜 Maquinaria</button>
     <button class="tab" onclick="showTab('eficiencia',this)">📈 Eficiencia</button>
-    <button class="tab" onclick="showTab('resumen',this)">📊 Gerencia</button>
     <button class="tab" onclick="showTab('config',this)">⚙️</button>
   </div>
 </header>
@@ -346,25 +345,6 @@ document.addEventListener('DOMContentLoaded', function(){
     </div>
     <div id="historial-alta"><div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin registros hoy</div></div></div>
   </div>
-</div>
-
-<!-- RESUMEN GERENCIA -->
-<div class="sec" id="sec-resumen">
-  <div class="res-gerencia">
-    <div class="res-g-title">🌴 Resumen Diario</div>
-    <div class="res-g-sub" id="res-fecha-sub">—</div>
-    <div class="res-g-div"></div>
-    <div class="res-g-row"><span class="res-g-label">Tractores reportados</span><span class="res-g-val" id="rg-total">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">✅ Autorizados</span><span class="res-g-val" style="color:var(--verde-p)" id="rg-salen">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">🚫 Retenidos</span><span class="res-g-val" style="color:#fca5a5" id="rg-nosalen">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">🔵 Dados de alta</span><span class="res-g-val" style="color:#93c5fd" id="rg-alta">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">📋 Disponibilidad</span><span class="res-g-val" style="color:var(--verde-p)" id="rg-disp">—</span></div>
-    <div class="res-g-row"><span class="res-g-label">🔧 Mecánico</span><span class="res-g-val" id="rg-mec">—</span></div>
-  </div>
-  <div class="card"><div class="card-hdr rojo"><span class="card-hdr-icon">🚫</span><div><div class="card-hdr-title">Retenidos</div></div></div><div id="res-nosalen-list"></div></div>
-  <div class="card"><div class="card-hdr verde"><span class="card-hdr-icon">✅</span><div><div class="card-hdr-title">Autorizados</div></div></div><div id="res-salen-list"></div></div>
-  <button class="copy-btn" onclick="copiarResumen()">📋 Copiar resumen</button>
-  <button class="copy-btn wa-btn" onclick="enviarWhatsApp()">📱 Enviar por WhatsApp</button>
 </div>
 
 <!-- CONFIG -->
