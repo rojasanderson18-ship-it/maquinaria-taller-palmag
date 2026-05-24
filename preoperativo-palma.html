@@ -200,6 +200,13 @@ textarea{min-height:80px;resize:vertical}
         <label>Lote / Área de trabajo</label>
         <input type="text" id="f-lote" placeholder="Ej: Lote A – Bloque 3">
       </div>
+
+      <!-- PROGRAMACIÓN DEL DÍA -->
+      <div id="prog-box" style="display:none;background:var(--verde);border-radius:12px;padding:14px;margin-top:4px">
+        <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">📋 Tu programación de hoy</div>
+        <div id="prog-content"></div>
+      </div>
+
       <button class="btn-full btn-primary" onclick="goTo(2)">Continuar →</button>
     </div>
   </div>
@@ -456,10 +463,64 @@ function validate(step){
 }
 function v(id){return document.getElementById(id).value.trim()}
 
+async function cargarProgramacion(){
+  const eq = v('f-equipo');
+  if(!eq || !GS_URL){ document.getElementById('prog-box').style.display='none'; return; }
+  // Extraer número del tractor
+  const m = eq.match(/(\d+)/);
+  if(!m) return;
+  const num = m[1].padStart(2,'0');
+  try{
+    const r = await fetch(GS_URL+'?hoja=Programacion');
+    const d = await r.json();
+    if(!d.ok||!d.datos) return;
+    const hoy = new Date().toLocaleDateString('es-CO');
+    const asig = d.datos.find(row=>{
+      let f = row[0]||'';
+      if(typeof f==='string'&&f.includes('T')) f=new Date(f).toLocaleDateString('es-CO');
+      if(typeof f==='object') f=f.toLocaleDateString('es-CO');
+      const tStr = String(row[2]||'');
+      const tm = tStr.match(/#?\s*0*(\d+)/);
+      return f===hoy && tm && tm[1].padStart(2,'0')===num;
+    });
+    const box = document.getElementById('prog-box');
+    const cont = document.getElementById('prog-content');
+    if(asig && asig[3]){
+      box.style.display='block';
+      cont.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.6)">Labor asignada</span>
+            <span style="font-size:13px;font-weight:700;color:#fff">${asig[3]||'—'}</span>
+          </div>
+          ${asig[4]?`<div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.6)">Lote / Área</span>
+            <span style="font-size:13px;font-weight:700;color:var(--dorado-p,#fef3c7)">${asig[4]}</span>
+          </div>`:''}
+          ${asig[5]&&asig[5]!=='Ninguno'?`<div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.6)">Implemento</span>
+            <span style="font-size:13px;font-weight:700;color:#fff">${asig[5]}</span>
+          </div>`:''}
+          ${asig[6]?`<div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.6)">Hora de inicio</span>
+            <span style="font-size:13px;font-weight:700;color:#fff">${asig[6]}</span>
+          </div>`:''}
+          <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px">👷 Supervisor: ${asig[1]||'—'}</div>
+        </div>`;
+      // Auto-llenar labor y lote
+      if(asig[3]) document.getElementById('f-labor').value=asig[3];
+      if(asig[4]) document.getElementById('f-lote').value=asig[4];
+    } else {
+      box.style.display='none';
+    }
+  }catch(e){ document.getElementById('prog-box').style.display='none'; }
+}
+
 function onEquipoChange(){
   const eq=v('f-equipo');
   document.getElementById('campo-ult-mtto').style.display=(eq&&!MTTO_DATA[eq])?'block':'none';
   calcMtto();
+  cargarProgramacion();
 }
 
 function calcMtto(){
