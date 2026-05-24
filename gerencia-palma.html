@@ -236,12 +236,12 @@ function checkPin(){
   }
 }
 // Check if already authenticated
-(function(){
+document.addEventListener('DOMContentLoaded', function(){
   if(localStorage.getItem('pin_ok_gerencia')==='1'){
     var el=document.getElementById('pin-screen');
     if(el) el.style.display='none';
   }
-})();
+});
 </script>
 <style>
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
