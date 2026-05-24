@@ -158,6 +158,30 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
   .hero-metric,.metric-card,.chart-card,.data-section{break-inside:avoid;border:1px solid #ddd;box-shadow:none}
 }
 </style>
+<style>
+#pin-screen{
+  position:fixed!important;
+  top:0!important;left:0!important;right:0!important;bottom:0!important;
+  width:100vw!important;height:100vh!important;
+  background:#1c2b23!important;
+  z-index:999999!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:32px 24px!important;
+  margin:0!important;
+  overflow:hidden!important;
+}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+</style>
+<script>
+if(localStorage.getItem('pin_ok_gerencia')==='1'){
+  document.write('<style>#pin-screen{display:none!important}</style>');
+} else {
+  document.write('<style>body{overflow:hidden!important}</style>');
+}
+</script>
 </head>
 <body>
 
@@ -224,6 +248,7 @@ function checkPin(){
   if(pinVal===correctPin){
     localStorage.setItem('pin_ok_gerencia','1');
     document.getElementById('pin-screen').style.display='none';
+    document.body.style.overflow='';
   } else {
     pinVal='';
     updateDots();
