@@ -124,8 +124,6 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--verde);color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 6px 20px rgba(0,0,0,.2);opacity:0;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap;border-left:4px solid var(--dorado);max-width:90vw;text-align:center}
 #toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 #toast.error{background:var(--rojo)}
-.pill-varado{background:var(--rojo-p);color:var(--rojo-m)}
-.pill-novedad{background:var(--dorado-p);color:var(--dorado)}
 </style>
 <style>
 #pin-screen{position:fixed;inset:0;background:#1a4731;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px}
@@ -236,6 +234,7 @@ document.addEventListener('DOMContentLoaded', function(){
   <div class="tabs">
     <button class="tab active" onclick="showTab('novedades',this)">⚠️ Novedades</button>
     <button class="tab" onclick="showTab('flota',this)">🚜 Maquinaria</button>
+    <button class="tab" id="tab-varados" onclick="showTab('varados',this)">🔴 Varados</button>
     <button class="tab" onclick="showTab('eficiencia',this)">📈 Eficiencia</button>
     <button class="tab" onclick="showTab('config',this)">⚙️</button>
   </div>
@@ -269,8 +268,9 @@ document.addEventListener('DOMContentLoaded', function(){
 <!-- VARADOS -->
 <div class="sec" id="sec-varados">
   <div class="card">
-    <div class="card-hdr dorado"><span class="card-hdr-icon">🔴</span>
-      <div><div class="card-hdr-title">Tractores Varados</div><div class="card-hdr-sub">Último reporte de cierre de jornada</div></div>
+    <div class="card-hdr" style="background:var(--rojo);border-left:4px solid var(--dorado)">
+      <span class="card-hdr-icon">🔴</span>
+      <div><div class="card-hdr-title">Tractores Varados</div><div class="card-hdr-sub">Último cierre de jornada reportado</div></div>
     </div>
     <div id="lista-varados"><div class="loading"><div class="spinner"></div><div>Cargando...</div></div></div>
   </div>
@@ -443,7 +443,47 @@ function init(){
   }, 90000);
 }
 
+async function loadVarados(){
+  const el=document.getElementById('lista-varados');
+  if(!el)return;
+  try{
+    const r=await fetch(GS_URL+'?hoja=CierreJornada&t='+Date.now());
+    const d=await r.json();
+    if(!d.ok||!d.datos||!d.datos.length){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin tractores varados</div></div>';return;}
+    const por={};
+    d.datos.forEach(function(row){
+      const m=String(row[3]||'').match(/#.?0*(\d+)/);
+      if(!m)return;
+      const num=m[1].padStart(2,'0');
+      const est=String(row[5]||'').toLowerCase();
+      if(est!=='varado'&&est!=='novedad')return;
+      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
+      if(!fA||fB>=fA)por[num]=row;
+    });
+    const lista=Object.values(por);
+    const tab=document.getElementById('tab-varados');
+    if(!lista.length){
+      el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin tractores varados</div></div>';
+      if(tab)tab.textContent='🔴 Varados';return;
+    }
+    if(tab)tab.textContent='🔴 Varados ('+lista.length+')';
+    el.innerHTML=lista.map(function(row){
+      const est=String(row[5]||'').toLowerCase();
+      const esV=est==='varado';
+      const color=esV?'var(--rojo-m,#dc2626)':'var(--dorado)';
+      return '<div class="tractor-row">'
+        +'<div class="tr-num" style="background:'+color+'">'+(String(row[3]||'').match(/\d+/)||['?'])[0]+'</div>'
+        +'<div class="tr-info"><div class="tr-nombre">'+(row[3]||'—')+'</div>'
+        +'<div class="tr-meta">Op: '+(row[2]||'—')+' · '+(row[0]||'—')+'</div>'
+        +(row[6]?'<div class="tr-meta" style="color:'+color+';margin-top:3px">⚙️ '+row[6]+'</div>':'')
+        +'</div><span class="pill" style="background:'+(esV?'var(--rojo-p,#fee2e2)':'var(--dorado-p,#fef3c7)')+';color:'+color+'">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span></div>';
+    }).join('');
+  }catch(e){console.error(e);}
+}
+
 function showTab(name,btn){
+  if(name==='varados')loadVarados();
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
   document.getElementById('sec-'+name).classList.add('active');
@@ -810,54 +850,6 @@ function buildFlota(){
 // ═══════════════════════════════════════════════
 //  EFICIENCIA
 // ═══════════════════════════════════════════════
-async function loadVarados(){
-  try{
-    const r = await fetch(GS_URL+'?hoja=CierreJornada');
-    const d = await r.json();
-    const el = document.getElementById('lista-varados');
-    if(!d.ok||!d.datos||!d.datos.length){
-      el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin tractores varados</div></div>';
-      const btn=document.getElementById('btn-nav-varados');
-      if(btn) btn.textContent='🔴 Varados';
-      return;
-    }
-    // Agrupar por tractor, quedar con el reporte más reciente
-    const porTractor={};
-    d.datos.forEach(row=>{
-      const m=String(row[3]||'').match(/#\s*0*(\d+)/);
-      if(!m) return;
-      const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
-      if(est!=='varado'&&est!=='novedad') return;
-      const fA=porTractor[num]?new Date(String(porTractor[num][0]||'').split('/').reverse().join('-')):null;
-      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
-      if(!fA||fB>=fA) porTractor[num]=row;
-    });
-    const lista=Object.values(porTractor);
-    if(!lista.length){
-      el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin tractores varados</div></div>';
-      return;
-    }
-    // Update badge
-    const btn=document.getElementById('btn-nav-varados');
-    if(btn) btn.textContent='🔴 Varados ('+lista.length+')';
-    el.innerHTML=lista.map(row=>{
-      const est=String(row[5]||'').toLowerCase();
-      const esVarado=est==='varado';
-      return `<div class="tractor-row">
-        <div class="tr-num" style="background:${esVarado?'var(--rojo-m)':'var(--dorado)'}">${String(row[3]||'').match(/\d+/)?.[0]||'?'}</div>
-        <div class="tr-info">
-          <div class="tr-nombre">${row[3]||'—'}</div>
-          <div class="tr-meta">Op: ${row[2]||'—'} · ${row[0]||'—'} · ${row[1]||'—'}</div>
-          ${row[6]?`<div class="tr-meta" style="color:${esVarado?'var(--rojo-m)':'var(--dorado)'};margin-top:3px">⚙️ ${row[6]}</div>`:''}
-          ${row[7]?`<div class="tr-meta" style="margin-top:2px">Labor: ${row[7]}</div>`:''}
-        </div>
-        <span class="pill ${esVarado?'pill-varado':'pill-novedad'}">${esVarado?'🔴 Varado':'⚠️ Novedad'}</span>
-      </div>`;
-    }).join('');
-  }catch(e){ console.error(e); }
-}
-
 async function buildEficiencia(){
   // HOY
   const retenidos=REVISIONES.filter(r=>r[4]==='RETENIDO').length;
