@@ -172,8 +172,13 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 
 <!-- EFICIENCIA -->
 <div class="sec" id="sec-eficiencia">
+
+  <!-- HOY -->
   <div class="ef-card">
-    <div class="ef-title">📈 Eficiencia del Mecánico</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="ef-title">📈 Eficiencia del Mecánico</div>
+      <span style="background:rgba(255,255,255,.15);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;color:rgba(255,255,255,.7)">HOY</span>
+    </div>
     <div class="ef-sub" id="ef-nombre">—</div>
     <div class="ef-kpis">
       <div class="ef-kpi"><div class="ef-num" id="ef-total">—</div><div class="ef-lbl">Revisados</div></div>
@@ -182,15 +187,69 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
       <div class="ef-kpi"><div class="ef-num" id="ef-pct">—</div><div class="ef-lbl">Tasa solución</div></div>
     </div>
     <div class="ef-bar-wrap">
-      <div class="ef-bar-label"><span>Tasa de resolución</span><span id="ef-pct-lbl">0%</span></div>
+      <div class="ef-bar-label"><span>Tasa de resolución hoy</span><span id="ef-pct-lbl">0%</span></div>
       <div class="ef-bar-track"><div class="ef-bar-fill" id="ef-bar" style="width:0%"></div></div>
     </div>
   </div>
+
+  <!-- SEMANA -->
+  <div style="background:var(--surface);border-radius:14px;padding:15px;margin-bottom:13px;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-family:'DM Serif Display',serif;font-size:15px;color:var(--text)">📅 Esta semana</div>
+        <div style="font-size:11px;color:var(--gris);margin-top:2px" id="semana-rango">—</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+      <div style="background:var(--verde-pp);border-radius:10px;padding:11px 8px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:24px;color:var(--verde-m)" id="sem-revisados">—</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;margin-top:3px">Revisados</div>
+      </div>
+      <div style="background:var(--azul-p);border-radius:10px;padding:11px 8px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:24px;color:var(--azul)" id="sem-resueltos">—</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;margin-top:3px">Resueltos</div>
+      </div>
+      <div style="background:var(--dorado-p);border-radius:10px;padding:11px 8px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:24px;color:var(--dorado)" id="sem-tiempo">—</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;margin-top:3px">Prom. min</div>
+      </div>
+    </div>
+    <!-- Barras por día -->
+    <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;margin-bottom:8px">Resoluciones por día</div>
+    <div id="barras-semana" style="display:flex;gap:6px;align-items:flex-end;height:60px"></div>
+    <div id="labels-semana" style="display:flex;gap:6px;margin-top:5px"></div>
+  </div>
+
+  <!-- MES -->
+  <div style="background:var(--surface);border-radius:14px;padding:15px;margin-bottom:13px;box-shadow:0 1px 3px rgba(0,0,0,.07)">
+    <div style="font-family:'DM Serif Display',serif;font-size:15px;color:var(--text);margin-bottom:4px">📆 Este mes</div>
+    <div style="font-size:11px;color:var(--gris);margin-bottom:12px" id="mes-nombre">—</div>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+      <div style="background:var(--verde-pp);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--verde-m)" id="mes-revisados">—</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;margin-top:3px">Total revisados</div>
+      </div>
+      <div style="background:var(--azul-p);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--azul)" id="mes-resueltos">—</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;margin-top:3px">Total resueltos</div>
+      </div>
+      <div style="background:var(--dorado-p);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--dorado)" id="mes-tiempo">—</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;margin-top:3px">Tiempo prom.</div>
+      </div>
+      <div style="background:var(--verde-pp);border-radius:10px;padding:12px;text-align:center">
+        <div style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--verde-m)" id="mes-tasa">—</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gris);text-transform:uppercase;margin-top:3px">Tasa solución</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORIAL ALTAS HOY -->
   <div class="card">
     <div class="card-hdr dorado"><span class="card-hdr-icon">🕐</span>
-      <div><div class="card-hdr-title">Historial de altas</div><div class="card-hdr-sub">Tiempos de resolución</div></div>
+      <div><div class="card-hdr-title">Altas de hoy</div><div class="card-hdr-sub">Tiempos de resolución</div></div>
     </div>
-    <div id="historial-alta"><div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin registros</div></div></div>
+    <div id="historial-alta"><div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin registros hoy</div></div></div>
   </div>
 </div>
 
@@ -664,25 +723,105 @@ function buildFlota(){
 // ═══════════════════════════════════════════════
 //  EFICIENCIA
 // ═══════════════════════════════════════════════
-function buildEficiencia(){
+async function buildEficiencia(){
+  // HOY
   const retenidos=REVISIONES.filter(r=>r[4]==='RETENIDO').length;
   const resueltos=ALTAS.length;
   const tiempos=ALTAS.map(a=>typeof a[7]==='number'?a[7]:parseInt(a[7])||0).filter(t=>t>0);
   const prom=tiempos.length?Math.round(tiempos.reduce((a,b)=>a+b,0)/tiempos.length):0;
   const tasa=retenidos>0?Math.round(resueltos/retenidos*100):0;
+  document.getElementById('ef-nombre').textContent='Responsable: '+MECANICO;
   document.getElementById('ef-total').textContent    =retenidos||'—';
   document.getElementById('ef-resueltos').textContent=resueltos||'—';
   document.getElementById('ef-tiempo').textContent   =prom?prom+'m':'—';
   document.getElementById('ef-pct').textContent      =tasa?tasa+'%':'—';
   document.getElementById('ef-pct-lbl').textContent  =tasa+'%';
   document.getElementById('ef-bar').style.width      =tasa+'%';
+
   const hist=document.getElementById('historial-alta');
-  if(!ALTAS.length){hist.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin altas hoy</div></div>';return;}
-  hist.innerHTML=`<table class="tbl"><thead><tr><th>Equipo</th><th>Retención</th><th>Alta</th><th>Tiempo</th><th>Trabajo</th></tr></thead><tbody>
+  if(!ALTAS.length){hist.innerHTML='<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin altas hoy</div></div>';}
+  else{hist.innerHTML=`<table class="tbl"><thead><tr><th>Equipo</th><th>Retención</th><th>Alta</th><th>Tiempo</th><th>Trabajo</th></tr></thead><tbody>
     ${ALTAS.map(a=>`<tr><td><strong>${a[2]||'—'}</strong></td><td>${a[5]||'—'}</td><td>${a[6]||'—'}</td>
     <td><span class="pill ${parseInt(a[7])<=30?'pill-ok':parseInt(a[7])<=60?'pill-warn':'pill-fail'}">${a[7]} min</span></td>
     <td style="font-size:11px;max-width:140px">${a[8]||'—'}</td></tr>`).join('')}
-  </tbody></table>`;
+  </tbody></table>`;}
+
+  // SEMANA Y MES — cargar desde Sheets
+  try{
+    const r = await fetch(GS_URL+'?hoja=Altas');
+    const d = await r.json();
+    if(!d.ok) return;
+    const todasAltas = d.datos||[];
+
+    const now = new Date();
+    // Rango semana: lunes a domingo
+    const diaSem = now.getDay()===0?6:now.getDay()-1;
+    const lunes  = new Date(now); lunes.setDate(now.getDate()-diaSem); lunes.setHours(0,0,0,0);
+    const domingo= new Date(lunes); domingo.setDate(lunes.getDate()+6);
+
+    // Rango mes
+    const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
+    const finMes    = new Date(now.getFullYear(), now.getMonth()+1, 0);
+
+    function parseF(f){
+      if(!f) return null;
+      if(typeof f==='string'&&f.includes('T')) return new Date(f);
+      if(typeof f==='object'&&f.getTime) return f;
+      const p=String(f).split('/');
+      if(p.length===3) return new Date(p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'));
+      return null;
+    }
+
+    const altasSem = todasAltas.filter(a=>{ const d=parseF(a[0]); return d&&d>=lunes&&d<=domingo; });
+    const altasMes = todasAltas.filter(a=>{ const d=parseF(a[0]); return d&&d>=inicioMes&&d<=finMes; });
+
+    // Revisiones para tasa mensual
+    const revR = await fetch(GS_URL+'?hoja=Revisiones');
+    const revD = await revR.json();
+    const todasRev = revD.ok?revD.datos:[];
+    const revMes   = todasRev.filter(r=>{ const d=parseF(r[0]); return d&&d>=inicioMes&&d<=finMes&&r[4]==='RETENIDO'; });
+
+    // SEMANA
+    document.getElementById('semana-rango').textContent =
+      lunes.toLocaleDateString('es-CO',{day:'numeric',month:'short'})+' — '+domingo.toLocaleDateString('es-CO',{day:'numeric',month:'short'});
+    document.getElementById('sem-revisados').textContent = altasSem.length||'0';
+    document.getElementById('sem-resueltos').textContent = altasSem.length||'0';
+    const tiemSem = altasSem.map(a=>parseInt(a[7])||0).filter(t=>t>0);
+    document.getElementById('sem-tiempo').textContent = tiemSem.length?Math.round(tiemSem.reduce((a,b)=>a+b,0)/tiemSem.length)+'':'—';
+
+    // Barras por día de la semana
+    const diasSem=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+    const conteosDia = diasSem.map((_,i)=>{
+      const diaDate = new Date(lunes); diaDate.setDate(lunes.getDate()+i);
+      return altasSem.filter(a=>{ const d=parseF(a[0]); return d&&d.toDateString()===diaDate.toDateString(); }).length;
+    });
+    const maxVal = Math.max(...conteosDia, 1);
+    const barrasEl = document.getElementById('barras-semana');
+    const labelsEl = document.getElementById('labels-semana');
+    barrasEl.innerHTML = conteosDia.map((v,i)=>{
+      const h = Math.max(4, Math.round((v/maxVal)*56));
+      const isHoy = new Date(lunes.getTime()+i*86400000).toDateString()===now.toDateString();
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+        ${v>0?`<div style="font-size:10px;font-weight:700;color:var(--verde-m)">${v}</div>`:'<div style="font-size:10px;color:transparent">0</div>'}
+        <div style="width:100%;height:${h}px;border-radius:4px;background:${isHoy?'var(--verde-m)':'var(--verde-p)'}"></div>
+      </div>`;
+    }).join('');
+    labelsEl.innerHTML = diasSem.map((d,i)=>{
+      const isHoy = new Date(lunes.getTime()+i*86400000).toDateString()===now.toDateString();
+      return `<div style="flex:1;text-align:center;font-size:9px;font-weight:${isHoy?'700':'400'};color:${isHoy?'var(--verde-m)':'var(--gris)'}">${d}</div>`;
+    }).join('');
+
+    // MES
+    const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    document.getElementById('mes-nombre').textContent = meses[now.getMonth()]+' '+now.getFullYear();
+    document.getElementById('mes-revisados').textContent = revMes.length||'0';
+    document.getElementById('mes-resueltos').textContent = altasMes.length||'0';
+    const tiemMes = altasMes.map(a=>parseInt(a[7])||0).filter(t=>t>0);
+    document.getElementById('mes-tiempo').textContent = tiemMes.length?Math.round(tiemMes.reduce((a,b)=>a+b,0)/tiemMes.length)+'m':'—';
+    const tasaMes = revMes.length>0?Math.round(altasMes.length/revMes.length*100):0;
+    document.getElementById('mes-tasa').textContent = tasaMes?tasaMes+'%':'—';
+
+  }catch(e){ console.error('buildEficiencia histórico:', e); }
 }
 
 // ═══════════════════════════════════════════════
