@@ -407,7 +407,7 @@ if(WA_NUM)   document.getElementById('cfg-wa').value=WA_NUM;
 // ═══════════════════════════════════════════════
 //  DATOS — todo desde Sheets
 // ═══════════════════════════════════════════════
-let PREOPS=[], REVISIONES=[], ALTAS=[], VARADOS_FLOTA={}, FLOTA_PREOPS=[], FLOTA_REVS=[], FLOTA_ALTAS=[];
+let PREOPS=[], REVISIONES=[], ALTAS=[], VARADOS_FLOTA={}, FLOTA_PREOPS=[], FLOTA_REVS=[], FLOTA_ALTAS=[], FLOTA_VARADOS={};
 
 const ITEMS_INSP=['Frenos','Llantas','Luces','Batería','Escape','Sin fugas','Mandos','Estado exterior'];
 
@@ -1029,10 +1029,11 @@ async function cambiarFechaFlota(){
   const fwEl=document.getElementById('flota-wrap');
   if(fwEl)fwEl.innerHTML='<div class="loading"><div class="spinner"></div><div>Cargando...</div></div>';
   try{
-    const [allPreops,allRevs,allAltas]=await Promise.all([
+    const [allPreops,allRevs,allAltas,allCierres]=await Promise.all([
       fetchHojaTodo('Preoperativos'),
       fetchHojaTodo('Revisiones'),
-      fetchHojaTodo('Altas')
+      fetchHojaTodo('Altas'),
+      fetchHojaTodo('CierreJornada')
     ]);
     function matchFecha(f){
       let d=f||'';
@@ -1042,11 +1043,20 @@ async function cambiarFechaFlota(){
     FLOTA_PREOPS=allPreops.filter(r=>matchFecha(r[0]));
     FLOTA_REVS=allRevs.filter(r=>matchFecha(r[0]));
     FLOTA_ALTAS=allAltas.filter(r=>matchFecha(r[0]));
-  }catch(e){FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];}
-  buildFlota();
+    // Varados del día seleccionado (desde CierreJornada)
+    FLOTA_VARADOS={};
+    allCierres.filter(r=>matchFecha(r[0])).forEach(function(row){
+      const m=String(row[3]||'').match(/0*(\d+)/);
+      if(!m)return;
+      const num=m[1].padStart(2,'0');
+      const est=String(row[5]||'').toLowerCase();
+      if(est==='varado'||est==='novedad') FLOTA_VARADOS[num]=row;
+    });
+  }catch(e){FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];FLOTA_VARADOS={};}
+  buildFlota(fechaES);
 }
 
-function buildFlota(){
+function buildFlota(fechaLabel){
   const el=document.getElementById('flota-wrap');
   // Build list of all tractors with their last known status
   const TRACTORES_ALL=[
@@ -1069,16 +1079,16 @@ function buildFlota(){
     // Only show revision/alta if there's a preop for this tractor on this date
     const rev=preop?_revs.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);}):null;
     const alta=preop?_altas.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);}):null;
-    const esVarado=VARADOS_FLOTA[t.num]&&!FLOTA_PREOPS.length;
+    const esVarado=Object.keys(FLOTA_VARADOS).length?FLOTA_VARADOS[t.num]:VARADOS_FLOTA[t.num];
     const dec=rev?.[4]||'';
-    const color=esVarado?'var(--rojo-m,#dc2626)':dec==='AUTORIZADO'?'var(--verde-m)':dec==='RETENIDO'?'var(--rojo)':preop?'var(--dorado)':'var(--gris)';
+    const color=esVarado?'var(--rojo-m,#dc2626)':dec==='AUTORIZADO'?'var(--verde-m)':dec==='RETENIDO'?'var(--rojo)':preop?'var(--dorado)':'var(--gris,#64748b)';
     const pillTxt=esVarado?'🔴 Varado':alta?'🔵 Alta':dec==='AUTORIZADO'?'✅ Autorizado':dec==='RETENIDO'?'🚫 Retenido':preop?'⏳ Pendiente':'—';
     const pillBg=esVarado?'var(--rojo-p)':alta?'var(--azul-p)':dec==='AUTORIZADO'?'var(--verde-p)':dec==='RETENIDO'?'var(--rojo-p)':preop?'var(--dorado-p)':'var(--gris-p)';
     return '<div onclick="verHistorial(\''+t.num+'\',\''+t.nombre+'\')" style="background:#fff;border-radius:12px;padding:14px;border-left:4px solid '+color+';box-shadow:0 1px 3px rgba(0,0,0,.07);cursor:pointer;display:flex;align-items:center;gap:12px">'+
       '<div style="width:36px;height:36px;border-radius:50%;background:'+color+';display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">'+t.num+'</div>'+
       '<div style="flex:1">'+
       '<div style="font-size:13px;font-weight:700">#'+t.num+' '+t.nombre+'</div>'+
-      (preop?'<div style="font-size:11px;color:var(--muted);margin-top:2px">👤 '+(preop[2]||'—')+' · ⏰ '+(preop[1]||'—')+'</div>':'<div style="font-size:11px;color:var(--muted);margin-top:2px">Sin preoperativo hoy</div>')+
+      (preop?'<div style="font-size:11px;color:var(--muted);margin-top:2px">👤 '+(preop[2]||'—')+' · ⏰ '+(preop[1]||'—')+'</div>':'<div style="font-size:11px;color:var(--muted);margin-top:2px">'+(esVarado?'🔴 Varado':'Sin preoperativo')+'</div>')+
       '</div>'+
       '<span style="background:'+pillBg+';color:'+color+';font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap">'+pillTxt+'</span>'+
       '<span style="color:var(--muted);font-size:18px">›</span>'+
