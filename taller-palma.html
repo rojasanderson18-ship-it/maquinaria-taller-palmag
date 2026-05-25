@@ -639,11 +639,14 @@ async function recargar(){
 // Revisiones cols: 0=Fecha,1=HoraPreop,2=Equipo,3=Operario,4=Decisión,5=Mecánico,6=HoraRevision,7=Obs
 // Altas cols:      0=Fecha,1=HoraPreop,2=Equipo,3=Operario,4=Mecánico,5=HoraRet,6=HoraAlta,7=Minutos,8=Trabajo
 
+function normEq(s){return (s||'').trim().replace(/^#/,'').replace(/\s*-\s*/g,' ');}
 function getRevision(equipo){
-  return REVISIONES.find(r=>(r[2]||'').trim()===(equipo||'').trim());
+  const ne=normEq(equipo);
+  return REVISIONES.find(r=>normEq(r[2])===ne||normEq(r[3])===ne);
 }
 function getAlta(equipo){
-  return ALTAS.find(a=>(a[2]||'').trim()===(equipo||'').trim());
+  const ne=normEq(equipo);
+  return ALTAS.find(a=>normEq(a[2])===ne||normEq(a[3])===ne);
 }
 function parseNivel(v){
   if(v===null||v===undefined||v==='')return 50;
@@ -1022,7 +1025,7 @@ function buildFlota(){
   TRACTORES_ALL.map(function(t){
     const eq='#'+t.num+' '+t.nombre;
     // Find today's preop
-    const preop=PREOPS.find(r=>(r[3]||'').includes('#'+t.num));
+    const preop=PREOPS.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
     const rev=getRevision(eq);
     const alta=getAlta(eq);
     // Check if varado (no alta after last cierre varado)
@@ -1114,7 +1117,7 @@ async function cargarHistorialTractor(num, nombre, eq){
           const decColor=dec==='AUTORIZADO'?'var(--verde-m)':dec==='RETENIDO'?'var(--rojo)':'var(--gris)';
           return '<div style="background:#f8fafc;border-radius:11px;padding:12px;margin-bottom:8px;border-left:3px solid '+decColor+'">'+
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
-            '<div style="font-size:12px;font-weight:700;color:var(--muted)">📋 PREOPERATIVO · '+(r[0]||'—')+'</div>'+
+            '<div style="font-size:12px;font-weight:700;color:var(--muted)">📋 PREOPERATIVO · '+formatFechaV(r[0]||'')+'</div>'+
             '<span style="background:'+(dec==='AUTORIZADO'?'var(--verde-p)':dec==='RETENIDO'?'var(--rojo-p)':'var(--gris-p)')+';color:'+decColor+';font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">'+(dec==='AUTORIZADO'?'✅ Autorizado':dec==='RETENIDO'?'🚫 Retenido':'⏳ '+dec)+'</span>'+
             '</div>'+
             '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">'+
@@ -1136,7 +1139,7 @@ async function cargarHistorialTractor(num, nombre, eq){
           const c=esV?'var(--rojo-m,#dc2626)':est==='novedad'?'var(--dorado)':'var(--verde-m)';
           return '<div style="background:#f8fafc;border-radius:11px;padding:12px;margin-bottom:8px;border-left:3px solid '+c+'">'+
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+
-            '<div style="font-size:12px;font-weight:700;color:var(--muted)">🌇 CIERRE JORNADA · '+(r[0]||'—')+'</div>'+
+            '<div style="font-size:12px;font-weight:700;color:var(--muted)">🌇 CIERRE JORNADA · '+formatFechaV(r[0]||'')+'</div>'+
             '<span style="background:'+(esV?'var(--rojo-p)':est==='novedad'?'var(--dorado-p)':'var(--verde-p)')+';color:'+c+';font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">'+(esV?'🔴 Varado':est==='novedad'?'⚠️ Novedad':est==='operativo'?'✅ Operativo':r[5]||'—')+'</span>'+
             '</div>'+
             '<div style="font-size:12px;color:var(--gris)">👤 '+(r[2]||'—')+(r[6]?'  ⚙️ '+(r[6]):'')+'</div>'+
@@ -1144,7 +1147,7 @@ async function cargarHistorialTractor(num, nombre, eq){
         } else {
           const r=ev.data;
           return '<div style="background:var(--azul-p);border-radius:11px;padding:12px;margin-bottom:8px;border-left:3px solid var(--azul)">'+
-            '<div style="font-size:12px;font-weight:700;color:var(--azul);margin-bottom:4px">🔵 ALTA MECÁNICA · '+(r[0]||'—')+'</div>'+
+            '<div style="font-size:12px;font-weight:700;color:var(--azul);margin-bottom:4px">🔵 ALTA MECÁNICA · '+formatFechaV(r[0]||'')+'</div>'+
             '<div style="font-size:12px;color:var(--gris)">🔧 '+(r[8]||r[4]||'—')+'</div>'+
             '</div>';
         }
