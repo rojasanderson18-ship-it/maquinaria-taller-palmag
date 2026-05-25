@@ -706,16 +706,16 @@ function renderTanqueoHoy(th, ph){
     const barPct=Math.min(100,Math.round(gal/lim*100));
     return `<div style="margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-        <div style="font-size:12px;font-weight:600">#\${t.num} \${t.n}</div>
+        <div style="font-size:12px;font-weight:600">#${t.num} ${t.n}</div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:12px;font-weight:700;color:\${col}">\${gal} gal</span>
-          <span style="font-size:10px;color:var(--muted)">/ \${lim} esperado</span>
-          \${over?'<span style="background:#fef2f2;color:#dc2626;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">+\${Math.round((gal-lim)*10)/10} ⚠️</span>':''}
+          <span style="font-size:12px;font-weight:700;color:${col}">${gal} gal</span>
+          <span style="font-size:10px;color:var(--muted)">/ ${lim} esperado</span>
+          ${over?'<span style="background:#fef2f2;color:#dc2626;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">+${Math.round((gal-lim)*10)/10} ⚠️</span>':''}
         </div>
       </div>
       <div style="position:relative;background:#f1f5f9;border-radius:20px;height:10px;overflow:hidden">
-        <div style="width:\${barPct}%;height:100%;border-radius:20px;background:\${col};transition:width .5s"></div>
-        <div style="position:absolute;top:0;left:\${Math.min(99,Math.round(lim/(lim*1.2)*100))}%;height:100%;width:2px;background:#94a3b8;opacity:.6"></div>
+        <div style="width:${barPct}%;height:100%;border-radius:20px;background:${col};transition:width .5s"></div>
+        <div style="position:absolute;top:0;left:${Math.min(99,Math.round(lim/(lim*1.2)*100))}%;height:100%;width:2px;background:#94a3b8;opacity:.6"></div>
       </div>
     </div>`;
   }).join('');
@@ -795,7 +795,7 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
         <td style="padding:10px 8px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.labor||'—'}</td>
         <td style="padding:10px 8px;text-align:center">${r.horometro} h</td>
         <td style="padding:10px 8px;text-align:center">${r.galones?r.galones+' gal':'—'}</td>
-        <td style="padding:10px 8px;color:#b91c1c;font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.novedad||r.obsRev||'—'}</td>
+        <td style="padding:10px 8px;color:#b91c1c;font-size:11px;max-width:180px;word-wrap:break-word;white-space:normal">${r.novedad||r.obsRev||'—'}</td>
         <td style="padding:10px 8px;text-align:center">
           <span style="background:${r.decColors[r.dec]}18;color:${r.decColors[r.dec]};font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap">${r.decLabels[r.dec]}</span>
         </td>
@@ -984,16 +984,16 @@ async function renderVaradosGer(){
       const urgColor=diasV>=3?'#dc2626':diasV>=1?'#d97706':'#ca8a04';
       const num=(String(row[3]||'').match(/\d+/)||['?'])[0];
       return `<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:14px">
-        <div style="width:40px;height:40px;border-radius:50%;background:\${urgColor};display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">\${num}</div>
+        <div style="width:40px;height:40px;border-radius:50%;background:${urgColor};display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${num}</div>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <div style="font-size:14px;font-weight:700">\${row[3]||'—'}</div>
-            <span style="background:\${diasV>=3?'#fef2f2':diasV>=1?'#fffbeb':'#fefce8'};color:\${urgColor};font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;border:1px solid \${urgColor}40">
-              \${diasV===0?'⚡ Varado hoy':diasV===1?'🔴 1 día parado':'🚨 '+diasV+' días parado'}
+            <div style="font-size:14px;font-weight:700">${row[3]||'—'}</div>
+            <span style="background:${diasV>=3?'#fef2f2':diasV>=1?'#fffbeb':'#fefce8'};color:${urgColor};font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;border:1px solid ${urgColor}40">
+              ${diasV===0?'⚡ Varado hoy':diasV===1?'🔴 1 día parado':'🚨 '+diasV+' días parado'}
             </span>
           </div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">👤 \${row[2]||'—'} · 📅 \${row[0]||'—'}</div>
-          \${row[6]?'<div style="font-size:12px;color:#b91c1c;margin-top:4px;font-weight:600">⚙️ '+row[6]+'</div>':''}
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">👤 ${row[2]||'—'} · 📅 ${row[0]||'—'}</div>
+          ${row[6]?'<div style="font-size:12px;color:#b91c1c;margin-top:4px;font-weight:600">⚙️ '+row[6]+'</div>':''}
         </div>
       </div>`;
     }).join('');
