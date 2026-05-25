@@ -826,7 +826,54 @@ function renderChartDisp(labels,data){
 
 function renderChartComb(labels,data){
   if(chartComb)chartComb.destroy();
-  chartComb=new Chart(document.getElementById('chart-comb').getContext('2d'),{type:'bar',data:{labels,datasets:[{data,backgroundColor:'rgba(30,64,175,.65)',borderRadius:5,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.parsed.y!=null?c.parsed.y+' gal':'Sin datos'}}},scales:{y:{ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},x:{ticks:{font:{size:10}},grid:{display:false}}}}});
+  // Build limit values per tractor label
+  const limData=labels.map(lbl=>{
+    const m=String(lbl).match(/(\d+)/);
+    if(!m)return null;
+    const num=m[1].padStart(2,'0');
+    return getLim(num);
+  });
+  // Color bars: red if over limit, blue otherwise
+  const barColors=data.map((v,i)=>v>limData[i]?'rgba(220,38,38,.75)':'rgba(30,64,175,.65)');
+  chartComb=new Chart(document.getElementById('chart-comb').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[
+      {
+        label:'Consumo real',
+        data,
+        backgroundColor:barColors,
+        borderRadius:5,
+        borderSkipped:false,
+        order:2
+      },
+      {
+        label:'Límite diario',
+        data:limData,
+        type:'line',
+        borderColor:'rgba(220,38,38,.8)',
+        borderWidth:2,
+        borderDash:[6,4],
+        pointBackgroundColor:'rgba(220,38,38,.8)',
+        pointRadius:4,
+        pointStyle:'circle',
+        fill:false,
+        tension:0,
+        order:1
+      }
+    ]},
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      plugins:{
+        legend:{display:true,position:'top',labels:{font:{size:11},boxWidth:14}},
+        tooltip:{callbacks:{label:c=>c.parsed.y!=null?c.dataset.label+': '+c.parsed.y+' gal':'Sin datos'}}
+      },
+      scales:{
+        y:{ticks:{font:{size:10}},grid:{color:'rgba(0,0,0,.04)'}},
+        x:{ticks:{font:{size:10}},grid:{display:false}}
+      }
+    }
+  });
 }
 
 // Tabs
