@@ -1066,9 +1066,10 @@ function buildFlota(){
     const _altas=FLOTA_ALTAS.length?FLOTA_ALTAS:ALTAS;
     const preop=_preops.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
     // Match revision by equipo number anywhere in the field
-    const rev=_revs.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);});
-    const alta=_altas.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);});
-    const esVarado=VARADOS_FLOTA[t.num]&&!FLOTA_PREOPS.length; // only show varado on today view
+    // Only show revision/alta if there's a preop for this tractor on this date
+    const rev=preop?_revs.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);}):null;
+    const alta=preop?_altas.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);}):null;
+    const esVarado=VARADOS_FLOTA[t.num]&&!FLOTA_PREOPS.length;
     const dec=rev?.[4]||'';
     const color=esVarado?'var(--rojo-m,#dc2626)':dec==='AUTORIZADO'?'var(--verde-m)':dec==='RETENIDO'?'var(--rojo)':preop?'var(--dorado)':'var(--gris)';
     const pillTxt=esVarado?'🔴 Varado':alta?'🔵 Alta':dec==='AUTORIZADO'?'✅ Autorizado':dec==='RETENIDO'?'🚫 Retenido':preop?'⏳ Pendiente':'—';
