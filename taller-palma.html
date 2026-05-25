@@ -41,7 +41,7 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 .card-hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
 .card-body{padding:15px}
 
-.kpi-row{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:13px}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:13px}
 .kpi-card{background:var(--surface);border-radius:12px;padding:18px 10px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.07);border-top:3px solid var(--border)}
 .kpi-card.verde{border-top-color:var(--verde-s)}.kpi-card.rojo{border-top-color:var(--rojo-m)}.kpi-card.azul{border-top-color:var(--azul)}
 .kpi-num{font-family:'DM Serif Display',serif;font-size:40px;line-height:1}
@@ -511,9 +511,9 @@ async function loadVarados(){
         +'<div style="padding:0 14px 14px">'
         +'<div style="background:#f8fafc;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">'
         +'<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Dar Alta — Trabajo realizado</div>'
-        +'<textarea id="alta-var-'+safeId+'" rows="2" placeholder="Describe el trabajo realizado..." style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;resize:none;outline:none"></textarea>'
+        +'<textarea id="alta-var-'+safeId+'" rows="2" placeholder="Describe el trabajo realizado..." style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;resize:none;outline:none"></textarea>'
         +'<input type="time" id="hora-var-'+safeId+'" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;width:100%;outline:none" value="'+new Date().toTimeString().slice(0,5)+'">'
-        +'<button onclick="darAltaVarado('+JSON.stringify(row[3]||'')+','+JSON.stringify(row[2]||'')+','+JSON.stringify(row[0]||'')+',\''+safeId+'\')" style="background:var(--verde);color:#fff;border:none;border-radius:10px;padding:11px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:100%">✅ Confirmar alta — Equipo listo para operar</button>'
+        +'<button onclick="darAltaVarado('+JSON.stringify(row[3]||'')+','+JSON.stringify(row[2]||'')+','+JSON.stringify(row[0]||'')+',\''+safeId+'\')" style="background:var(--verde);color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;width:100%">✅ Confirmar alta — Equipo listo para operar</button>'
         +'</div></div></div>';
     }).join('');
   }catch(e){console.error(e);}
@@ -669,9 +669,9 @@ function renderVaradosNovedades(cierres){
       '<div style="padding:0 14px 14px">'+
       '<div style="background:#f8fafc;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">'+
       '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em">Trabajo realizado</div>'+
-      '<textarea id="'+safeId+'-notas" rows="2" placeholder="Describe el trabajo realizado..." style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-family:'DM Sans',sans-serif;font-size:13px;resize:none;outline:none"></textarea>'+
+      '<textarea id="'+safeId+'-notas" rows="2" placeholder="Describe el trabajo realizado..." style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;resize:none;outline:none"></textarea>'+
       '<input type="time" id="'+safeId+'-hora" value="'+new Date().toTimeString().slice(0,5)+'" style="border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;font-size:13px;width:100%;outline:none">'+
-      '<button onclick="darAltaVaradoNov('+JSON.stringify(row[3]||'')+','+JSON.stringify(row[2]||'')+','+JSON.stringify(row[0]||'')+',\''+safeId+'\','+JSON.stringify(cierres)+')" style="background:var(--verde);color:#fff;border:none;border-radius:10px;padding:11px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;width:100%">✅ Confirmar alta — Equipo listo para operar</button>'+
+      '<button onclick="darAltaVaradoNov('+JSON.stringify(row[3]||'')+','+JSON.stringify(row[2]||'')+','+JSON.stringify(row[0]||'')+',\''+safeId+'\')" style="background:var(--verde);color:#fff;border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;width:100%">✅ Confirmar alta — Equipo listo para operar</button>'+
       '</div></div></div>';
   }).join('');
 }
