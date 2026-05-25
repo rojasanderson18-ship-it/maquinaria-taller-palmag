@@ -374,6 +374,17 @@ document.addEventListener('DOMContentLoaded', function(){
 </div>
 
 </main>
+<!-- MODAL HISTORIAL -->
+<div id="modal-historial" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:300;overflow-y:auto;padding:16px 12px;flex-direction:column">
+  <div style="max-width:580px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden">
+    <div style="background:var(--verde);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;border-left:4px solid var(--dorado);position:sticky;top:0;z-index:1">
+      <div style="font-family:'DM Serif Display',serif;font-size:15px;color:#fff" id="modal-titulo">—</div>
+      <button onclick="cerrarHistorial()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:6px 13px;cursor:pointer;font-size:13px;font-weight:700">✕</button>
+    </div>
+    <div style="padding:16px" id="modal-body"></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script>
@@ -391,7 +402,7 @@ if(WA_NUM)   document.getElementById('cfg-wa').value=WA_NUM;
 // ═══════════════════════════════════════════════
 //  DATOS — todo desde Sheets
 // ═══════════════════════════════════════════════
-let PREOPS=[], REVISIONES=[], ALTAS=[];
+let PREOPS=[], REVISIONES=[], ALTAS=[], VARADOS_FLOTA={};
 
 const ITEMS_INSP=['Frenos','Llantas','Luces','Batería','Escape','Sin fugas','Mandos','Estado exterior'];
 
@@ -562,14 +573,33 @@ async function recargar(){
   document.getElementById('novedades-list').innerHTML=
     '<div class="loading"><div class="spinner"></div><div>Cargando...</div></div>';
   try{
-    let CIERRES_VAR=[];
-    [PREOPS, REVISIONES, ALTAS, CIERRES_VAR] = await Promise.all([
+    let _CIERRES=[];
+    [PREOPS, REVISIONES, ALTAS, _CIERRES] = await Promise.all([
       fetchHoja('Preoperativos'),
       fetchHoja('Revisiones'),
       fetchHoja('Altas'),
       fetchHoja('CierreJornada'),
     ]);
-    renderVaradosNovedades(CIERRES_VAR);
+    // Build VARADOS_FLOTA: tractors with varado/novedad not yet resolved by Alta
+    VARADOS_FLOTA={};
+    const _porTractor={};
+    (_CIERRES||[]).forEach(function(row){
+      const m=String(row[3]||'').match(/#.?0*(\d+)/);
+      if(!m)return;
+      const num=m[1].padStart(2,'0');
+      const est=String(row[5]||'').toLowerCase();
+      if(est!=='varado'&&est!=='novedad')return;
+      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const fA=_porTractor[num]?new Date(String(_porTractor[num][0]||'').split('/').reverse().join('-')):null;
+      if(!fA||fB>=fA)_porTractor[num]=row;
+    });
+    Object.keys(_porTractor).forEach(function(num){
+      const ultimaAlta=ALTAS.filter(r=>(r[2]||'').includes('#'+num)).slice(-1)[0];
+      const fC=new Date(String(_porTractor[num][0]||'').split('/').reverse().join('-'));
+      const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+      if(!fA||fC>fA) VARADOS_FLOTA[num]=_porTractor[num];
+    });
+    renderVaradosNovedades(_CIERRES);
     // Deduplicar preops: un preop por equipo por día (último registro)
     const vistoP={};
     PREOPS=[...PREOPS].reverse().filter(r=>{ const k=(r[3]||'').trim(); if(vistoP[k])return false; vistoP[k]=true; return true; }).reverse();
@@ -969,22 +999,172 @@ function toggleAltaTag(el,taId,grpId){
 //  FLOTA
 // ═══════════════════════════════════════════════
 function buildFlota(){
-  if(!PREOPS.length)return;
-  const rows=PREOPS.map(r=>{
-    const eq=r[3]||'—';
+  const el=document.getElementById('flota-wrap');
+  // Build list of all tractors with their last known status
+  const TRACTORES_ALL=[
+    {num:'01',nombre:'KUBOTA B2441'},{num:'02',nombre:'KUBOTA B2441'},
+    {num:'03',nombre:'KUBOTA M9540'},{num:'04',nombre:'KUBOTA M9540'},
+    {num:'05',nombre:'JOHN DEERE 2850'},{num:'06',nombre:'KUBOTA 5100'},
+    {num:'07',nombre:'KUBOTA M108S'},{num:'08',nombre:'LOVOL TH754-H'},
+    {num:'09',nombre:'LOVOL TH754-H'},{num:'10',nombre:'LOVOL TH904-X'},
+    {num:'11',nombre:'LOVOL TH904-X'}
+  ];
+  el.innerHTML='<div style="display:flex;flex-direction:column;gap:8px">'+
+  TRACTORES_ALL.map(function(t){
+    const eq='#'+t.num+' '+t.nombre;
+    // Find today's preop
+    const preop=PREOPS.find(r=>(r[3]||'').includes('#'+t.num));
     const rev=getRevision(eq);
     const alta=getAlta(eq);
-    const est=alta?'<span class="pill pill-azul">🔵 Alta</span>'
-      :rev?.[4]==='AUTORIZADO'?'<span class="pill pill-ok">✅ Autorizado</span>'
-      :rev?.[4]==='RETENIDO'?'<span class="pill pill-fail">🚫 Retenido</span>'
-      :'<span class="pill pill-gris">⏳ Pendiente</span>';
-    return `<tr><td><strong>${eq}</strong></td><td>${r[2]||'—'}</td><td>${r[1]||'—'}</td><td>${r[6]||'—'} h</td><td>${r[22]==='CON NOVEDAD'?'⚠️ Novedad':'✅ OK'}</td><td>${est}</td></tr>`;
-  }).join('');
-  document.getElementById('flota-wrap').innerHTML=`
-    <table class="tbl">
-      <thead><tr><th>Equipo</th><th>Operario</th><th>Hora</th><th>Horómetro</th><th>Estado Op.</th><th>Decisión</th></tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+    // Check if varado (no alta after last cierre varado)
+    const esVarado=VARADOS_FLOTA[t.num];
+    const color=esVarado?'var(--rojo-m,#dc2626)':rev?.[4]==='AUTORIZADO'?'var(--verde-m)':rev?.[4]==='RETENIDO'?'var(--rojo)':'var(--gris)';
+    const pillTxt=esVarado?'🔴 Varado':alta?'🔵 Alta':rev?.[4]==='AUTORIZADO'?'✅ Autorizado':rev?.[4]==='RETENIDO'?'🚫 Retenido':preop?'⏳ Pendiente':'—';
+    const pillBg=esVarado?'var(--rojo-p)':alta?'var(--azul-p)':rev?.[4]==='AUTORIZADO'?'var(--verde-p)':rev?.[4]==='RETENIDO'?'var(--rojo-p)':'var(--gris-p)';
+    return '<div onclick="verHistorial(\''+t.num+'\',\''+t.nombre+'\')" style="background:#fff;border-radius:12px;padding:14px;border-left:4px solid '+color+';box-shadow:0 1px 3px rgba(0,0,0,.07);cursor:pointer;display:flex;align-items:center;gap:12px">'+
+      '<div style="width:36px;height:36px;border-radius:50%;background:'+color+';display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">'+t.num+'</div>'+
+      '<div style="flex:1">'+
+      '<div style="font-size:13px;font-weight:700">#'+t.num+' '+t.nombre+'</div>'+
+      (preop?'<div style="font-size:11px;color:var(--muted);margin-top:2px">👤 '+(preop[2]||'—')+' · ⏰ '+(preop[1]||'—')+'</div>':'<div style="font-size:11px;color:var(--muted);margin-top:2px">Sin preoperativo hoy</div>')+
+      '</div>'+
+      '<span style="background:'+pillBg+';color:'+color+';font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;white-space:nowrap">'+pillTxt+'</span>'+
+      '<span style="color:var(--muted);font-size:18px">›</span>'+
+      '</div>';
+  }).join('')+'</div>';
+}
+
+// Modal historial
+async function verHistorial(num, nombre){
+  const eq='#'+num+' '+nombre;
+  const modal=document.getElementById('modal-historial');
+  if(modal){
+    document.getElementById('modal-titulo').textContent=eq;
+    document.getElementById('modal-body').innerHTML='<div class="loading"><div class="spinner"></div><div>Cargando historial...</div></div>';
+    modal.style.display='flex';
+    document.body.style.overflow='hidden';
+    await cargarHistorialTractor(num, nombre, eq);
+  }
+}
+
+async function cargarHistorialTractor(num, nombre, eq){
+  try{
+    const [preops, revs, altas, cierres] = await Promise.all([
+      fetchHoja('Preoperativos'),
+      fetchHoja('Revisiones'),
+      fetchHoja('Altas'),
+      fetchHoja('CierreJornada')
+    ]);
+    const misPreops=preops.filter(r=>(r[3]||'').includes('#'+num)).reverse();
+    const misRevs=revs.filter(r=>(r[2]||'').includes('#'+num));
+    const misAltas=altas.filter(r=>(r[2]||'').includes('#'+num));
+    const misCierres=cierres.filter(r=>(r[3]||'').includes('#'+num)).reverse();
+    // Detect active varado
+    const ultimoCierre=misCierres[0];
+    const ultimaAlta=misAltas[misAltas.length-1];
+    let varadoActivo=false;
+    if(ultimoCierre){
+      const estC=String(ultimoCierre[5]||'').toLowerCase();
+      if(estC==='varado'||estC==='novedad'){
+        const fC=new Date(String(ultimoCierre[0]||'').split('/').reverse().join('-'));
+        const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+        if(!fA||fC>fA) varadoActivo=true;
+      }
+    }
+    let html='';
+    // Alta form if varado
+    if(varadoActivo){
+      html+='<div style="background:var(--rojo-p);border-radius:12px;padding:14px;margin-bottom:16px;border:1.5px solid var(--rojo-m,#dc2626)">'+
+        '<div style="font-size:12px;font-weight:700;color:var(--rojo-m,#dc2626);margin-bottom:10px">🔴 TRACTOR VARADO — '+
+        (ultimoCierre[6]||'Sin descripción')+'</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Reportado por: '+(ultimoCierre[2]||'—')+' · '+(ultimoCierre[0]||'—')+'</div>'+
+        '<div style="display:flex;flex-direction:column;gap:8px">'+
+        '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Trabajo realizado</div>'+
+        '<textarea id="hst-notas-'+num+'" rows="2" placeholder="Describe el trabajo realizado..." style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;resize:none;outline:none"></textarea>'+
+        '<input type="text" id="hst-hora-'+num+'" placeholder="Hora alta Ej: 10:30 a.m." style="border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;width:100%;outline:none">'+
+        '<button onclick="darAltaDesdeHistorial(\''+num+'\',\''+eq+'\',\''+encodeURIComponent(ultimoCierre[2]||'')+'\')" style="background:var(--verde);color:#fff;border:none;border-radius:10px;padding:12px;font-size:13px;font-weight:700;cursor:pointer;width:100%">✅ Confirmar alta — Equipo listo para operar</button>'+
+        '</div></div>';
+    }
+    // History entries
+    if(!misPreops.length&&!misCierres.length){
+      html+='<div class="empty"><div class="empty-icon">📋</div><div class="empty-title">Sin historial registrado</div></div>';
+    } else {
+      // Combine and sort all events
+      const eventos=[];
+      misPreops.forEach(r=>eventos.push({tipo:'preop',fecha:r[0],data:r}));
+      misCierres.forEach(r=>eventos.push({tipo:'cierre',fecha:r[0],data:r}));
+      misAltas.forEach(r=>eventos.push({tipo:'alta',fecha:r[0],data:r}));
+      eventos.sort((a,b)=>new Date(String(b.fecha||'').split('/').reverse().join('-'))-new Date(String(a.fecha||'').split('/').reverse().join('-')));
+      html+=eventos.map(function(ev){
+        if(ev.tipo==='preop'){
+          const r=ev.data;
+          const rev=misRevs.find(rv=>rv[0]===r[0]||(rv[2]||'').includes('#'+num));
+          const dec=rev?.[4]||'Pendiente';
+          const decColor=dec==='AUTORIZADO'?'var(--verde-m)':dec==='RETENIDO'?'var(--rojo)':'var(--gris)';
+          return '<div style="background:#f8fafc;border-radius:11px;padding:12px;margin-bottom:8px;border-left:3px solid '+decColor+'">'+
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
+            '<div style="font-size:12px;font-weight:700;color:var(--muted)">📋 PREOPERATIVO · '+(r[0]||'—')+'</div>'+
+            '<span style="background:'+(dec==='AUTORIZADO'?'var(--verde-p)':dec==='RETENIDO'?'var(--rojo-p)':'var(--gris-p)')+';color:'+decColor+';font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">'+(dec==='AUTORIZADO'?'✅ Autorizado':dec==='RETENIDO'?'🚫 Retenido':'⏳ '+dec)+'</span>'+
+            '</div>'+
+            '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">'+
+            '<div style="background:#fff;border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">Aceite</div><div style="font-size:13px;font-weight:700;color:'+(r[10]==='100%'?'var(--verde-m)':'var(--rojo)')+'">'+( r[10]||'—')+'</div></div>'+
+            '<div style="background:#fff;border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">Agua</div><div style="font-size:13px;font-weight:700;color:'+(r[11]==='100%'?'var(--verde-m)':'var(--rojo)')+'">'+( r[11]||'—')+'</div></div>'+
+            '<div style="background:#fff;border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">Hidráulico</div><div style="font-size:13px;font-weight:700;color:'+(r[12]==='100%'?'var(--verde-m)':'var(--rojo)')+'">'+( r[12]||'—')+'</div></div>'+
+            '</div>'+
+            '<div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px">'+
+            '<span>⏱ '+( r[6]||'—')+' h</span>'+
+            '<span>👤 '+(r[2]||'—')+'</span>'+
+            (r[22]==='CON NOVEDAD'?'<span style="color:var(--dorado)">⚠️ '+( r[23]||'Novedad')+'</span>':'')+
+            (rev?.[7]?'<span style="color:var(--gris)">📝 '+(rev[7])+'</span>':'')+
+            '</div>'+
+            '</div>';
+        } else if(ev.tipo==='cierre'){
+          const r=ev.data;
+          const est=String(r[5]||'').toLowerCase();
+          const esV=est==='varado';
+          const c=esV?'var(--rojo-m,#dc2626)':est==='novedad'?'var(--dorado)':'var(--verde-m)';
+          return '<div style="background:#f8fafc;border-radius:11px;padding:12px;margin-bottom:8px;border-left:3px solid '+c+'">'+
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">'+
+            '<div style="font-size:12px;font-weight:700;color:var(--muted)">🌇 CIERRE JORNADA · '+(r[0]||'—')+'</div>'+
+            '<span style="background:'+(esV?'var(--rojo-p)':est==='novedad'?'var(--dorado-p)':'var(--verde-p)')+';color:'+c+';font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">'+(esV?'🔴 Varado':est==='novedad'?'⚠️ Novedad':est==='operativo'?'✅ Operativo':r[5]||'—')+'</span>'+
+            '</div>'+
+            '<div style="font-size:12px;color:var(--gris)">👤 '+(r[2]||'—')+(r[6]?'  ⚙️ '+(r[6]):'')+'</div>'+
+            '</div>';
+        } else {
+          const r=ev.data;
+          return '<div style="background:var(--azul-p);border-radius:11px;padding:12px;margin-bottom:8px;border-left:3px solid var(--azul)">'+
+            '<div style="font-size:12px;font-weight:700;color:var(--azul);margin-bottom:4px">🔵 ALTA MECÁNICA · '+(r[0]||'—')+'</div>'+
+            '<div style="font-size:12px;color:var(--gris)">🔧 '+(r[8]||r[4]||'—')+'</div>'+
+            '</div>';
+        }
+      }).join('');
+    }
+    document.getElementById('modal-body').innerHTML=html;
+  }catch(e){
+    document.getElementById('modal-body').innerHTML='<div class="empty"><div class="empty-icon">❌</div><div class="empty-title">Error cargando historial</div></div>';
+  }
+}
+
+async function darAltaDesdeHistorial(num,eq,operarioEnc){
+  const operario=decodeURIComponent(operarioEnc);
+  const trabajo=document.getElementById('hst-notas-'+num)?.value?.trim()||'';
+  if(!trabajo){toast('⚠️ Describe el trabajo realizado','error');return;}
+  const horaAlta=document.getElementById('hst-hora-'+num)?.value||new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  const hoy=new Date();
+  try{
+    const fila=[hoy.toLocaleDateString('es-CO'),'—',eq,operario,MECANICO,'—',horaAlta,'—',trabajo];
+    const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos','Trabajo Realizado'];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'})});
+    const filaC=[hoy.toLocaleDateString('es-CO'),hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),operario,eq,'','operativo','Alta mecánica: '+trabajo,''];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'CierreJornada',fila:filaC,encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']})});
+    toast('✅ '+eq+' dado de alta');
+    cerrarHistorial();
+    setTimeout(()=>recargar(),1500);
+  }catch(e){toast('Error al guardar','error');}
+}
+
+function cerrarHistorial(){
+  const modal=document.getElementById('modal-historial');
+  if(modal){modal.style.display='none';document.body.style.overflow='';}
 }
 
 // ═══════════════════════════════════════════════
