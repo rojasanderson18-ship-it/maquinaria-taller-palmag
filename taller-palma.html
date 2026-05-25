@@ -804,10 +804,29 @@ async function darAlta(equipo,operario,fecha,hora){
   const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos Resolución','Trabajo Realizado'];
 
   try{
+    // 1. Guardar en hoja Altas
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'
     })});
-    toast(`🔵 ${equipo} dado de alta — resuelto en ${minutos} min`);
+
+    // 2. Guardar en CierreJornada con estado "operativo" para liberar el tractor
+    const hoy=new Date();
+    const filaC=[
+      hoy.toLocaleDateString('es-CO'),
+      hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
+      operario||'—',
+      equipo,
+      '',
+      'operativo',
+      'Alta mecánica: '+trabajo,
+      ''
+    ];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
+      hoja:'CierreJornada',fila:filaC,
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+    })});
+
+    toast(`✅ ${equipo} dado de alta — vuelve a estar disponible`);
     setTimeout(()=>recargar(),1500);
   }catch(e){
     toast('Error guardando','error');
