@@ -380,6 +380,14 @@ document.addEventListener('DOMContentLoaded', function(){
       </div>
     </div>
 
+    <!-- TABLA EJECUTIVA DEL DÍA -->
+    <div class="chart-card" style="margin-bottom:14px">
+      <div class="cc-header">
+        <div><div class="cc-title">📋 Reporte ejecutivo del día</div><div class="cc-sub" id="tbl-sub">Todos los tractores · estado completo</div></div>
+      </div>
+      <div id="tabla-ejecutiva" style="overflow-x:auto"><div class="loading"><div class="spin"></div></div></div>
+    </div>
+
     <!-- CHARTS -->
     <div class="chart-card">
       <div class="cc-header">
@@ -465,11 +473,26 @@ document.addEventListener('DOMContentLoaded', function(){
 
   <!-- TAB VARADOS -->
   <div id="sec-varados" style="display:none">
-    <div style="background:var(--surface);border-radius:12px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border)">
+    <!-- KPIs varados -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px">
+      <div style="background:#fef2f2;border-radius:12px;padding:16px;border:1px solid #fecaca;text-align:center">
+        <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:#b91c1c" id="var-total-n">—</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#b91c1c;margin-top:4px">Tractores varados</div>
+      </div>
+      <div style="background:var(--surface);border-radius:12px;padding:16px;border:1px solid var(--border);text-align:center">
+        <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:#d97706" id="var-max-dias">—</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px">Días máx. parado</div>
+      </div>
+      <div style="background:var(--surface);border-radius:12px;padding:16px;border:1px solid var(--border);text-align:center">
+        <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700" id="var-disponible">—</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px">% flota disponible</div>
+      </div>
+    </div>
+    <div style="background:var(--surface);border-radius:12px;overflow:hidden;border:1px solid var(--border)">
       <div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
         <div>
           <div style="font-family:'Playfair Display',serif;font-size:15px">Tractores Varados</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">Último reporte de cierre de jornada</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Ordenados por días parado — más urgente primero</div>
         </div>
         <span id="varados-count-badge" style="background:#fef2f2;color:#b91c1c;font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;border:1px solid #fecaca">—</span>
       </div>
@@ -536,6 +559,10 @@ function normF(f){
 
 async function fetchH(hoja){
   try{const r=await fetch(GS_URL+'?hoja='+hoja);const d=await r.json();return d.ok?d.datos:[];}
+  catch{return[];}
+}
+async function fetchHTodo(hoja){
+  try{const r=await fetch(GS_URL+'?hoja='+hoja+'&t='+Date.now());const d=await r.json();return d.ok?d.datos||[]:[]}
   catch{return[];}
 }
 
@@ -634,6 +661,89 @@ function getD(eq,revs,altas){
   const a=altas.find(r=>String(r[2]||'').trim()===eq.trim());if(a)return'alta';
   const r=revs.find(r=>String(r[2]||'').trim()===eq.trim());
   if(r?.[4]==='AUTORIZADO')return'auth';if(r?.[4]==='RETENIDO')return'ret';return'pend';
+}
+
+function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
+  const el=document.getElementById('tabla-ejecutiva');
+  if(!el)return;
+
+  const TRACTORES_ALL=[
+    {num:'01',nombre:'KUBOTA B2441'},{num:'02',nombre:'KUBOTA B2441'},
+    {num:'03',nombre:'KUBOTA M9540'},{num:'04',nombre:'KUBOTA M9540'},
+    {num:'05',nombre:'JOHN DEERE 2850'},{num:'06',nombre:'KUBOTA 5100'},
+    {num:'07',nombre:'KUBOTA M108S'},{num:'08',nombre:'LOVOL TH754-H'},
+    {num:'09',nombre:'LOVOL TH754-H'},{num:'10',nombre:'LOVOL TH904-X'},
+    {num:'11',nombre:'LOVOL TH904-X'}
+  ];
+
+  // Build varados map from cierres (all time)
+  const varadosMap={};
+  (cierres||[]).forEach(row=>{
+    const m=String(row[3]||'').match(/#.?0*(\d+)/);
+    if(!m)return;
+    const num=m[1].padStart(2,'0');
+    const est=String(row[5]||'').toLowerCase();
+    if(est!=='varado'&&est!=='novedad')return;
+    const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
+    const fA=varadosMap[num]?new Date(String(varadosMap[num][0]||'').split('/').reverse().join('-')):null;
+    if(!fA||fB>=fA)varadosMap[num]=row;
+  });
+
+  const rows=TRACTORES_ALL.map(t=>{
+    const preop=ph.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
+    const rev=rh.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);});
+    const alta=ah.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);});
+    const tanq=th.find(r=>{const e=String(r[3]||'');return e.includes('#'+t.num)||e.includes(t.num+' ')||e.includes(t.num+'-');});
+    const prog=prh.find(r=>{const e=String(r[1]||'');return e.includes('#'+t.num)||e.includes(t.num+' ');});
+    const varado=varadosMap[t.num];
+    const dec=alta?'alta':rev?.[4]==='AUTORIZADO'?'auth':rev?.[4]==='RETENIDO'?'ret':varado?'varado':preop?'pend':'sin';
+    const decColors={alta:'#1d4ed8',auth:'#15803d',ret:'#b91c1c',varado:'#dc2626',pend:'#d97706',sin:'#94a3b8'};
+    const decLabels={alta:'🔵 Alta',auth:'✅ Autorizado',ret:'🚫 Retenido',varado:'🔴 Varado',pend:'⏳ Pendiente',sin:'—'};
+    const rowBg=dec==='ret'?'#fff8f8':dec==='varado'?'#fff5f5':dec==='alta'?'#f0f7ff':dec==='auth'?'#f0fdf4':'';
+    const horometro=preop?preop[6]||'—':'—';
+    const novedad=preop&&preop[22]==='CON NOVEDAD'?preop[23]||'Sí':'';
+    const obsRev=rev?.[7]||'';
+    const labor=preop?preop[5]||prog?.[3]||'—':prog?.[3]||'—';
+    const galones=tanq?parseFloat(tanq[6])||0:0;
+    return {t,dec,decColors,decLabels,rowBg,preop,horometro,novedad,obsRev,labor,galones,varado};
+  });
+
+  // Summary counts for subtitle
+  const auth=rows.filter(r=>r.dec==='auth'||r.dec==='alta').length;
+  const ret=rows.filter(r=>r.dec==='ret').length;
+  const var_=rows.filter(r=>r.dec==='varado').length;
+  const sinP=rows.filter(r=>r.dec==='sin').length;
+  document.getElementById('tbl-sub').textContent=
+    auth+' autorizados · '+ret+' retenidos · '+var_+' varados · '+sinP+' sin preoperativo';
+
+  el.innerHTML=`
+  <table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead>
+      <tr style="background:#f8fafc;border-bottom:2px solid var(--border)">
+        <th style="padding:10px 12px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Tractor</th>
+        <th style="padding:10px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Operario</th>
+        <th style="padding:10px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Labor</th>
+        <th style="padding:10px 8px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Horóm.</th>
+        <th style="padding:10px 8px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Tanqueo</th>
+        <th style="padding:10px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Novedad</th>
+        <th style="padding:10px 8px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map(r=>`
+      <tr style="border-bottom:1px solid var(--border);background:${r.rowBg}">
+        <td style="padding:10px 12px;font-weight:700">#${r.t.num} <span style="font-weight:400;color:var(--muted)">${r.t.nombre}</span></td>
+        <td style="padding:10px 8px">${r.preop?r.preop[2]||'—':'<span style=\'color:var(--muted)\'>Sin preop</span>'}</td>
+        <td style="padding:10px 8px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.labor||'—'}</td>
+        <td style="padding:10px 8px;text-align:center">${r.horometro} h</td>
+        <td style="padding:10px 8px;text-align:center">${r.galones?r.galones+' gal':'—'}</td>
+        <td style="padding:10px 8px;color:#b91c1c;font-size:11px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.novedad||r.obsRev||'—'}</td>
+        <td style="padding:10px 8px;text-align:center">
+          <span style="background:${r.decColors[r.dec]}18;color:${r.decColors[r.dec]};font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap">${r.decLabels[r.dec]}</span>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
 }
 
 function renderTractores(ph,rh,ah){
@@ -765,9 +875,9 @@ async function renderVaradosGer(){
   const badge=document.getElementById('varados-count-badge');
   if(!el)return;
   try{
-    const r=await fetchH('CierreJornada');
+    const [cierres, altas] = await Promise.all([fetchHTodo('CierreJornada'), fetchHTodo('Altas')]);
     const por={};
-    (r||[]).forEach(function(row){
+    (cierres||[]).forEach(function(row){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
@@ -777,39 +887,61 @@ async function renderVaradosGer(){
       const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
       if(!fA||fB>=fA)por[num]=row;
     });
-    const lista=Object.values(por);
+    // Remove tractors that have been given alta after the varado
+    const lista=Object.values(por).filter(row=>{
+      const m=String(row[3]||'').match(/#.?0*(\d+)/);
+      if(!m)return true;
+      const num=m[1].padStart(2,'0');
+      const fC=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const ultimaAlta=altas.filter(a=>(a[2]||'').includes('#'+num)).slice(-1)[0];
+      const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+      return !fA||fC>fA;
+    });
     if(badge)badge.textContent=lista.length?lista.length+' equipo'+(lista.length>1?'s':''):'Sin varados';
-    if(!lista.length){el.innerHTML='<div style="text-align:center;padding:28px;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">✅</div><div>Sin tractores varados</div></div>';return;}
-    el.innerHTML=lista.map(function(row){
-      const esV=String(row[5]||'').toLowerCase()==='varado';
-      const color=esV?'#b91c1c':'#92400e';
-      const bg=esV?'#fef2f2':'#fffbeb';
-      return '<div style="padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:12px">'
-        +'<div style="width:28px;height:28px;border-radius:50%;background:'+color+';display:grid;place-items:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0">'+(String(row[3]||'').match(/\d+/)||['?'])[0]+'</div>'
-        +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+(row[3]||'—')+'</div>'
-        +'<div style="font-size:11px;color:var(--muted);margin-top:2px">Op: '+(row[2]||'—')+' · '+(row[0]||'—')+' · '+(row[1]||'—')+'</div>'
-        +(row[6]?'<div style="font-size:12px;color:'+color+';margin-top:4px;background:'+bg+';padding:5px 9px;border-radius:7px">'+(row[6])+'</div>':'')
-        +'</div><span style="background:'+bg+';color:'+color+';font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px;border:1px solid '+color+';white-space:nowrap">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span></div>';
+    // Update KPIs
+    const hoyV=new Date();hoyV.setHours(0,0,0,0);
+    const diasList=lista.map(row=>{
+      const fV=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      return Math.max(0,Math.round((hoyV-fV)/(1000*60*60*24)));
+    });
+    const maxD=diasList.length?Math.max(...diasList):0;
+    const dispPct=Math.round((11-lista.length)/11*100);
+    const vtn=document.getElementById('var-total-n');if(vtn)vtn.textContent=lista.length||'0';
+    const vmd=document.getElementById('var-max-dias');if(vmd)vmd.textContent=maxD+' día'+(maxD!==1?'s':'');
+    const vd=document.getElementById('var-disponible');if(vd)vd.textContent=dispPct+'%';
+    // Sort by days desc
+    lista.sort((a,b)=>{
+      const fa=new Date(String(a[0]||'').split('/').reverse().join('-'));
+      const fb=new Date(String(b[0]||'').split('/').reverse().join('-'));
+      return fa-fb;
+    });
+    if(!lista.length){
+      el.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)"><div style="font-size:32px;margin-bottom:8px">✅</div><div style="font-weight:600">Sin tractores varados</div></div>';
+      return;
+    }
+    const hoy=new Date(); hoy.setHours(0,0,0,0);
+    el.innerHTML=lista.map(row=>{
+      const fV=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const diasV=Math.max(0,Math.round((hoy-fV)/(1000*60*60*24)));
+      const urgColor=diasV>=3?'#dc2626':diasV>=1?'#d97706':'#ca8a04';
+      const num=(String(row[3]||'').match(/\d+/)||['?'])[0];
+      return \`<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:14px">
+        <div style="width:40px;height:40px;border-radius:50%;background:\${urgColor};display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">\${num}</div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="font-size:14px;font-weight:700">\${row[3]||'—'}</div>
+            <span style="background:\${diasV>=3?'#fef2f2':diasV>=1?'#fffbeb':'#fefce8'};color:\${urgColor};font-size:11px;font-weight:700;padding:2px 9px;border-radius:20px;border:1px solid \${urgColor}40">
+              \${diasV===0?'⚡ Varado hoy':diasV===1?'🔴 1 día parado':'🚨 '+diasV+' días parado'}
+            </span>
+          </div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">👤 \${row[2]||'—'} · 📅 \${row[0]||'—'}</div>
+          \${row[6]?'<div style="font-size:12px;color:#b91c1c;margin-top:4px;font-weight:600">⚙️ '+row[6]+'</div>':''}
+        </div>
+      </div>\`;
     }).join('');
-  }catch(e){console.error(e);}
+  }catch(e){if(el)el.innerHTML='<div style="padding:16px;color:var(--muted)">Error cargando</div>';}
 }
 
-function showTab(tab){
-  if(tab==='varados') renderVaradosGer();
-  if(tab==='consumo') cargarConsumo();
-  var tcEl=document.getElementById('tab-consumo');
-  if(tcEl) tcEl.className='tab-btn'+(tab==='consumo'?' active':'');
-  var scEl=document.getElementById('sec-consumo');
-  if(scEl) scEl.style.display=tab==='consumo'?'block':'none';
-  document.getElementById('sec-hoy').style.display=tab==='hoy'?'block':'none';
-  document.getElementById('sec-tanqueo').style.display=tab==='tanqueo'?'block':'none';
-  document.getElementById('sec-varados').style.display=tab==='varados'?'block':'none';
-  document.getElementById('tab-hoy').className='tab-btn'+(tab==='hoy'?' active':'');
-  document.getElementById('tab-tanqueo').className='tab-btn'+(tab==='tanqueo'?' active':'');
-  document.getElementById('tab-varados').className='tab-btn'+(tab==='varados'?' active':'');
-  document.getElementById('toolbar-title').textContent=tab==='hoy'?'Resumen del día':tab==='tanqueo'?'Análisis de combustible':tab==='consumo'?'Control de Tanqueo':'Tractores Varados';
-  if(tab==='tanqueo')cargarTanqueo();
-}
 
 async function cargarTanqueo(){
   const dias=parseInt(document.getElementById('tanq-periodo').value)||7;
