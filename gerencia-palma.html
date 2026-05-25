@@ -185,128 +185,6 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
     }
   }catch(e){}
 })();
-// ═══════════════ CONSUMO ═══════════════
-const LIMITES_DEFAULT={'01':5,'02':5,'03':8,'04':8,'05':10,'06':7,'07':9,'08':10,'09':10,'10':12,'11':12};
-const TRACTORES_C=[
-  {num:'01',n:'KUBOTA B2441'},{num:'02',n:'KUBOTA B2441'},
-  {num:'03',n:'KUBOTA M9540'},{num:'04',n:'KUBOTA M9540'},
-  {num:'05',n:'JOHN DEERE 2850'},{num:'06',n:'KUBOTA 5100'},
-  {num:'07',n:'KUBOTA M108S'},{num:'08',n:'LOVOL TH754-H'},
-  {num:'09',n:'LOVOL TH754-H'},{num:'10',n:'LOVOL TH904-X'},
-  {num:'11',n:'LOVOL TH904-X'}
-];
-function getLimites(){try{return JSON.parse(localStorage.getItem('palma_lim')||'{}');}catch{return {};}}
-function getLim(num){const s=getLimites();return parseFloat(s[num]||LIMITES_DEFAULT[num]||8);}
-function guardarLimites(){
-  const lims={};
-  TRACTORES_C.forEach(t=>{const i=document.getElementById('lim-'+t.num);if(i)lims[t.num]=i.value;});
-  localStorage.setItem('palma_lim',JSON.stringify(lims));
-  showToastG('✅ Límites guardados');
-  cargarConsumo();
-}
-function buildCfgUI(){
-  const el=document.getElementById('consumo-config');
-  if(!el)return;
-  el.innerHTML=TRACTORES_C.map(t=>`
-    <div style="background:var(--surface);border-radius:10px;padding:12px;border:1px solid var(--border);display:flex;align-items:center;gap:10px">
-      <div style="flex:1;font-size:12px;font-weight:600">#${t.num} ${t.n}</div>
-      <input id="lim-${t.num}" type="number" value="${getLim(t.num)}" min="1" max="50"
-        style="width:58px;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;outline:none">
-      <span style="font-size:11px;color:var(--muted)">gal/día</span>
-    </div>`).join('');
-}
-function parseF2(f){
-  if(!f)return null;
-  if(typeof f==='string'&&f.includes('T'))return new Date(f);
-  if(typeof f==='object'&&f.getTime)return f;
-  const p=String(f).split('/');
-  if(p.length===3)return new Date(p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'));
-  return null;
-}
-async function cargarConsumo(){
-  const dias=parseInt(document.getElementById('consumo-periodo')?.value)||7;
-  const el=document.getElementById('consumo-lista');
-  if(el)el.innerHTML='<div class="loading"><div class="spin"></div></div>';
-  buildCfgUI();
-  try{
-    const todos=await fetchH('Tanqueos');
-    const now=new Date(),desde=new Date();
-    desde.setDate(now.getDate()-(dias-1));desde.setHours(0,0,0,0);
-    const datos=todos.filter(row=>{const d=parseF2(row[0]);return d&&d>=desde&&row[5]==='Sí';});
-    const por={};
-    datos.forEach(row=>{
-      const t=String(row[3]||'');
-      const m=t.match(/(\d+)/);if(!m)return;
-      const num=m[1].padStart(2,'0');
-      const gal=parseFloat(row[6])||0;
-      if(!por[num])por[num]={total:0,cnt:0};
-      por[num].total+=gal;por[num].cnt++;
-    });
-    let totalGal=0,alertasN=0;
-    const cards=TRACTORES_C.map(t=>{
-      const d=por[t.num]||{total:0,cnt:0};
-      const lim=getLim(t.num);
-      const promDia=d.total/Math.max(1,dias);
-      const pct=Math.min(150,Math.round(promDia/lim*100));
-      const over=promDia>lim;
-      if(over)alertasN++;
-      totalGal+=d.total;
-      return {t,total:d.total,promDia,lim,pct,over,exceso:over?Math.round((promDia-lim)*100)/100:0,cnt:d.cnt};
-    });
-    // KPIs
-    const ckT=document.getElementById('ck-total');if(ckT)ckT.textContent=Math.round(totalGal)+' gal';
-    const ckA=document.getElementById('ck-alertas');if(ckA)ckA.textContent=alertasN;
-    const ckAW=document.getElementById('ck-alertas-wrap');
-    if(ckAW)ckAW.style.borderColor=alertasN>0?'#dc2626':'#52b788';
-    const ckP=document.getElementById('ck-prom');if(ckP)ckP.textContent=Math.round(totalGal/11)+' gal';
-    // Cards
-    cards.sort((a,b)=>b.over-a.over||b.promDia-a.promDia);
-    if(el)el.innerHTML=cards.map(c=>{
-      const col=c.over?'#dc2626':c.pct>=80?'#d97706':'#52b788';
-      const pctCap=Math.min(100,c.pct);
-      return `<div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);border-left:4px solid ${col};overflow:hidden;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
-          <div style="width:38px;height:38px;border-radius:50%;background:${col};display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${c.t.num}</div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:700">#${c.t.num} ${c.t.n}</div>
-            <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.cnt} tanqueos · ${Math.round(c.total*10)/10} gal total</div>
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:18px;font-weight:700;color:${col}">${Math.round(c.promDia*10)/10} <span style="font-size:11px;font-weight:400">gal/día</span></div>
-            <div style="font-size:11px;color:${col};margin-top:2px">${c.over?'⚠️ +'+c.exceso+' sobre límite':c.pct+'% del límite'}</div>
-          </div>
-        </div>
-        <div style="padding:0 16px 14px">
-          <div style="background:#f1f5f9;border-radius:20px;height:8px;overflow:hidden">
-            <div style="width:${pctCap}%;height:100%;border-radius:20px;background:${col};transition:width .5s"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px">
-            <span>0</span><span style="color:${col};font-weight:700">${Math.round(c.promDia*10)/10} / ${c.lim} gal</span><span>Máx: ${c.lim}</span>
-          </div>
-        </div>
-      </div>`;
-    }).join('');
-    // Banner resumen
-    const ab=document.getElementById('alert-consumo');
-    if(ab){
-      ab.style.display=alertasN>0?'flex':'none';
-      if(alertasN>0){
-        const at=document.getElementById('alert-cons-title');
-        const as=document.getElementById('alert-cons-sub');
-        if(at)at.textContent=alertasN+' tractor'+(alertasN>1?'es':'')+' con consumo sobre el límite';
-        if(as)as.textContent=cards.filter(c=>c.over).map(c=>'#'+c.t.num+' +'+c.exceso+' gal').join(' · ');
-      }
-    }
-  }catch(e){console.error('consumo error',e);if(el)el.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Error cargando datos</div>';}
-}
-function showToastG(msg){
-  let t=document.getElementById('g-toast');
-  if(!t){t=document.createElement('div');t.id='g-toast';
-    t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a4731;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:999;border-left:4px solid #c9a84c;opacity:0;transition:opacity .3s';
-    document.body.appendChild(t);}
-  t.textContent=msg;t.style.opacity='1';
-  setTimeout(()=>{t.style.opacity='0';},2500);
-}
 
 </script>
 </head>
@@ -435,7 +313,7 @@ document.addEventListener('DOMContentLoaded', function(){
     <button class="tab-btn active" id="tab-hoy" onclick="showTab('hoy')">Resumen del día</button>
     <button class="tab-btn" id="tab-tanqueo" onclick="showTab('tanqueo')">Combustible</button>
     <button class="tab-btn" id="tab-varados" onclick="showTab('varados')">🔴 Varados</button>
-    <button class="tab-btn" id="tab-consumo" onclick="showTab('consumo')">⛽ Consumo</button>
+    <button class="tab-btn" id="tab-consumo" onclick="showTab('consumo')">⛽ Control Tanqueo</button>
   </div>
 
   <!-- TAB HOY -->
@@ -604,15 +482,15 @@ document.addEventListener('DOMContentLoaded', function(){
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
       <div style="background:var(--surface);border-radius:12px;padding:16px;border:1px solid var(--border);text-align:center" id="ck-total-wrap">
         <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700" id="ck-total">—</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px">Gal. totales</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px">Gal. cargados</div>
       </div>
       <div style="background:var(--surface);border-radius:12px;padding:16px;border:1px solid var(--border);text-align:center" id="ck-alertas-wrap">
         <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:#dc2626" id="ck-alertas">—</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px">Sobre límite</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px">Sobre límite esperado</div>
       </div>
       <div style="background:var(--surface);border-radius:12px;padding:16px;border:1px solid var(--border);text-align:center">
         <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700" id="ck-prom">—</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px">Prom gal/tractor</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:4px">Prom gal/tractor/día</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -626,8 +504,8 @@ document.addEventListener('DOMContentLoaded', function(){
     </div>
     <div id="consumo-lista"></div>
     <div style="margin-top:24px">
-      <div style="font-family:'Playfair Display',serif;font-size:15px;margin-bottom:4px">⚙️ Límites de consumo diario</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Galones máximos permitidos por día</div>
+      <div style="font-family:'Playfair Display',serif;font-size:15px;margin-bottom:4px">⚙️ Límite esperado por tractor</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Galones esperados de carga por día según tipo de motor</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px" id="consumo-config"></div>
       <button onclick="guardarLimites()" style="width:100%;margin-top:14px;padding:13px;background:var(--ink2);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.02em">💾 Guardar límites</button>
     </div>
@@ -826,12 +704,17 @@ function renderChartDisp(labels,data){
 
 function renderChartComb(labels,data){
   if(chartComb)chartComb.destroy();
-  // Build limit values per tractor label
+  // Inline limits - no dependency on getLim
+  const _limDef={'01':5,'02':5,'03':8,'04':8,'05':10,'06':7,'07':9,'08':10,'09':10,'10':12,'11':12};
+  function _getLim(num){
+    try{const s=JSON.parse(localStorage.getItem('palma_lim')||'{}');return parseFloat(s[num]||_limDef[num]||8);}
+    catch{return parseFloat(_limDef[num]||8);}
+  }
   const limData=labels.map(lbl=>{
     const m=String(lbl).match(/(\d+)/);
     if(!m)return null;
     const num=m[1].padStart(2,'0');
-    return getLim(num);
+    return _getLim(num);
   });
   // Color bars: red if over limit, blue otherwise
   const barColors=data.map((v,i)=>v>limData[i]?'rgba(220,38,38,.75)':'rgba(30,64,175,.65)');
@@ -839,7 +722,7 @@ function renderChartComb(labels,data){
     type:'bar',
     data:{labels,datasets:[
       {
-        label:'Consumo real',
+        label:'Tanqueo real',
         data,
         backgroundColor:barColors,
         borderRadius:5,
@@ -847,7 +730,7 @@ function renderChartComb(labels,data){
         order:2
       },
       {
-        label:'Límite diario',
+        label:'Límite esperado/día',
         data:limData,
         type:'line',
         borderColor:'rgba(220,38,38,.8)',
@@ -924,7 +807,7 @@ function showTab(tab){
   document.getElementById('tab-hoy').className='tab-btn'+(tab==='hoy'?' active':'');
   document.getElementById('tab-tanqueo').className='tab-btn'+(tab==='tanqueo'?' active':'');
   document.getElementById('tab-varados').className='tab-btn'+(tab==='varados'?' active':'');
-  document.getElementById('toolbar-title').textContent=tab==='hoy'?'Resumen del día':tab==='tanqueo'?'Análisis de combustible':tab==='consumo'?'Control de Consumo':'Tractores Varados';
+  document.getElementById('toolbar-title').textContent=tab==='hoy'?'Resumen del día':tab==='tanqueo'?'Análisis de combustible':tab==='consumo'?'Control de Tanqueo':'Tractores Varados';
   if(tab==='tanqueo')cargarTanqueo();
 }
 
@@ -961,6 +844,127 @@ async function cargarTanqueo(){
 
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.cssText+='opacity:1;transform:translateX(-50%) translateY(0)';setTimeout(()=>{t.style.cssText+='opacity:0;transform:translateX(-50%) translateY(80px)'},3000);}
 init();
+// ═══════════════ CONSUMO ═══════════════
+const LIMITES_DEFAULT={'01':5,'02':5,'03':8,'04':8,'05':10,'06':7,'07':9,'08':10,'09':10,'10':12,'11':12};
+const TRACTORES_C=[
+  {num:'01',n:'KUBOTA B2441'},{num:'02',n:'KUBOTA B2441'},
+  {num:'03',n:'KUBOTA M9540'},{num:'04',n:'KUBOTA M9540'},
+  {num:'05',n:'JOHN DEERE 2850'},{num:'06',n:'KUBOTA 5100'},
+  {num:'07',n:'KUBOTA M108S'},{num:'08',n:'LOVOL TH754-H'},
+  {num:'09',n:'LOVOL TH754-H'},{num:'10',n:'LOVOL TH904-X'},
+  {num:'11',n:'LOVOL TH904-X'}
+];
+function getLimites(){try{return JSON.parse(localStorage.getItem('palma_lim')||'{}');}catch{return {};}}
+function getLim(num){const s=getLimites();return parseFloat(s[num]||LIMITES_DEFAULT[num]||8);}
+function guardarLimites(){
+  const lims={};
+  TRACTORES_C.forEach(t=>{const i=document.getElementById('lim-'+t.num);if(i)lims[t.num]=i.value;});
+  localStorage.setItem('palma_lim',JSON.stringify(lims));
+  showToastG('✅ Límites guardados');
+  cargarConsumo();
+}
+function buildCfgUI(){
+  const el=document.getElementById('consumo-config');
+  if(!el)return;
+  el.innerHTML=TRACTORES_C.map(t=>`
+    <div style="background:var(--surface);border-radius:10px;padding:12px;border:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <div style="flex:1;font-size:12px;font-weight:600">#${t.num} ${t.n}</div>
+      <input id="lim-${t.num}" type="number" value="${getLim(t.num)}" min="1" max="50"
+        style="width:58px;border:1.5px solid var(--border);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:700;text-align:center;outline:none">
+      <span style="font-size:11px;color:var(--muted)">gal/día esperado</span>
+    </div>`).join('');
+}
+function parseF2(f){
+  if(!f)return null;
+  if(typeof f==='string'&&f.includes('T'))return new Date(f);
+  if(typeof f==='object'&&f.getTime)return f;
+  const p=String(f).split('/');
+  if(p.length===3)return new Date(p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'));
+  return null;
+}
+async function cargarConsumo(){
+  const dias=parseInt(document.getElementById('consumo-periodo')?.value)||7;
+  const el=document.getElementById('consumo-lista');
+  if(el)el.innerHTML='<div class="loading"><div class="spin"></div></div>';
+  buildCfgUI();
+  try{
+    const todos=await fetchH('Tanqueos');
+    const now=new Date(),desde=new Date();
+    desde.setDate(now.getDate()-(dias-1));desde.setHours(0,0,0,0);
+    const datos=todos.filter(row=>{const d=parseF2(row[0]);return d&&d>=desde&&row[5]==='Sí';});
+    const por={};
+    datos.forEach(row=>{
+      const t=String(row[3]||'');
+      const m=t.match(/(\d+)/);if(!m)return;
+      const num=m[1].padStart(2,'0');
+      const gal=parseFloat(row[6])||0;
+      if(!por[num])por[num]={total:0,cnt:0};
+      por[num].total+=gal;por[num].cnt++;
+    });
+    let totalGal=0,alertasN=0;
+    const cards=TRACTORES_C.map(t=>{
+      const d=por[t.num]||{total:0,cnt:0};
+      const lim=getLim(t.num);
+      const promDia=d.total/Math.max(1,dias);
+      const pct=Math.min(150,Math.round(promDia/lim*100));
+      const over=promDia>lim;
+      if(over)alertasN++;
+      totalGal+=d.total;
+      return {t,total:d.total,promDia,lim,pct,over,exceso:over?Math.round((promDia-lim)*100)/100:0,cnt:d.cnt};
+    });
+    // KPIs
+    const ckT=document.getElementById('ck-total');if(ckT)ckT.textContent=Math.round(totalGal)+' gal';
+    const ckA=document.getElementById('ck-alertas');if(ckA)ckA.textContent=alertasN;
+    const ckAW=document.getElementById('ck-alertas-wrap');
+    if(ckAW)ckAW.style.borderColor=alertasN>0?'#dc2626':'#52b788';
+    const ckP=document.getElementById('ck-prom');if(ckP)ckP.textContent=Math.round(totalGal/11)+' gal';
+    // Cards
+    cards.sort((a,b)=>b.over-a.over||b.promDia-a.promDia);
+    if(el)el.innerHTML=cards.map(c=>{
+      const col=c.over?'#dc2626':c.pct>=80?'#d97706':'#52b788';
+      const pctCap=Math.min(100,c.pct);
+      return `<div style="background:var(--surface);border-radius:12px;border:1px solid var(--border);border-left:4px solid ${col};overflow:hidden;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 16px">
+          <div style="width:38px;height:38px;border-radius:50%;background:${col};display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">${c.t.num}</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700">#${c.t.num} ${c.t.n}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${c.cnt} cargas · ${Math.round(c.total*10)/10} gal cargados</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:18px;font-weight:700;color:${col}">${Math.round(c.promDia*10)/10} <span style="font-size:11px;font-weight:400">gal/día esperado</span></div>
+            <div style="font-size:11px;color:${col};margin-top:2px">${c.over?'⚠️ +'+c.exceso+' sobre límite esperado':c.pct+'% del límite esperado'}</div>
+          </div>
+        </div>
+        <div style="padding:0 16px 14px">
+          <div style="background:#f1f5f9;border-radius:20px;height:8px;overflow:hidden">
+            <div style="width:${pctCap}%;height:100%;border-radius:20px;background:${col};transition:width .5s"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px">
+            <span>0</span><span style="color:${col};font-weight:700">${Math.round(c.promDia*10)/10} / ${c.lim} gal</span><span>Máx: ${c.lim}</span>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    // Banner resumen
+    const ab=document.getElementById('alert-consumo');
+    if(ab){
+      ab.style.display=alertasN>0?'flex':'none';
+      if(alertasN>0){
+        const at=document.getElementById('alert-cons-title');
+        const as=document.getElementById('alert-cons-sub');
+        if(at)at.textContent=alertasN+' tractor'+(alertasN>1?'es':'')+' con consumo sobre el límite esperado';
+        if(as)as.textContent=cards.filter(c=>c.over).map(c=>'#'+c.t.num+' +'+c.exceso+' gal').join(' · ');
+      }
+    }
+  }catch(e){console.error('consumo error',e);if(el)el.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Error cargando datos</div>';}
+}
+function showToastG(msg){
+  let t=document.getElementById('g-toast');
+  if(!t){t=document.createElement('div');t.id='g-toast';
+    t.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1a4731;color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;z-index:999;border-left:4px solid #c9a84c;opacity:0;transition:opacity .3s';
+    document.body.appendChild(t);}
+  t.textContent=msg;t.style.opacity='1';
+  setTimeout(()=>{t.style.opacity='0';},2500);
+}
+
 </script>
-</body>
-</html>
