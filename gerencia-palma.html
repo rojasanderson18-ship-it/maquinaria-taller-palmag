@@ -641,7 +641,6 @@ async function cargarDatos(){
     const combData=d7.map(f=>{const dt=tanqs.filter(r=>normF(r[0])===f&&r[5]==='Sí');return dt.reduce((s,r)=>s+(parseFloat(r[6])||0),0)||null;});
     const lbls=d7.map(lblDia);
     renderChartDisp(lbls,dispData);
-    renderChartComb(lbls,combData);
 
     // Tables
     renderTablaEjecutiva(ph, rh, ah, th, prh, cierres);
