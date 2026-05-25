@@ -258,9 +258,14 @@ document.addEventListener('DOMContentLoaded', function(){
 <div class="sec" id="sec-flota">
   <div class="card">
     <div class="card-hdr verde"><span class="card-hdr-icon">🚜</span>
-      <div><div class="card-hdr-title">Estado flota hoy</div><div class="card-hdr-sub">Todos los preoperativos</div></div>
+      <div><div class="card-hdr-title">Estado flota</div><div class="card-hdr-sub">Historial por fecha</div></div>
     </div>
-    <div style="overflow-x:auto" id="flota-wrap">
+    <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+      <label style="font-size:12px;font-weight:700;color:var(--muted)">Fecha:</label>
+      <input type="date" id="flota-fecha" style="border:1.5px solid var(--border);border-radius:8px;padding:7px 11px;font-size:13px;flex:1;outline:none" onchange="cambiarFechaFlota()">
+      <button onclick="cambiarFechaFlota()" style="background:var(--verde-m);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer">Ver</button>
+    </div>
+    <div style="overflow-x:auto;padding:12px" id="flota-wrap">
       <div class="loading"><div class="spinner"></div></div>
     </div>
   </div>
@@ -402,7 +407,7 @@ if(WA_NUM)   document.getElementById('cfg-wa').value=WA_NUM;
 // ═══════════════════════════════════════════════
 //  DATOS — todo desde Sheets
 // ═══════════════════════════════════════════════
-let PREOPS=[], REVISIONES=[], ALTAS=[], VARADOS_FLOTA={};
+let PREOPS=[], REVISIONES=[], ALTAS=[], VARADOS_FLOTA={}, FLOTA_PREOPS=[], FLOTA_REVS=[], FLOTA_ALTAS=[];
 
 const ITEMS_INSP=['Frenos','Llantas','Luces','Batería','Escape','Sin fugas','Mandos','Estado exterior'];
 
@@ -531,6 +536,12 @@ async function loadVarados(){
 }
 
 function showTab(name,btn){
+  if(name==='flota'){
+    const fi=document.getElementById('flota-fecha');
+    if(fi&&!fi.value){const hoy=new Date();fi.value=hoy.toISOString().split('T')[0];}
+    FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];
+    buildFlota();
+  }
   if(name==='varados')loadVarados();
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
@@ -1010,6 +1021,31 @@ function toggleAltaTag(el,taId,grpId){
 // ═══════════════════════════════════════════════
 //  FLOTA
 // ═══════════════════════════════════════════════
+async function cambiarFechaFlota(){
+  const fechaInput=document.getElementById('flota-fecha');
+  if(!fechaInput||!fechaInput.value) return;
+  const fechaISO=fechaInput.value; // YYYY-MM-DD
+  const fechaObj=new Date(fechaISO+'T12:00:00');
+  const fechaES=fechaObj.toLocaleDateString('es-CO');
+  document.getElementById('flota-wrap').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  try{
+    const [allPreops,allRevs,allAltas]=await Promise.all([
+      fetchHojaTodo('Preoperativos'),
+      fetchHojaTodo('Revisiones'),
+      fetchHojaTodo('Altas')
+    ]);
+    function matchFecha(f){
+      let d=f||'';
+      if(d.includes('T')||d.match(/^\d{4}-/)){const o=new Date(d);if(!isNaN(o))d=o.toLocaleDateString('es-CO');}
+      return d===fechaES;
+    }
+    FLOTA_PREOPS=allPreops.filter(r=>matchFecha(r[0]));
+    FLOTA_REVS=allRevs.filter(r=>matchFecha(r[0]));
+    FLOTA_ALTAS=allAltas.filter(r=>matchFecha(r[0]));
+  }catch(e){FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];}
+  buildFlota();
+}
+
 function buildFlota(){
   const el=document.getElementById('flota-wrap');
   // Build list of all tractors with their last known status
@@ -1025,9 +1061,12 @@ function buildFlota(){
   TRACTORES_ALL.map(function(t){
     const eq='#'+t.num+' '+t.nombre;
     // Find today's preop
-    const preop=PREOPS.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
-    const rev=getRevision(eq);
-    const alta=getAlta(eq);
+    const _preops=FLOTA_PREOPS.length?FLOTA_PREOPS:PREOPS;
+    const _revs=FLOTA_REVS.length?FLOTA_REVS:REVISIONES;
+    const _altas=FLOTA_ALTAS.length?FLOTA_ALTAS:ALTAS;
+    const preop=_preops.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
+    const rev=_revs.find(r=>{const ne=normEq(r[2]||r[3]||'');return ne===normEq(eq);});
+    const alta=_altas.find(r=>{const ne=normEq(r[2]||r[3]||'');return ne===normEq(eq);});
     // Check if varado (no alta after last cierre varado)
     const esVarado=VARADOS_FLOTA[t.num];
     const color=esVarado?'var(--rojo-m,#dc2626)':rev?.[4]==='AUTORIZADO'?'var(--verde-m)':rev?.[4]==='RETENIDO'?'var(--rojo)':'var(--gris)';
