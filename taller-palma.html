@@ -1048,16 +1048,16 @@ async function verHistorial(num, nombre){
 
 async function cargarHistorialTractor(num, nombre, eq){
   try{
-    const [preops, revs, altas, cierres] = await Promise.all([
-      fetchHoja('Preoperativos'),
-      fetchHoja('Revisiones'),
-      fetchHoja('Altas'),
-      fetchHoja('CierreJornada')
-    ]);
-    const misPreops=preops.filter(r=>(r[3]||'').includes('#'+num)).reverse();
-    const misRevs=revs.filter(r=>(r[2]||'').includes('#'+num));
-    const misAltas=altas.filter(r=>(r[2]||'').includes('#'+num));
-    const misCierres=cierres.filter(r=>(r[3]||'').includes('#'+num)).reverse();
+    // Use already-loaded data + fetch fresh CierreJornada
+    let cierres=[];
+    try{ cierres=await fetchHoja('CierreJornada'); }catch(e){}
+    const preops=PREOPS||[];
+    const revs=REVISIONES||[];
+    const altas=ALTAS||[];
+    const misPreops=preops.filter(r=>{const e=r[3]||'';return e.includes('#'+num)||e.startsWith(num+' ')||e.startsWith(num+'-');}).reverse();
+    const misRevs=revs.filter(r=>{const e=r[2]||'';return e.includes('#'+num)||e.startsWith(num+' ')||e.startsWith(num+'-');});
+    const misAltas=altas.filter(r=>{const e=r[2]||'';return e.includes('#'+num)||e.startsWith(num+' ')||e.startsWith(num+'-');});
+    const misCierres=cierres.filter(r=>{const e=r[3]||'';return e.includes('#'+num)||e.startsWith(num+' ')||e.startsWith(num+'-');}).reverse();
     // Detect active varado
     const ultimoCierre=misCierres[0];
     const ultimaAlta=misAltas[misAltas.length-1];
