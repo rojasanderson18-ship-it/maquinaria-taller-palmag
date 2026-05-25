@@ -893,7 +893,7 @@ async function enviar(){
   const now=new Date(), eq=v('f-equipo'), horas=parseInt(v('f-horas'))||0;
   
   // ID único para este envío: equipo + fecha + hora
-  const submitId = eq + '_' + now.toLocaleDateString('es-CO') + '_' + now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  const submitId = eq + '_' + now.toLocaleDateString('es-CO'); // un preoperativo por tractor por día
   const enviados = JSON.parse(localStorage.getItem('palma_enviados')||'[]');
   if(enviados.includes(submitId)){
     toast('⚠️ Este preoperativo ya fue enviado','warn');
