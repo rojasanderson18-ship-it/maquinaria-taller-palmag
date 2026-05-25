@@ -539,8 +539,7 @@ function showTab(name,btn){
   if(name==='flota'){
     const fi=document.getElementById('flota-fecha');
     if(fi&&!fi.value){const hoy=new Date();fi.value=hoy.toISOString().split('T')[0];}
-    FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];
-    buildFlota();
+    cambiarFechaFlota();
   }
   if(name==='varados')loadVarados();
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
@@ -1027,7 +1026,8 @@ async function cambiarFechaFlota(){
   const fechaISO=fechaInput.value; // YYYY-MM-DD
   const fechaObj=new Date(fechaISO+'T12:00:00');
   const fechaES=fechaObj.toLocaleDateString('es-CO');
-  document.getElementById('flota-wrap').innerHTML='<div class="loading"><div class="spinner"></div></div>';
+  const fwEl=document.getElementById('flota-wrap');
+  if(fwEl)fwEl.innerHTML='<div class="loading"><div class="spinner"></div><div>Cargando...</div></div>';
   try{
     const [allPreops,allRevs,allAltas]=await Promise.all([
       fetchHojaTodo('Preoperativos'),
@@ -1065,13 +1065,14 @@ function buildFlota(){
     const _revs=FLOTA_REVS.length?FLOTA_REVS:REVISIONES;
     const _altas=FLOTA_ALTAS.length?FLOTA_ALTAS:ALTAS;
     const preop=_preops.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
-    const rev=_revs.find(r=>{const ne=normEq(r[2]||r[3]||'');return ne===normEq(eq);});
-    const alta=_altas.find(r=>{const ne=normEq(r[2]||r[3]||'');return ne===normEq(eq);});
-    // Check if varado (no alta after last cierre varado)
-    const esVarado=VARADOS_FLOTA[t.num];
-    const color=esVarado?'var(--rojo-m,#dc2626)':rev?.[4]==='AUTORIZADO'?'var(--verde-m)':rev?.[4]==='RETENIDO'?'var(--rojo)':'var(--gris)';
-    const pillTxt=esVarado?'🔴 Varado':alta?'🔵 Alta':rev?.[4]==='AUTORIZADO'?'✅ Autorizado':rev?.[4]==='RETENIDO'?'🚫 Retenido':preop?'⏳ Pendiente':'—';
-    const pillBg=esVarado?'var(--rojo-p)':alta?'var(--azul-p)':rev?.[4]==='AUTORIZADO'?'var(--verde-p)':rev?.[4]==='RETENIDO'?'var(--rojo-p)':'var(--gris-p)';
+    // Match revision by equipo number anywhere in the field
+    const rev=_revs.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);});
+    const alta=_altas.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);});
+    const esVarado=VARADOS_FLOTA[t.num]&&!FLOTA_PREOPS.length; // only show varado on today view
+    const dec=rev?.[4]||'';
+    const color=esVarado?'var(--rojo-m,#dc2626)':dec==='AUTORIZADO'?'var(--verde-m)':dec==='RETENIDO'?'var(--rojo)':preop?'var(--dorado)':'var(--gris)';
+    const pillTxt=esVarado?'🔴 Varado':alta?'🔵 Alta':dec==='AUTORIZADO'?'✅ Autorizado':dec==='RETENIDO'?'🚫 Retenido':preop?'⏳ Pendiente':'—';
+    const pillBg=esVarado?'var(--rojo-p)':alta?'var(--azul-p)':dec==='AUTORIZADO'?'var(--verde-p)':dec==='RETENIDO'?'var(--rojo-p)':preop?'var(--dorado-p)':'var(--gris-p)';
     return '<div onclick="verHistorial(\''+t.num+'\',\''+t.nombre+'\')" style="background:#fff;border-radius:12px;padding:14px;border-left:4px solid '+color+';box-shadow:0 1px 3px rgba(0,0,0,.07);cursor:pointer;display:flex;align-items:center;gap:12px">'+
       '<div style="width:36px;height:36px;border-radius:50%;background:'+color+';display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">'+t.num+'</div>'+
       '<div style="flex:1">'+
