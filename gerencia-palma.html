@@ -398,10 +398,9 @@ document.addEventListener('DOMContentLoaded', function(){
     </div>
     <div class="chart-card">
       <div class="cc-header">
-        <div><div class="cc-title">Combustible cargado</div><div class="cc-sub">Galones por día — últimos 7 días</div></div>
-        <span class="cc-badge">7 días</span>
+        <div><div class="cc-title">⛽ Tanqueo hoy vs límite esperado</div><div class="cc-sub">Por tractor — galones cargados hoy</div></div>
       </div>
-      <div class="chart-wrap"><canvas id="chart-comb"></canvas></div>
+      <div id="chart-tanqueo-hoy" style="padding:8px 4px"></div>
     </div>
 
     <!-- TRACTORES -->
@@ -645,6 +644,8 @@ async function cargarDatos(){
     renderChartComb(lbls,combData);
 
     // Tables
+    renderTablaEjecutiva(ph, rh, ah, th, prh, cierres);
+    renderTanqueoHoy(th, ph);
     renderTractores(ph,rh,ah);
     renderRetenidos(rh,ah);
     renderAlertas(alh);
@@ -661,6 +662,64 @@ function getD(eq,revs,altas){
   const a=altas.find(r=>String(r[2]||'').trim()===eq.trim());if(a)return'alta';
   const r=revs.find(r=>String(r[2]||'').trim()===eq.trim());
   if(r?.[4]==='AUTORIZADO')return'auth';if(r?.[4]==='RETENIDO')return'ret';return'pend';
+}
+
+function renderTanqueoHoy(th, ph){
+  const el=document.getElementById('chart-tanqueo-hoy');
+  if(!el)return;
+
+  const TRACTORES=[
+    {num:'01',n:'KUBOTA B2441'},{num:'02',n:'KUBOTA B2441'},
+    {num:'03',n:'KUBOTA M9540'},{num:'04',n:'KUBOTA M9540'},
+    {num:'05',n:'JOHN DEERE 2850'},{num:'06',n:'KUBOTA 5100'},
+    {num:'07',n:'KUBOTA M108S'},{num:'08',n:'LOVOL TH754-H'},
+    {num:'09',n:'LOVOL TH754-H'},{num:'10',n:'LOVOL TH904-X'},
+    {num:'11',n:'LOVOL TH904-X'}
+  ];
+  const _limDef={'01':5,'02':5,'03':8,'04':8,'05':10,'06':7,'07':9,'08':10,'09':10,'10':12,'11':12};
+  function _getLim(num){try{const s=JSON.parse(localStorage.getItem('palma_lim')||'{}');return parseFloat(s[num]||_limDef[num]||8);}catch{return parseFloat(_limDef[num]||8);}}
+
+  // Build tanqueo per tractor today
+  const porTractor={};
+  th.filter(r=>r[5]==='Sí').forEach(row=>{
+    const e=String(row[3]||'');
+    TRACTORES.forEach(t=>{
+      if(e.includes('#'+t.num)||e.includes(t.num+' ')||e.includes(t.num+'-')){
+        porTractor[t.num]=(porTractor[t.num]||0)+(parseFloat(row[6])||0);
+      }
+    });
+  });
+
+  // Only show tractors that have preop or tanqueo today
+  const activos=TRACTORES.filter(t=>porTractor[t.num]||ph.find(r=>(r[3]||'').includes('#'+t.num)||(r[3]||'').startsWith(t.num)));
+
+  if(!activos.length){
+    el.innerHTML='<div style="text-align:center;padding:20px;color:var(--muted)">Sin tanqueos registrados hoy</div>';
+    return;
+  }
+
+  el.innerHTML=activos.map(t=>{
+    const gal=porTractor[t.num]||0;
+    const lim=_getLim(t.num);
+    const pct=Math.min(100,Math.round(gal/lim*100));
+    const over=gal>lim;
+    const col=over?'#dc2626':pct>=80?'#d97706':'#52b788';
+    const barPct=Math.min(100,Math.round(gal/lim*100));
+    return \`<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:12px;font-weight:600">#\${t.num} \${t.n}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;font-weight:700;color:\${col}">\${gal} gal</span>
+          <span style="font-size:10px;color:var(--muted)">/ \${lim} esperado</span>
+          \${over?'<span style="background:#fef2f2;color:#dc2626;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px">+\${Math.round((gal-lim)*10)/10} ⚠️</span>':''}
+        </div>
+      </div>
+      <div style="position:relative;background:#f1f5f9;border-radius:20px;height:10px;overflow:hidden">
+        <div style="width:\${barPct}%;height:100%;border-radius:20px;background:\${col};transition:width .5s"></div>
+        <div style="position:absolute;top:0;left:\${Math.min(99,Math.round(lim/(lim*1.2)*100))}%;height:100%;width:2px;background:#94a3b8;opacity:.6"></div>
+      </div>
+    </div>\`;
+  }).join('');
 }
 
 function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
