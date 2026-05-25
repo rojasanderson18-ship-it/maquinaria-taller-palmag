@@ -1002,6 +1002,26 @@ async function renderVaradosGer(){
 }
 
 
+async function showTab(tab){
+  if(tab==='varados') renderVaradosGer();
+  if(tab==='consumo') cargarConsumo();
+  // Hide all sections
+  ['hoy','tanqueo','varados','consumo'].forEach(function(t){
+    const s=document.getElementById('sec-'+t);
+    if(s) s.style.display=t===tab?'block':'none';
+  });
+  // Update tab buttons
+  ['hoy','tanqueo','varados','consumo'].forEach(function(t){
+    const b=document.getElementById('tab-'+t);
+    if(b) b.className='tab-btn'+(t===tab?' active':'');
+  });
+  // Update toolbar title
+  const titles={hoy:'Resumen del día',tanqueo:'Análisis de combustible',varados:'Tractores Varados',consumo:'Control de Tanqueo'};
+  const tt=document.getElementById('toolbar-title');
+  if(tt) tt.textContent=titles[tab]||'';
+  if(tab==='tanqueo') cargarTanqueo();
+}
+
 async function cargarTanqueo(){
   const dias=parseInt(document.getElementById('tanq-periodo').value)||7;
   document.getElementById('tanq-periodo-lbl').textContent='Galones totales — últimos '+dias+' días';
