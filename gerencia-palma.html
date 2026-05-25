@@ -705,7 +705,7 @@ function renderTanqueoHoy(th, ph){
     const over=gal>lim;
     const col=over?'#dc2626':pct>=80?'#d97706':'#52b788';
     const barPct=Math.min(100,Math.round(gal/lim*100));
-    return \`<div style="margin-bottom:10px">
+    return `<div style="margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <div style="font-size:12px;font-weight:600">#\${t.num} \${t.n}</div>
         <div style="display:flex;align-items:center;gap:8px">
@@ -718,7 +718,7 @@ function renderTanqueoHoy(th, ph){
         <div style="width:\${barPct}%;height:100%;border-radius:20px;background:\${col};transition:width .5s"></div>
         <div style="position:absolute;top:0;left:\${Math.min(99,Math.round(lim/(lim*1.2)*100))}%;height:100%;width:2px;background:#94a3b8;opacity:.6"></div>
       </div>
-    </div>\`;
+    </div>`;
   }).join('');
 }
 
@@ -792,7 +792,7 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
       ${rows.map(r=>`
       <tr style="border-bottom:1px solid var(--border);background:${r.rowBg}">
         <td style="padding:10px 12px;font-weight:700">#${r.t.num} <span style="font-weight:400;color:var(--muted)">${r.t.nombre}</span></td>
-        <td style="padding:10px 8px">${r.preop?r.preop[2]||'—':'<span style=\'color:var(--muted)\'>Sin preop</span>'}</td>
+        <td style="padding:10px 8px">${r.preop?(r.preop[2]||'—'):'Sin preop'}</td>
         <td style="padding:10px 8px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.labor||'—'}</td>
         <td style="padding:10px 8px;text-align:center">${r.horometro} h</td>
         <td style="padding:10px 8px;text-align:center">${r.galones?r.galones+' gal':'—'}</td>
@@ -984,7 +984,7 @@ async function renderVaradosGer(){
       const diasV=Math.max(0,Math.round((hoy-fV)/(1000*60*60*24)));
       const urgColor=diasV>=3?'#dc2626':diasV>=1?'#d97706':'#ca8a04';
       const num=(String(row[3]||'').match(/\d+/)||['?'])[0];
-      return \`<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:14px">
+      return `<div style="padding:16px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;gap:14px">
         <div style="width:40px;height:40px;border-radius:50%;background:\${urgColor};display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">\${num}</div>
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -996,7 +996,7 @@ async function renderVaradosGer(){
           <div style="font-size:12px;color:var(--muted);margin-top:4px">👤 \${row[2]||'—'} · 📅 \${row[0]||'—'}</div>
           \${row[6]?'<div style="font-size:12px;color:#b91c1c;margin-top:4px;font-weight:600">⚙️ '+row[6]+'</div>':''}
         </div>
-      </div>\`;
+      </div>`;
     }).join('');
   }catch(e){if(el)el.innerHTML='<div style="padding:16px;color:var(--muted)">Error cargando</div>';}
 }
