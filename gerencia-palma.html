@@ -797,7 +797,7 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
     const horometro=preop?preop[6]||'—':'—';
     const novedad=preop&&preop[22]==='CON NOVEDAD'?(preop[23]||'Con novedad'):(preop&&preop[22]==='OK'?'✅ OK':'');
     const obsRev=rev?.[7]||'';
-    const labor=preop?preop[5]||prog?.[3]||'—':prog?.[3]||'—';
+    const labor=prog?.[3]||preop?.[4]||'—';
     const galones=tanq?parseFloat(tanq[6])||0:0;
     return {t,dec,decColors,decLabels,rowBg,preop,horometro,novedad,obsRev,labor,galones,varado};
   });
