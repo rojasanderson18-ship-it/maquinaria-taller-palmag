@@ -563,6 +563,15 @@ async function fetchHoja(hoja){
   }catch(e){ console.error('fetchHoja error:',e); return []; }
 }
 
+async function fetchHojaTodo(hoja){
+  try{
+    const r=await fetch(GS_URL+'?hoja='+hoja+'&t='+Date.now());
+    const d=await r.json();
+    if(!d.ok) return [];
+    return d.datos||[];
+  }catch(e){ console.error('fetchHojaTodo error:',e); return []; }
+}
+
 async function recargar(){
   // Guardar contenido en edición antes de recargar
   const contenidoGuardado = {};
@@ -1049,11 +1058,14 @@ async function verHistorial(num, nombre){
 async function cargarHistorialTractor(num, nombre, eq){
   try{
     // Use already-loaded data + fetch fresh CierreJornada
-    let cierres=[];
-    try{ cierres=await fetchHoja('CierreJornada'); }catch(e){}
-    const preops=PREOPS||[];
+    // Fetch ALL history without date filter
+    let cierres=[], preopsAll=[], altasAll=[];
+    try{ cierres=await fetchHojaTodo('CierreJornada'); }catch(e){}
+    try{ preopsAll=await fetchHojaTodo('Preoperativos'); }catch(e){}
+    try{ altasAll=await fetchHojaTodo('Altas'); }catch(e){}
+    const preops=preopsAll.length?preopsAll:(PREOPS||[]);
     const revs=REVISIONES||[];
-    const altas=ALTAS||[];
+    const altas=altasAll.length?altasAll:(ALTAS||[]);
     const misPreops=preops.filter(r=>{const e=r[3]||'';return e.includes('#'+num)||e.startsWith(num+' ')||e.startsWith(num+'-');}).reverse();
     const misRevs=revs.filter(r=>{const e=r[2]||'';return e.includes('#'+num)||e.startsWith(num+' ')||e.startsWith(num+'-');});
     const misAltas=altas.filter(r=>{const e=r[2]||'';return e.includes('#'+num)||e.startsWith(num+' ')||e.startsWith(num+'-');});
