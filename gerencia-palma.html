@@ -351,6 +351,7 @@ document.addEventListener('DOMContentLoaded', function(){
           <div class="hm-stat"><div class="hm-stat-n" id="dhs-total">—</div><div class="hm-stat-l">Reportados</div></div>
           <div class="hm-stat"><div class="hm-stat-n" id="dhs-auth">—</div><div class="hm-stat-l">Autorizados</div></div>
           <div class="hm-stat"><div class="hm-stat-n" id="dhs-ret">—</div><div class="hm-stat-l">Retenidos</div></div>
+          <div class="hm-stat"><div class="hm-stat-n" id="dhs-obs" style="color:#fbbf24">—</div><div class="hm-stat-l">Observación</div></div>
           <div class="hm-stat"><div class="hm-stat-n" id="dhs-alta">—</div><div class="hm-stat-l">Dados alta</div></div>
         </div>
       </div>
@@ -583,7 +584,17 @@ async function cargarDatos(){
       fetchH('CierreJornada')
     ]);
     const ph=hoy(preops),rh=hoy(revs),ah=hoy(altas),alh=hoy(alertas),th=hoy(tanqs),prh=hoy(prog).filter(r=>r[3]&&String(r[3]).trim());
-    const total=ph.length,authN=rh.filter(r=>r[4]==='AUTORIZADO').length+ah.length;
+    const total=ph.length;
+    // Dedup authorized by equipo, exclude those with Alta
+    const _authSet={};
+    rh.forEach(r=>{
+      if((r[4]==='AUTORIZADO'||r[4]==='CON OBSERVACIÓN')&&r[2]){
+        const tieneAlta=ah.some(a=>(a[2]||'').trim()===(r[2]||'').trim());
+        if(!tieneAlta) _authSet[r[2]]=r[4];
+      }
+    });
+    const authN=Object.keys(_authSet).length+ah.length;
+    const obsN=Object.values(_authSet).filter(v=>v==='CON OBSERVACIÓN').length;
     const retN=Math.max(0,rh.filter(r=>r[4]==='RETENIDO').length-ah.length);
     const disp=Math.round(authN/11*100); // 11 = total fleet
     const galones=th.filter(r=>r[5]==='Sí').reduce((s,r)=>s+(parseFloat(r[6])||0),0);
@@ -610,6 +621,7 @@ async function cargarDatos(){
     document.getElementById('dhs-total').textContent=total||'—';
     document.getElementById('dhs-auth').textContent=authN||'—';
     document.getElementById('dhs-ret').textContent=retN||'—';
+    const dhsObs=document.getElementById('dhs-obs');if(dhsObs)dhsObs.textContent=obsN||'—';
     document.getElementById('dhs-alta').textContent=ah.length||'—';
 
     // Metrics
@@ -790,10 +802,10 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
     const tanq=th.find(r=>{const e=String(r[3]||'');return e.includes('#'+t.num)||e.includes(t.num+' ')||e.includes(t.num+'-');});
     const prog=prh.find(r=>{const e=String(r[1]||'');return e.includes('#'+t.num)||e.includes(t.num+' ');});
     const varado=varadosMap[t.num];
-    const dec=alta?'alta':rev?.[4]==='AUTORIZADO'?'auth':rev?.[4]==='RETENIDO'?'ret':varado?'varado':preop?'pend':'sin';
-    const decColors={alta:'#1d4ed8',auth:'#15803d',ret:'#b91c1c',varado:'#dc2626',pend:'#d97706',sin:'#94a3b8'};
-    const decLabels={alta:'🔵 Alta',auth:'✅ Autorizado',ret:'🚫 Retenido',varado:'🔴 Varado',pend:'⏳ Pendiente',sin:'—'};
-    const rowBg=dec==='ret'?'#fff8f8':dec==='varado'?'#fff5f5':dec==='alta'?'#f0f7ff':dec==='auth'?'#f0fdf4':'';
+    const dec=alta?'alta':rev?.[4]==='AUTORIZADO'?'auth':rev?.[4]==='CON OBSERVACIÓN'?'obs':rev?.[4]==='RETENIDO'?'ret':varado?'varado':preop?'pend':'sin';
+    const decColors={alta:'#1d4ed8',auth:'#15803d',obs:'#d97706',ret:'#b91c1c',varado:'#dc2626',pend:'#ca8a04',sin:'#94a3b8'};
+    const decLabels={alta:'🔵 Alta',auth:'✅ Autorizado',obs:'⚠️ Observación',ret:'🚫 Retenido',varado:'🔴 Varado',pend:'⏳ Pendiente',sin:'—'};
+    const rowBg=dec==='ret'?'#fff8f8':dec==='varado'?'#fff5f5':dec==='alta'?'#f0f7ff':dec==='obs'?'#fffbeb':dec==='auth'?'#f0fdf4':'';
     const horometro=preop?preop[6]||'—':'—';
     const novedad=preop&&preop[22]==='CON NOVEDAD'?(preop[23]||'Con novedad'):(preop&&preop[22]==='OK'?'✅ OK':'');
     const obsRev=rev?.[7]||'';
