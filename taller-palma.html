@@ -1170,7 +1170,7 @@ function buildFlota(fechaLabel){
     const _fechaFlota=document.getElementById('flota-fecha')?.value||'';
     const rev=preop?_revs.find(r=>{
       const e=String(r[2]||r[3]||'');
-      if(!e.includes(t.num))return false;
+      if(!e.match(new RegExp('(^|\\D)0*'+parseInt(t.num)+'(\\D|$)')))return false;
       // Verify date matches selected date
       if(_fechaFlota&&r[0]){
         let rd=String(r[0]);
@@ -1193,7 +1193,7 @@ function buildFlota(fechaLabel){
     }):null;
     const esVarado=Object.keys(FLOTA_VARADOS).length?FLOTA_VARADOS[t.num]:VARADOS_FLOTA[t.num];
     const dec=rev?.[4]||'';
-    const color=esVarado?'var(--rojo-m,#dc2626)':dec==='AUTORIZADO'?'var(--verde-m)':dec==='RETENIDO'?'var(--rojo)':preop?'var(--dorado)':'var(--gris,#64748b)';
+    const color=esVarado?'var(--rojo-m,#dc2626)':dec==='AUTORIZADO'?'var(--verde-m)':dec==='CON OBSERVACIÓN'?'#ea580c':dec==='RETENIDO'?'var(--rojo)':preop?'var(--dorado)':'var(--gris,#64748b)';
     const pillTxt=esVarado?'🔴 Varado':alta?'🔵 Alta':dec==='AUTORIZADO'?'✅ Autorizado':dec==='CON OBSERVACIÓN'?'⚠️ Observación':dec==='RETENIDO'?'🚫 Retenido':preop?'⏳ Pendiente':'—';
     const pillBg=esVarado?'var(--rojo-p)':alta?'var(--azul-p)':dec==='AUTORIZADO'?'var(--verde-p)':dec==='CON OBSERVACIÓN'?'var(--dorado-p)':dec==='RETENIDO'?'var(--rojo-p)':preop?'var(--dorado-p)':'var(--gris-p)';
     return '<div onclick="verHistorial(\''+t.num+'\',\''+t.nombre+'\')" style="background:#fff;border-radius:12px;padding:14px;border-left:4px solid '+color+';box-shadow:0 1px 3px rgba(0,0,0,.07);cursor:pointer;display:flex;align-items:center;gap:12px">'+
