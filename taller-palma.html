@@ -633,9 +633,11 @@ async function fetchHojaTodo(hoja){
 async function recargar(){
   // Guardar contenido en edición antes de recargar
   const contenidoGuardado = {};
-  document.querySelectorAll('[id^="notes-"], [id^="alta-notas-"]').forEach(el=>{
-    if(el.value.trim()) contenidoGuardado[el.id] = el.value;
+  document.querySelectorAll('[id^="notes-"], [id^="alta-notas-"], [id^="hst-notas-"], [id^="varN_"]').forEach(el=>{
+    if(el.value && el.value.trim()) contenidoGuardado[el.id] = el.value;
   });
+  // Save current decisions
+  const decTempGuardado = {...decTemp};
 
   document.getElementById('novedades-list').innerHTML=
     '<div class="loading"><div class="spinner"></div><div>Cargando...</div></div>';
@@ -684,7 +686,12 @@ async function recargar(){
         const el=document.getElementById(id);
         if(el && !el.value.trim()) el.value=val;
       });
-    }, 100);
+      // Restore decisions
+      Object.entries(decTempGuardado).forEach(([equipo,dec])=>{
+        decTemp[equipo]=dec;
+        decidir(equipo,dec);
+      });
+    }, 150);
   }catch(e){
     toast('Error cargando datos','error');
     renderNovedades();
@@ -906,12 +913,13 @@ function renderCard(r){
 }
 
 function renderDecisionConfirmada(equipo, safeId, r, rev){
-  const esAutorizado = rev[4]==='AUTORIZADO';
+  const esAutorizado = rev[4]==='AUTORIZADO'||rev[4]==='CON OBSERVACIÓN';
+  const esObs = rev[4]==='CON OBSERVACIÓN';
   const noSale = rev[4]==='RETENIDO';
   return `
     <div style="background:${esAutorizado?'var(--verde-pp)':'var(--rojo-p)'};border-radius:11px;padding:13px;margin-bottom:10px;border:1.5px solid ${esAutorizado?'var(--verde-s)':'var(--rojo-m)'}">
       <div style="font-size:12px;font-weight:700;color:${esAutorizado?'var(--verde-m)':'var(--rojo)'};margin-bottom:4px">
-        ${esAutorizado?'✅ AUTORIZADO — Sale a trabajar':'🚫 RETENIDO EN TALLER'}
+        ${esObs?'⚠️ CON OBSERVACIÓN — Sale bajo condición':esAutorizado?'✅ AUTORIZADO — Sale a trabajar':'🚫 RETENIDO EN TALLER'}
       </div>
       <div style="font-size:11px;color:var(--gris)">Revisado por: ${rev[5]||'—'} · ${rev[6]||'—'}${rev[7]?' · '+rev[7]:''}</div>
     </div>
@@ -1009,9 +1017,9 @@ async function confirmar(equipo,operario,fecha,hora){
   try{
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'Revisiones',fila,encabezados:enc,
-      colorCol:5,color:decision==='sale'?'#dcfce7':'#fee2e2'
+      colorCol:5,color:decision==='sale'?'#dcfce7':decision==='obs'?'#fef3c7':'#fee2e2'
     })});
-    toast(decision==='sale'?`✅ ${equipo} autorizado`:`🚫 ${equipo} retenido`);
+    toast(decision==='sale'?`✅ ${equipo} autorizado`:decision==='obs'?`⚠️ ${equipo} con observación`:`🚫 ${equipo} retenido`);
     setTimeout(()=>recargar(),1500);
   }catch(e){
     toast('Error guardando','error');
