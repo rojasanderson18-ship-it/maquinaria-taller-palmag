@@ -559,7 +559,7 @@ function showTab(name,btn){
   document.getElementById('sec-'+name).classList.add('active');
   btn.classList.add('active');
   if(name==='resumen')    buildResumen();
-  if(name==='flota')      buildFlota();
+  if(name==='flota')      cambiarFechaFlota();
   if(name==='eficiencia') buildEficiencia();
 }
 
@@ -1094,6 +1094,12 @@ function toggleAltaTag(el,taId,grpId){
 async function cambiarFechaFlota(){
   const fechaInput=document.getElementById('flota-fecha');
   if(!fechaInput||!fechaInput.value) return;
+  // Clear cached data so we always get fresh data
+  try{
+    ['Revisiones','Altas','Preoperativos'].forEach(h=>{
+      localStorage.removeItem('palma_cache_todo_'+h);
+    });
+  }catch(e){}
   const fechaISO=fechaInput.value; // YYYY-MM-DD
   const fechaObj=new Date(fechaISO+'T12:00:00');
   const fechaES=fechaObj.toLocaleDateString('es-CO');
@@ -1161,8 +1167,30 @@ function buildFlota(fechaLabel){
     const preop=_preops.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
     // Match revision by equipo number anywhere in the field
     // Only show revision/alta if there's a preop for this tractor on this date
-    const rev=preop?_revs.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);}):null;
-    const alta=preop?_altas.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);}):null;
+    const _fechaFlota=document.getElementById('flota-fecha')?.value||'';
+    const rev=preop?_revs.find(r=>{
+      const e=String(r[2]||r[3]||'');
+      if(!e.includes(t.num))return false;
+      // Verify date matches selected date
+      if(_fechaFlota&&r[0]){
+        let rd=String(r[0]);
+        if(rd.includes('T')||rd.match(/^\d{4}-/)){const o=new Date(rd);if(!isNaN(o))rd=o.toLocaleDateString('es-CO');}
+        const fd=new Date(_fechaFlota+'T12:00:00').toLocaleDateString('es-CO');
+        if(rd!==fd)return false;
+      }
+      return true;
+    }):null;
+    const alta=preop?_altas.find(r=>{
+      const e=String(r[2]||r[3]||'');
+      if(!e.includes(t.num))return false;
+      if(_fechaFlota&&r[0]){
+        let rd=String(r[0]);
+        if(rd.includes('T')||rd.match(/^\d{4}-/)){const o=new Date(rd);if(!isNaN(o))rd=o.toLocaleDateString('es-CO');}
+        const fd=new Date(_fechaFlota+'T12:00:00').toLocaleDateString('es-CO');
+        if(rd!==fd)return false;
+      }
+      return true;
+    }):null;
     const esVarado=Object.keys(FLOTA_VARADOS).length?FLOTA_VARADOS[t.num]:VARADOS_FLOTA[t.num];
     const dec=rev?.[4]||'';
     const color=esVarado?'var(--rojo-m,#dc2626)':dec==='AUTORIZADO'?'var(--verde-m)':dec==='RETENIDO'?'var(--rojo)':preop?'var(--dorado)':'var(--gris,#64748b)';
