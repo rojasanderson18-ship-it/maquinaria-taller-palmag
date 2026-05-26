@@ -539,7 +539,8 @@ async function loadVarados(){
 function showTab(name,btn){
   if(name==='flota'){
     const fi=document.getElementById('flota-fecha');
-    if(fi&&!fi.value){const hoy=new Date();const yyyy=hoy.getFullYear(),mm=String(hoy.getMonth()+1).padStart(2,'0'),dd=String(hoy.getDate()).padStart(2,'0');fi.value=yyyy+'-'+mm+'-'+dd;}
+    if(fi){const hoy=new Date();const yyyy=hoy.getFullYear(),mm=String(hoy.getMonth()+1).padStart(2,'0'),dd=String(hoy.getDate()).padStart(2,'0');fi.value=yyyy+'-'+mm+'-'+dd;}
+    FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];FLOTA_VARADOS={};
     cambiarFechaFlota();
   }
   if(name==='varados')loadVarados();
