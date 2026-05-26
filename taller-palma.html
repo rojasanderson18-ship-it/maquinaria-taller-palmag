@@ -49,12 +49,12 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 .kpi-label{font-size:12px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.04em;margin-top:6px}
 
 .nov-card{background:var(--surface);border-radius:13px;margin-bottom:11px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden;border-left:5px solid var(--border)}
-.nov-card.alta{border-left-color:var(--rojo-m)}.nov-card.libre{border-left-color:var(--verde-s)}.nov-card.resuelta{border-left-color:var(--azul)}
+.nov-card.alta{border-left-color:var(--rojo-m)}.nov-card.libre{border-left-color:var(--verde-s)}.nov-card.resuelta{border-left-color:var(--azul)}.nov-card.obs{border-left-color:#ea580c}
 .nov-hdr{padding:12px 13px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .nov-equipo{font-weight:700;font-size:14px}.nov-meta{font-size:11px;color:var(--gris);margin-top:2px}
 .nov-body{padding:0 13px 13px}
 .pill{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
-.pill-ok{background:var(--verde-p);color:var(--verde-m)}.pill-warn{background:var(--amarillo-p);color:var(--amarillo)}.pill-fail{background:var(--rojo-p);color:var(--rojo)}.pill-azul{background:var(--azul-p);color:var(--azul)}.pill-gris{background:var(--gris-p);color:var(--gris)}
+.pill-ok{background:var(--verde-p);color:var(--verde-m)}.pill-obs{background:#ffedd5;color:#ea580c}.pill-warn{background:var(--amarillo-p);color:var(--amarillo)}.pill-fail{background:var(--rojo-p);color:var(--rojo)}.pill-azul{background:var(--azul-p);color:var(--azul)}.pill-gris{background:var(--gris-p);color:var(--gris)}
 
 .dec-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:9px}
 .dec-btn{flex:1;padding:12px 6px;border-radius:11px;border:2px solid transparent;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;transition:all .15s;text-align:center}
@@ -852,7 +852,7 @@ function renderCard(r){
   const rev     = getRevision(equipo);
   const alta    = getAlta(equipo);
   const tieneNov= r[22]==='CON NOVEDAD';
-  const cardClass= alta?'resuelta':rev?.r?.[4]==='AUTORIZADO'||rev?.[4]==='AUTORIZADO'?'libre':tieneNov?'alta':'libre';
+  const cardClass= alta?'resuelta':(rev?.[4]==='AUTORIZADO'||rev?.[4]==='CON OBSERVACIÓN')?'libre':rev?.[4]==='RETENIDO'?'fail':tieneNov?'alta':'libre';
   const safeId  = equipo.replace(/[^a-z0-9]/gi,'_');
 
   const itemsFalla=ITEMS_INSP.map((lbl,i)=>({lbl,val:r[14+i]})).filter(x=>x.val==='warn'||x.val==='fail');
@@ -861,7 +861,7 @@ function renderCard(r){
   if(parseNivel(r[12])<30)nivBajos.push('💧 Agua: '+parseNivel(r[12])+'%');
   if(parseNivel(r[13])<30)nivBajos.push('⚙️ Hidráulico: '+parseNivel(r[13])+'%');
 
-  const decActual = alta?'alta':rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='RETENIDO'?'nosale':'';
+  const decActual = alta?'alta':rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='CON OBSERVACIÓN'?'obs':rev?.[4]==='RETENIDO'?'nosale':'';
 
   return `
   <div class="nov-card ${cardClass}" id="nc-${safeId}">
@@ -872,8 +872,8 @@ function renderCard(r){
         ${r[10]==='VENCIDO'?'<div style="font-size:11px;color:var(--rojo-m);margin-top:2px;font-weight:700">⚠️ Mantenimiento VENCIDO</div>':''}
         ${r[10]==='PRÓXIMO'?'<div style="font-size:11px;color:#f59e0b;margin-top:2px;font-weight:700">⚠️ Mantenimiento próximo — faltan '+r[9]+' h</div>':''}
       </div>
-      <span class="pill ${alta?'pill-azul':decActual==='sale'?'pill-ok':tieneNov?'pill-fail':'pill-gris'}">
-        ${alta?'🔵 Alta':decActual==='sale'?'✅ Autorizado':decActual==='nosale'?'🚫 Retenido':r[22]||'LISTO'}
+      <span class="pill ${alta?'pill-azul':decActual==='sale'?'pill-ok':decActual==='obs'?'pill-obs':decActual==='nosale'?'pill-fail':tieneNov?'pill-fail':'pill-gris'}">
+        ${alta?'🔵 Alta':decActual==='sale'?'✅ Autorizado':decActual==='obs'?'⚠️ Observación':decActual==='nosale'?'🚫 Retenido':r[22]||'LISTO'}
       </span>
     </div>
     <div class="nov-body">
@@ -955,7 +955,7 @@ function renderAltaHecha(alta){
 }
 
 function renderDecision(equipo, safeId, r, rev){
-  const decActual = rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='RETENIDO'?'nosale':'';
+  const decActual = rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='CON OBSERVACIÓN'?'obs':rev?.[4]==='RETENIDO'?'nosale':'';
   const noSale = decActual==='nosale';
   return `
     <div style="font-size:11px;color:var(--gris);margin-bottom:7px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">📋 Decisión del mecánico</div>
