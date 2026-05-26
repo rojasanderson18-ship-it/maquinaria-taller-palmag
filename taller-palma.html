@@ -1134,9 +1134,10 @@ function buildFlota(fechaLabel){
   TRACTORES_ALL.map(function(t){
     const eq='#'+t.num+' '+t.nombre;
     // Find today's preop
-    const _preops=FLOTA_PREOPS.length?FLOTA_PREOPS:PREOPS;
-    const _revs=FLOTA_REVS.length?FLOTA_REVS:REVISIONES;
-    const _altas=FLOTA_ALTAS.length?FLOTA_ALTAS:ALTAS;
+    // Use FLOTA data for selected date - no fallback to today's data
+    const _preops=FLOTA_PREOPS;
+    const _revs=FLOTA_REVS;
+    const _altas=FLOTA_ALTAS;
     const preop=_preops.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
     // Match revision by equipo number anywhere in the field
     // Only show revision/alta if there's a preop for this tractor on this date
