@@ -61,7 +61,7 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 .dec-btn:active{transform:scale(.97)}
 .dec-sale{background:var(--verde-p);color:var(--verde-m)}.dec-sale.sel{background:var(--verde-m);color:#fff;border-color:var(--verde)}
 .dec-nosale{background:var(--rojo-p);color:var(--rojo)}.dec-nosale.sel{background:var(--rojo-m);color:#fff;border-color:var(--rojo)}
-.dec-obs{background:#fef3c7;color:#92400e;border:1.5px solid #d97706}.dec-obs.sel{background:#d97706;color:#fff;border-color:#b45309}
+.dec-obs{background:#fef3c7;color:#92400e;border:1.5px solid #d97706;cursor:pointer;font-weight:700}.dec-obs.sel{background:#d97706;color:#fff;border-color:#b45309}
 
 .badge-tag{padding:8px 13px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;cursor:pointer;transition:all .15s;user-select:none;display:inline-block;margin-bottom:4px}
 .badge-tag.sel{background:var(--verde-p);border-color:var(--verde-s);color:var(--verde-m);font-weight:600}
@@ -586,16 +586,19 @@ async function fetchHoja(hoja){
     return datos;
   }catch(e){
     console.error('fetchHoja error:',e);
-    const cached=getCached(cacheKey);
+    const cached=getCached(cacheKey, 5*60*1000);
     if(cached.length) showOfflineBanner(hoja);
     return cached;
   }
 }
 
-function getCached(key){
+function getCached(key,maxAgeMs){
   try{
     const c=JSON.parse(localStorage.getItem(key)||'null');
-    if(c&&c.datos) return c.datos;
+    if(c&&c.datos){
+      const age=Date.now()-(c.ts||0);
+      if(!maxAgeMs||age<maxAgeMs) return c.datos;
+    }
   }catch(e){}
   return [];
 }
@@ -624,7 +627,7 @@ async function fetchHojaTodo(hoja){
     return datos;
   }catch(e){
     console.error('fetchHojaTodo error:',e);
-    const cached=getCached(cacheKey);
+    const cached=getCached(cacheKey, 5*60*1000);
     if(cached.length) showOfflineBanner(hoja);
     return cached;
   }
@@ -958,7 +961,7 @@ function renderDecision(equipo, safeId, r, rev){
     <div style="font-size:11px;color:var(--gris);margin-bottom:7px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">📋 Decisión del mecánico</div>
     <div class="dec-row" style="grid-template-columns:1fr 1fr 1fr">
       <button class="dec-btn dec-sale ${decActual==='sale'?'sel':''}" onclick="decidir('${equipo}','sale')">✅ SALE</button>
-      <button class="dec-btn dec-obs ${decActual==='obs'?'sel':''}" onclick="decidir('${equipo}','obs')" style="background:var(--dorado-p,#fef3c7);color:#92400e;border:1.5px solid #d97706">⚠️ OBSERVACIÓN</button>
+      <button class="dec-btn dec-obs ${decActual==='obs'?'sel':''}" onclick="decidir('${equipo}','obs')">⚠️ OBSERVACIÓN</button>
       <button class="dec-btn dec-nosale ${decActual==='nosale'?'sel':''}" onclick="decidir('${equipo}','nosale')">🚫 NO SALE</button>
     </div>
     <div style="margin:8px 0 6px;font-size:11px;color:var(--gris);font-weight:600">Observaciones rápidas:</div>
