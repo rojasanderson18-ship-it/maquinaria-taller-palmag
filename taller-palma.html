@@ -539,7 +539,7 @@ async function loadVarados(){
 function showTab(name,btn){
   if(name==='flota'){
     const fi=document.getElementById('flota-fecha');
-    if(fi&&!fi.value){const hoy=new Date();fi.value=hoy.toISOString().split('T')[0];}
+    if(fi&&!fi.value){const hoy=new Date();const yyyy=hoy.getFullYear(),mm=String(hoy.getMonth()+1).padStart(2,'0'),dd=String(hoy.getDate()).padStart(2,'0');fi.value=yyyy+'-'+mm+'-'+dd;}
     cambiarFechaFlota();
   }
   if(name==='varados')loadVarados();
