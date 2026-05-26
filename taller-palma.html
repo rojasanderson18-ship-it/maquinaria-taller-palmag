@@ -720,7 +720,16 @@ function parseNivel(v){
 function ne(v){const n=parseNivel(v);return n<25?'🔴':n<50?'🟡':'🟢'}
 
 function updateKPIs(){
-  const salen   =REVISIONES.filter(r=>r[4]==='AUTORIZADO'||r[4]==='CON OBSERVACIÓN').length;
+  // Dedup revisiones by equipo - count unique tractors authorized
+  const revDedup={};
+  REVISIONES.forEach(r=>{
+    if((r[4]==='AUTORIZADO'||r[4]==='CON OBSERVACIÓN')&&r[2]){
+      // Only count if no Alta for this tractor
+      const tieneAlta=ALTAS.some(a=>(a[2]||'').trim()===(r[2]||'').trim());
+      if(!tieneAlta) revDedup[r[2]]=true;
+    }
+  });
+  const salen=Object.keys(revDedup).length;
   const retenidos=REVISIONES.filter(r=>r[4]==='RETENIDO').length-ALTAS.length;
   const altasN  =ALTAS.length;
   const salenEl=document.getElementById('kn-salen'); if(salenEl) salenEl.textContent=salen||'—';
@@ -771,7 +780,7 @@ function renderVaradosNovedades(cierres){
       '<div class="nov-hdr">'+
       '<div>'+
       '<div class="nov-equipo">'+(row[3]||'—')+'</div>'+
-      '<div class="nov-meta">👤 '+(row[2]||'—')+' · 📅 '+(row[0]||'—')+' · '+(row[1]||'—')+'</div>'+
+      '<div class="nov-meta">👤 '+(row[2]||'—')+' · 📅 '+formatFechaV(row[0]||'')+' · '+(row[1]||'—')+'</div>'+
       (row[6]?'<div style="font-size:12px;color:'+color+';margin-top:4px;font-weight:600">⚙️ '+(row[6])+'</div>':'')+
       '</div>'+
       '<span class="pill" style="background:'+bg+';color:'+color+'">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span>'+
