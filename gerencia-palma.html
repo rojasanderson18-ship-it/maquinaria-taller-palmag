@@ -672,7 +672,10 @@ function neLabel(v){const n=parseInt(v)||50;return n<25?'🔴 '+n+'%':n<50?'🟡
 function getD(eq,revs,altas){
   const a=altas.find(r=>String(r[2]||'').trim()===eq.trim());if(a)return'alta';
   const r=revs.find(r=>String(r[2]||'').trim()===eq.trim());
-  if(r?.[4]==='AUTORIZADO')return'auth';if(r?.[4]==='RETENIDO')return'ret';return'pend';
+  if(r?.[4]==='AUTORIZADO')return'auth';
+  if(r?.[4]==='CON OBSERVACIÓN')return'obs';
+  if(r?.[4]==='RETENIDO')return'ret';
+  return'pend';
 }
 
 function renderTanqueoHoy(th, ph){
@@ -797,15 +800,15 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
 
   const rows=TRACTORES_ALL.map(t=>{
     const preop=ph.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
-    const rev=rh.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);});
+    const rev=rh.find(r=>{const e=String(r[2]||r[3]||'');return !!e.match(new RegExp('(^|\\D)0*'+parseInt(t.num)+'(\\D|$)'));});
     const alta=ah.find(r=>{const e=String(r[2]||r[3]||'');return e.includes(t.num);});
     const tanq=th.find(r=>{const e=String(r[3]||'');return e.includes('#'+t.num)||e.includes(t.num+' ')||e.includes(t.num+'-');});
     const prog=prh.find(r=>{const e=String(r[1]||'');return e.includes('#'+t.num)||e.includes(t.num+' ');});
     const varado=varadosMap[t.num];
     const dec=alta?'alta':rev?.[4]==='AUTORIZADO'?'auth':rev?.[4]==='CON OBSERVACIÓN'?'obs':rev?.[4]==='RETENIDO'?'ret':varado?'varado':preop?'pend':'sin';
-    const decColors={alta:'#1d4ed8',auth:'#15803d',obs:'#d97706',ret:'#b91c1c',varado:'#dc2626',pend:'#ca8a04',sin:'#94a3b8'};
+    const decColors={alta:'#1d4ed8',auth:'#15803d',obs:'#ea580c',ret:'#b91c1c',varado:'#dc2626',pend:'#ca8a04',sin:'#94a3b8'};
     const decLabels={alta:'🔵 Alta',auth:'✅ Autorizado',obs:'⚠️ Observación',ret:'🚫 Retenido',varado:'🔴 Varado',pend:'⏳ Pendiente',sin:'—'};
-    const rowBg=dec==='ret'?'#fff8f8':dec==='varado'?'#fff5f5':dec==='alta'?'#f0f7ff':dec==='obs'?'#fffbeb':dec==='auth'?'#f0fdf4':'';
+    const rowBg=dec==='ret'?'#fff8f8':dec==='varado'?'#fff5f5':dec==='alta'?'#f0f7ff':dec==='obs'?'#fff7ed':dec==='auth'?'#f0fdf4':'';
     const horometro=preop?preop[6]||'—':'—';
     const novedad=preop&&preop[22]==='CON NOVEDAD'?(preop[23]||'Con novedad'):(preop&&preop[22]==='OK'?'✅ OK':'');
     const obsRev=rev?.[7]||'';
@@ -859,7 +862,7 @@ function renderTractores(ph,rh,ah){
   const colors={alta:'#1d4ed8',auth:'#15803d',ret:'#b91c1c',pend:'#94a3b8'};
   el.innerHTML=ph.map(r=>{
     const eq=(r[3]||'').trim(),dec=getD(eq,rh,ah);
-    const pill=dec==='alta'?'<span class="status-pill sp-blue">Alta</span>':dec==='auth'?'<span class="status-pill sp-ok">Autorizado</span>':dec==='ret'?'<span class="status-pill sp-fail">Retenido</span>':'<span class="status-pill sp-gray">Pendiente</span>';
+    const pill=dec==='alta'?'<span class="status-pill sp-blue">Alta</span>':dec==='auth'?'<span class="status-pill sp-ok">Autorizado</span>':dec==='obs'?'<span class="status-pill" style="background:#ffedd5;color:#ea580c">⚠️ Observación</span>':dec==='ret'?'<span class="status-pill sp-fail">Retenido</span>':'<span class="status-pill sp-gray">Pendiente</span>';
     const ac=parseInt(r[11])||50,ag=parseInt(r[12])||50,ah2=parseInt(r[13])||50;
     return `<div class="tr-row">
       <div class="tr-badge" style="background:${colors[dec]||'#94a3b8'}">${(r[3]||'').match(/\d+/)?.[0]||'?'}</div>
