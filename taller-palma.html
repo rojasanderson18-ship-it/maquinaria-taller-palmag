@@ -1094,14 +1094,26 @@ async function cambiarFechaFlota(){
     FLOTA_PREOPS=allPreops.filter(r=>matchFecha(r[0]));
     FLOTA_REVS=allRevs.filter(r=>matchFecha(r[0]));
     FLOTA_ALTAS=allAltas.filter(r=>matchFecha(r[0]));
-    // Varados del día seleccionado (desde CierreJornada)
+    // Varados activos (sin fecha - persisten hasta dar Alta)
     FLOTA_VARADOS={};
-    allCierres.filter(r=>matchFecha(r[0])).forEach(function(row){
+    const _porTractorV={};
+    allCierres.forEach(function(row){
       const m=String(row[3]||'').match(/0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
       const est=String(row[5]||'').toLowerCase();
-      if(est==='varado'||est==='novedad') FLOTA_VARADOS[num]=row;
+      if(est!=='varado'&&est!=='novedad')return;
+      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const fA=_porTractorV[num]?new Date(String(_porTractorV[num][0]||'').split('/').reverse().join('-')):null;
+      if(!fA||fB>=fA)_porTractorV[num]=row;
+    });
+    // Only keep varados that don't have a later Alta
+    Object.keys(_porTractorV).forEach(function(num){
+      const ultimaAlta=FLOTA_ALTAS.filter(a=>(a[2]||'').includes('#'+num)).slice(-1)[0]||
+                       ALTAS.filter(a=>(a[2]||'').includes('#'+num)).slice(-1)[0];
+      const fC=new Date(String(_porTractorV[num][0]||'').split('/').reverse().join('-'));
+      const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+      if(!fA||fC>fA) FLOTA_VARADOS[num]=_porTractorV[num];
     });
   }catch(e){FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];FLOTA_VARADOS={};}
   buildFlota(fechaES);
