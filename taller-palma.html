@@ -726,7 +726,7 @@ function updateKPIs(){
   const salenEl=document.getElementById('kn-salen'); if(salenEl) salenEl.textContent=salen||'—';
   const noSalenEl=document.getElementById('kn-nosalen'); if(noSalenEl) noSalenEl.textContent=Math.max(0,retenidos)||'—';
   const altaEl=document.getElementById('kn-alta'); if(altaEl) altaEl.textContent=altasN||'—';
-  const varEl=document.getElementById('kn-varados'); if(varEl) varEl.textContent='—';
+  const varEl=document.getElementById('kn-varados'); if(varEl) varEl.textContent=Object.keys(VARADOS_FLOTA).length||'—';
 }
 
 // ═══════════════════════════════════════════════
