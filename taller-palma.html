@@ -61,6 +61,7 @@ main{max-width:600px;margin:0 auto;padding:16px 13px}
 .dec-btn:active{transform:scale(.97)}
 .dec-sale{background:var(--verde-p);color:var(--verde-m)}.dec-sale.sel{background:var(--verde-m);color:#fff;border-color:var(--verde)}
 .dec-nosale{background:var(--rojo-p);color:var(--rojo)}.dec-nosale.sel{background:var(--rojo-m);color:#fff;border-color:var(--rojo)}
+.dec-obs{background:#fef3c7;color:#92400e;border:1.5px solid #d97706}.dec-obs.sel{background:#d97706;color:#fff;border-color:#b45309}
 
 .badge-tag{padding:8px 13px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface);font-size:12px;cursor:pointer;transition:all .15s;user-select:none;display:inline-block;margin-bottom:4px}
 .badge-tag.sel{background:var(--verde-p);border-color:var(--verde-s);color:var(--verde-m);font-weight:600}
@@ -432,7 +433,7 @@ function init(){
   const now=new Date();
   document.getElementById('hdr-date').textContent=
     now.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'}).replace('.','');
-  document.getElementById('res-fecha-sub').textContent=
+  const _rfs=document.getElementById('res-fecha-sub');if(_rfs)_rfs.textContent=
     'Flota Palma — '+now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('ef-nombre').textContent='Responsable: '+MECANICO;
   recargar();
@@ -555,31 +556,67 @@ function showTab(name,btn){
 //  FETCH DESDE SHEETS
 // ═══════════════════════════════════════════════
 async function fetchHoja(hoja){
+  const cacheKey='palma_cache_'+hoja+'_'+HOY;
   try{
     const r=await fetch(GS_URL+'?hoja='+hoja);
     const d=await r.json();
-    if(!d.ok) return [];
-    return d.datos.filter(f=>{
+    if(!d.ok) return getCached(cacheKey);
+    const datos=d.datos.filter(f=>{
       const rawDate = f[0]||'';
-      // Normalizar: puede venir como "2026-05-22T05:00:00.000Z" o "22/05/2026"
       let fecha = rawDate;
       if(rawDate.includes('T') || rawDate.includes('-')){
-        // Formato ISO → convertir a dd/mm/yyyy
         const d2 = new Date(rawDate);
         fecha = d2.toLocaleDateString('es-CO');
       }
       return fecha === HOY;
     });
-  }catch(e){ console.error('fetchHoja error:',e); return []; }
+    // Save to cache
+    try{localStorage.setItem(cacheKey,JSON.stringify({ts:Date.now(),datos}));}catch(e){}
+    return datos;
+  }catch(e){
+    console.error('fetchHoja error:',e);
+    const cached=getCached(cacheKey);
+    if(cached.length) showOfflineBanner(hoja);
+    return cached;
+  }
 }
 
+function getCached(key){
+  try{
+    const c=JSON.parse(localStorage.getItem(key)||'null');
+    if(c&&c.datos) return c.datos;
+  }catch(e){}
+  return [];
+}
+
+function showOfflineBanner(hoja){
+  let b=document.getElementById('offline-banner');
+  if(!b){
+    b=document.createElement('div');
+    b.id='offline-banner';
+    b.style.cssText='position:fixed;top:0;left:0;right:0;background:#d97706;color:#fff;text-align:center;padding:8px;font-size:12px;font-weight:700;z-index:200;';
+    document.body.appendChild(b);
+  }
+  b.textContent='📵 Sin conexión — mostrando últimos datos guardados';
+  setTimeout(()=>{if(b)b.style.display='none';},5000);
+}
+
+
 async function fetchHojaTodo(hoja){
+  const cacheKey='palma_cache_todo_'+hoja;
   try{
     const r=await fetch(GS_URL+'?hoja='+hoja+'&t='+Date.now());
     const d=await r.json();
-    if(!d.ok) return [];
-    return d.datos||[];
-  }catch(e){ console.error('fetchHojaTodo error:',e); return []; }
+    if(!d.ok) return getCached(cacheKey);
+    const datos=d.datos||[];
+    try{localStorage.setItem(cacheKey,JSON.stringify({ts:Date.now(),datos}));}catch(e){}
+    return datos;
+  }catch(e){
+    console.error('fetchHojaTodo error:',e);
+    const cached=getCached(cacheKey);
+    if(cached.length) showOfflineBanner(hoja);
+    return cached;
+  }
 }
 
 async function recargar(){
@@ -672,12 +709,13 @@ function parseNivel(v){
 function ne(v){const n=parseNivel(v);return n<25?'🔴':n<50?'🟡':'🟢'}
 
 function updateKPIs(){
-  const salen   =REVISIONES.filter(r=>r[4]==='AUTORIZADO').length;
+  const salen   =REVISIONES.filter(r=>r[4]==='AUTORIZADO'||r[4]==='CON OBSERVACIÓN').length;
   const retenidos=REVISIONES.filter(r=>r[4]==='RETENIDO').length-ALTAS.length;
   const altasN  =ALTAS.length;
-  document.getElementById('kn-salen').textContent  =salen||'—';
-  document.getElementById('kn-nosalen').textContent=Math.max(0,retenidos)||'—';
-  document.getElementById('kn-alta').textContent   =altasN||'—';
+  const salenEl=document.getElementById('kn-salen'); if(salenEl) salenEl.textContent=salen||'—';
+  const noSalenEl=document.getElementById('kn-nosalen'); if(noSalenEl) noSalenEl.textContent=Math.max(0,retenidos)||'—';
+  const altaEl=document.getElementById('kn-alta'); if(altaEl) altaEl.textContent=altasN||'—';
+  const varEl=document.getElementById('kn-varados'); if(varEl) varEl.textContent='—';
 }
 
 // ═══════════════════════════════════════════════
@@ -890,8 +928,9 @@ function renderDecision(equipo, safeId, r, rev){
   const noSale = decActual==='nosale';
   return `
     <div style="font-size:11px;color:var(--gris);margin-bottom:7px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">📋 Decisión del mecánico</div>
-    <div class="dec-row">
+    <div class="dec-row" style="grid-template-columns:1fr 1fr 1fr">
       <button class="dec-btn dec-sale ${decActual==='sale'?'sel':''}" onclick="decidir('${equipo}','sale')">✅ SALE</button>
+      <button class="dec-btn dec-obs ${decActual==='obs'?'sel':''}" onclick="decidir('${equipo}','obs')" style="background:var(--dorado-p,#fef3c7);color:#92400e;border:1.5px solid #d97706">⚠️ OBSERVACIÓN</button>
       <button class="dec-btn dec-nosale ${decActual==='nosale'?'sel':''}" onclick="decidir('${equipo}','nosale')">🚫 NO SALE</button>
     </div>
     <div style="margin:8px 0 6px;font-size:11px;color:var(--gris);font-weight:600">Observaciones rápidas:</div>
@@ -925,11 +964,12 @@ let decTemp={}; // selección temporal antes de confirmar
 
 function decidir(equipo,decision){
   decTemp[equipo]=decision;
-  // Re-render solo esa tarjeta actualizando botones
   const safeId=equipo.replace(/[^a-z0-9]/gi,'_');
   const salBtn=document.querySelector(`#nc-${safeId} .dec-sale`);
+  const obsBtn=document.querySelector(`#nc-${safeId} .dec-obs`);
   const noBtn =document.querySelector(`#nc-${safeId} .dec-nosale`);
   if(salBtn) salBtn.className='dec-btn dec-sale'+(decision==='sale'?' sel':'');
+  if(obsBtn) obsBtn.className='dec-btn dec-obs'+(decision==='obs'?' sel':'');
   if(noBtn)  noBtn.className ='dec-btn dec-nosale'+(decision==='nosale'?' sel':'');
   // Mostrar/ocultar sección alta
   const altaSec=document.getElementById(`alta-sec-${safeId}`);
@@ -943,7 +983,7 @@ async function confirmar(equipo,operario,fecha,hora){
   const notas=document.getElementById('notes-'+safeId)?.value||'';
   const horaConf=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
 
-  const fila=[fecha,hora,equipo,operario,decision==='sale'?'AUTORIZADO':'RETENIDO',MECANICO,horaConf,notas];
+  const fila=[fecha,hora,equipo,operario,decision==='sale'?'AUTORIZADO':decision==='obs'?'CON OBSERVACIÓN':'RETENIDO',MECANICO,horaConf,notas];
   const enc=['Fecha','Hora Preop','Equipo','Operario','Decisión','Mecánico','Hora Revisión','Observaciones'];
 
   try{
@@ -1082,8 +1122,8 @@ function buildFlota(fechaLabel){
     const esVarado=Object.keys(FLOTA_VARADOS).length?FLOTA_VARADOS[t.num]:VARADOS_FLOTA[t.num];
     const dec=rev?.[4]||'';
     const color=esVarado?'var(--rojo-m,#dc2626)':dec==='AUTORIZADO'?'var(--verde-m)':dec==='RETENIDO'?'var(--rojo)':preop?'var(--dorado)':'var(--gris,#64748b)';
-    const pillTxt=esVarado?'🔴 Varado':alta?'🔵 Alta':dec==='AUTORIZADO'?'✅ Autorizado':dec==='RETENIDO'?'🚫 Retenido':preop?'⏳ Pendiente':'—';
-    const pillBg=esVarado?'var(--rojo-p)':alta?'var(--azul-p)':dec==='AUTORIZADO'?'var(--verde-p)':dec==='RETENIDO'?'var(--rojo-p)':preop?'var(--dorado-p)':'var(--gris-p)';
+    const pillTxt=esVarado?'🔴 Varado':alta?'🔵 Alta':dec==='AUTORIZADO'?'✅ Autorizado':dec==='CON OBSERVACIÓN'?'⚠️ Observación':dec==='RETENIDO'?'🚫 Retenido':preop?'⏳ Pendiente':'—';
+    const pillBg=esVarado?'var(--rojo-p)':alta?'var(--azul-p)':dec==='AUTORIZADO'?'var(--verde-p)':dec==='CON OBSERVACIÓN'?'var(--dorado-p)':dec==='RETENIDO'?'var(--rojo-p)':preop?'var(--dorado-p)':'var(--gris-p)';
     return '<div onclick="verHistorial(\''+t.num+'\',\''+t.nombre+'\')" style="background:#fff;border-radius:12px;padding:14px;border-left:4px solid '+color+';box-shadow:0 1px 3px rgba(0,0,0,.07);cursor:pointer;display:flex;align-items:center;gap:12px">'+
       '<div style="width:36px;height:36px;border-radius:50%;background:'+color+';display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0">'+t.num+'</div>'+
       '<div style="flex:1">'+
@@ -1169,7 +1209,7 @@ async function cargarHistorialTractor(num, nombre, eq){
           return '<div style="background:#f8fafc;border-radius:11px;padding:12px;margin-bottom:8px;border-left:3px solid '+decColor+'">'+
             '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
             '<div style="font-size:12px;font-weight:700;color:var(--muted)">📋 PREOPERATIVO · '+formatFechaV(r[0]||'')+'</div>'+
-            '<span style="background:'+(dec==='AUTORIZADO'?'var(--verde-p)':dec==='RETENIDO'?'var(--rojo-p)':'var(--gris-p)')+';color:'+decColor+';font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">'+(dec==='AUTORIZADO'?'✅ Autorizado':dec==='RETENIDO'?'🚫 Retenido':'⏳ '+dec)+'</span>'+
+            '<span style="background:'+(dec==='AUTORIZADO'?'var(--verde-p)':dec==='CON OBSERVACIÓN'?'var(--dorado-p)':dec==='RETENIDO'?'var(--rojo-p)':'var(--gris-p)')+';color:'+decColor+';font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">'+(dec==='AUTORIZADO'?'✅ Autorizado':dec==='CON OBSERVACIÓN'?'⚠️ Observación':dec==='RETENIDO'?'🚫 Retenido':'⏳ '+dec)+'</span>'+
             '</div>'+
             '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">'+
             '<div style="background:#fff;border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--muted)">Aceite</div><div style="font-size:13px;font-weight:700;color:'+(r[10]==='100%'?'var(--verde-m)':'var(--rojo)')+'">'+( r[10]||'—')+'</div></div>'+
@@ -1346,12 +1386,12 @@ function buildResumen(){
   const nosalen =REVISIONES.filter(r=>r[4]==='RETENIDO').length-ALTAS.length;
   const altasN  =ALTAS.length;
   const disp    =total>0?Math.round((salen+altasN)/total*100):0;
-  document.getElementById('rg-total').textContent  =total||'—';
-  document.getElementById('rg-salen').textContent  =salen||'—';
-  document.getElementById('rg-nosalen').textContent=Math.max(0,nosalen)||'—';
-  document.getElementById('rg-alta').textContent   =altasN||'—';
-  document.getElementById('rg-disp').textContent   =total>0?disp+'%':'—';
-  document.getElementById('rg-mec').textContent    =MECANICO;
+  const _rgt=document.getElementById('rg-total');if(_rgt)_rgt.textContent=total||'—';
+  const _rgs=document.getElementById('rg-salen');if(_rgs)_rgs.textContent=salen||'—';
+  const _rgn=document.getElementById('rg-nosalen');if(_rgn)_rgn.textContent=Math.max(0,nosalen)||'—';
+  const _rga=document.getElementById('rg-alta');if(_rga)_rga.textContent=altasN||'—';
+  const _rgd=document.getElementById('rg-disp');if(_rgd)_rgd.textContent=total>0?disp+'%':'—';
+  const _rgm=document.getElementById('rg-mec');if(_rgm)_rgm.textContent=MECANICO;
 
   const noSalenList=REVISIONES.filter(r=>r[4]==='RETENIDO'&&!getAlta(r[2]));
   document.getElementById('res-nosalen-list').innerHTML=noSalenList.length
