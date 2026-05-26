@@ -585,7 +585,7 @@ async function cargarDatos(){
     const ph=hoy(preops),rh=hoy(revs),ah=hoy(altas),alh=hoy(alertas),th=hoy(tanqs),prh=hoy(prog).filter(r=>r[3]&&String(r[3]).trim());
     const total=ph.length,authN=rh.filter(r=>r[4]==='AUTORIZADO').length+ah.length;
     const retN=Math.max(0,rh.filter(r=>r[4]==='RETENIDO').length-ah.length);
-    const disp=total>0?Math.round(authN/total*100):0;
+    const disp=Math.round(authN/11*100); // 11 = total fleet
     const galones=th.filter(r=>r[5]==='Sí').reduce((s,r)=>s+(parseFloat(r[6])||0),0);
 
     // Varados del último cierre por tractor
