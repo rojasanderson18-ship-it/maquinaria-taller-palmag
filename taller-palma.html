@@ -509,7 +509,7 @@ async function loadVarados(){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
       const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
@@ -523,7 +523,7 @@ async function loadVarados(){
     }
     if(tab)tab.textContent='🔴 Varados ('+lista.length+')';
     el.innerHTML=lista.map(function(row){
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       const esV=est==='varado';
       const color=esV?'var(--rojo-m,#dc2626)':'var(--dorado)';
       const num=(String(row[3]||'').match(/\d+/)||['?'])[0];
@@ -533,7 +533,7 @@ async function loadVarados(){
         +'<div class="tr-num" style="background:'+color+'">#'+num+'</div>'
         +'<div style="flex:1"><div class="tr-nombre">'+(row[3]||'—')+'</div>'
         +'<div class="tr-meta">Op: '+(row[2]||'—')+' · '+(row[0]||'—')+' · '+(row[1]||'—')+'</div>'
-        +(row[6]?'<div class="tr-meta" style="color:'+color+';margin-top:4px">⚙️ '+row[6]+'</div>':'')
+        +(row[8]?'<div class="tr-meta" style="color:'+color+';margin-top:4px">⚙️ '+row[8]+'</div>':'')
         +'</div><span class="pill" style="background:'+(esV?'var(--rojo-p,#fee2e2)':'var(--dorado-p,#fef3c7)')+';color:'+color+';white-space:nowrap">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span></div>'
         +'<div style="padding:0 14px 14px">'
         +'<div style="background:#f8fafc;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">'
@@ -659,7 +659,7 @@ async function recargar(){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
       const fA=_porTractor[num]?new Date(String(_porTractor[num][0]||'').split('/').reverse().join('-')):null;
@@ -766,7 +766,7 @@ function renderVaradosNovedades(cierres){
     const m=String(row[3]||'').match(/#.?0*(\d+)/);
     if(!m)return;
     const num=m[1].padStart(2,'0');
-    const est=String(row[5]||'').toLowerCase();
+    const est=String(row[7]||'').toLowerCase();
     if(est!=='varado'&&est!=='novedad')return;
     const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
     const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
@@ -780,7 +780,7 @@ function renderVaradosNovedades(cierres){
   if(!lista.length){el.innerHTML='';return;}
   el.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--rojo-m,#dc2626);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 8px">🔴 Tractores varados ('+lista.length+')</div>'+
   lista.map(function(row){
-    const est=String(row[5]||'').toLowerCase();
+    const est=String(row[7]||'').toLowerCase();
     const esV=est==='varado';
     const color=esV?'var(--rojo-m,#dc2626)':'var(--dorado)';
     const bg=esV?'var(--rojo-p,#fee2e2)':'var(--dorado-p,#fef3c7)';
@@ -791,7 +791,7 @@ function renderVaradosNovedades(cierres){
       '<div>'+
       '<div class="nov-equipo">'+(row[3]||'—')+'</div>'+
       '<div class="nov-meta">👤 '+(row[2]||'—')+' · 📅 '+formatFechaV(row[0]||'')+' · '+(row[1]||'—')+'</div>'+
-      (row[6]?'<div style="font-size:12px;color:'+color+';margin-top:4px;font-weight:600">⚙️ '+(row[6])+'</div>':'')+
+      (row[8]?'<div style="font-size:12px;color:'+color+';margin-top:4px;font-weight:600">⚙️ '+(row[8])+'</div>':'')+
       '</div>'+
       '<span class="pill" style="background:'+bg+';color:'+color+'">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span>'+
       '</div>'+
@@ -1136,7 +1136,7 @@ async function cambiarFechaFlota(){
       const m=String(row[3]||'').match(/0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
       const fA=_porTractorV[num]?new Date(String(_porTractorV[num][0]||'').split('/').reverse().join('-')):null;

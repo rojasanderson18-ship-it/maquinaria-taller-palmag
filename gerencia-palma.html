@@ -605,13 +605,13 @@ async function cargarDatos(){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
       const fA=porTractor[num]?new Date(String(porTractor[num][0]||'').split('/').reverse().join('-')):null;
       if(!fA||fB>=fA)porTractor[num]=row;
     });
-    const varadosN=Object.values(porTractor).filter(r=>String(r[5]||'').toLowerCase()==='varado').length;
+    const varadosN=Object.values(porTractor).filter(r=>String(r[7]||'').toLowerCase()==='varado').length;
 
     // Hero
     document.getElementById('dh-pct').innerHTML=total>0?disp+'<span class="hm-unit">%</span>':'—';
@@ -791,7 +791,7 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
     const m=String(row[3]||'').match(/#.?0*(\d+)/);
     if(!m)return;
     const num=m[1].padStart(2,'0');
-    const est=String(row[5]||'').toLowerCase();
+    const est=String(row[7]||'').toLowerCase();
     if(est!=='varado'&&est!=='novedad')return;
     const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
     const fA=varadosMap[num]?new Date(String(varadosMap[num][0]||'').split('/').reverse().join('-')):null;
@@ -990,7 +990,7 @@ async function renderVaradosGer(){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
       const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
@@ -1044,7 +1044,7 @@ async function renderVaradosGer(){
             </span>
           </div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px">👤 ${row[2]||'—'} · 📅 ${row[0]||'—'}</div>
-          ${row[6]?'<div style="font-size:12px;color:#b91c1c;margin-top:4px;font-weight:600">⚙️ '+row[6]+'</div>':''}
+          ${row[8]?'<div style="font-size:12px;color:#b91c1c;margin-top:4px;font-weight:600">⚙️ '+row[8]+'</div>':''}
         </div>
       </div>`;
     }).join('');
