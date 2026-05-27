@@ -461,17 +461,22 @@ textarea{min-height:80px;resize:vertical}
       </div>
       <div class="field">
         <label>Horómetro final</label>
-        <input type="number" id="c-horometro" placeholder="Ej: 1250">
+        <input type="number" id="c-horometro" placeholder="Ej: 1250" inputmode="numeric" oninput="calcHorasTrabajadas()">
       </div>
+      <!-- Display horas trabajadas -->
+      <div id="horas-trabajadas-box" style="display:none;background:var(--verde);border-radius:12px;padding:16px;margin-top:4px;text-align:center">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">⏱️ Horas trabajadas hoy</div>
+        <div id="horas-trabajadas-val" style="font-family:'DM Serif Display',serif;font-size:40px;color:var(--dorado);line-height:1">—</div>
+        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:4px" id="horas-trabajadas-sub"></div>
+      </div>
+      <div id="horas-trabajadas-warn" style="display:none;background:var(--rojo-p);border:1.5px solid var(--rojo-m);border-radius:10px;padding:12px 14px;margin-top:8px;font-size:13px;color:var(--rojo)"></div>
     </div>
   </div>
-  <div style="display:flex;gap:8px">
-    <button class="btn-secondary" onclick="volverInicio()">← Inicio</button>
-    <button class="btn-full btn-primary" onclick="goToCierre(2)" style="margin-top:0">Continuar →</button>
+  <div class="btn-row">
+    <button class="btn-full btn-secondary" onclick="volverInicio()">← Inicio</button>
+    <button class="btn-full btn-primary" onclick="goToCierre(2)">Continuar →</button>
   </div>
 </div>
-
-<!-- ══════ CIERRE: ESTADO DEL TRACTOR ══════ -->
 <div class="view" id="view-cierre-2">
   <div class="nav-dots" id="dots-cierre-2"></div>
   <div class="card">
@@ -507,13 +512,11 @@ textarea{min-height:80px;resize:vertical}
       </div>
     </div>
   </div>
-  <div style="display:flex;gap:8px">
-    <button class="btn-secondary" onclick="goToCierre(1)">← Atrás</button>
-    <button class="btn-full btn-primary" onclick="goToCierre(3)" style="margin-top:0">Continuar →</button>
+  <div class="btn-row">
+    <button class="btn-full btn-secondary" onclick="goToCierre(1)">← Atrás</button>
+    <button class="btn-full btn-primary" onclick="goToCierre(3)">Continuar →</button>
   </div>
 </div>
-
-<!-- ══════ CIERRE: RESUMEN Y ENVÍO ══════ -->
 <div class="view" id="view-cierre-3">
   <div class="nav-dots" id="dots-cierre-3"></div>
   <div class="card">
@@ -522,9 +525,9 @@ textarea{min-height:80px;resize:vertical}
     </div>
     <div class="card-body" id="cierre-resumen"></div>
   </div>
-  <div style="display:flex;gap:8px">
-    <button class="btn-secondary" onclick="goToCierre(2)">← Atrás</button>
-    <button class="btn-full btn-primary" id="btn-enviar-cierre" onclick="enviarCierre()" style="margin-top:0">✅ Enviar reporte</button>
+  <div class="btn-row">
+    <button class="btn-full btn-secondary" onclick="goToCierre(2)">← Atrás</button>
+    <button class="btn-full btn-primary" id="btn-enviar-cierre" onclick="enviarCierre()">✅ Enviar reporte</button>
   </div>
 </div>
 
@@ -577,6 +580,7 @@ function showView(id){
 
 function volverInicio(){
   TIPO_REPORTE = null; ESTADO_CIERRE = null;
+  window._horasTrabajadas = null; window._horometroInicial = null;
   showView('view-tipo');
 }
 
@@ -621,6 +625,7 @@ function buildCierreResumen(){
     + '<div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">Operario</span><span style="font-weight:700;font-size:13px">'+document.getElementById('c-operario').value+'</span></div>'
     + '<div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">Equipo</span><span style="font-weight:700;font-size:13px">'+document.getElementById('c-equipo').value+'</span></div>'
     + (document.getElementById('c-horometro').value?'<div style="display:flex;justify-content:space-between"><span style="color:var(--muted);font-size:13px">Horómetro final</span><span style="font-weight:700;font-size:13px">'+document.getElementById('c-horometro').value+' h</span></div>':'')
+    + (window._horasTrabajadas != null ? '<div style="display:flex;justify-content:space-between;background:var(--verde-pp);border-radius:8px;padding:8px 10px;margin-top:2px"><span style="color:var(--verde-m);font-size:13px;font-weight:600">⏱️ Horas trabajadas</span><span style="font-weight:700;font-size:15px;color:var(--verde-m)">'+window._horasTrabajadas+' h</span></div>' : '')
     + (ESTADO_CIERRE?'<div style="display:flex;justify-content:space-between;align-items:center"><span style="color:var(--muted);font-size:13px">Estado</span><span style="font-weight:700;font-size:13px">'+iconos[ESTADO_CIERRE]+' '+labels[ESTADO_CIERRE]+'</span></div>':'')
     + (document.getElementById('c-novedad').value?'<div><span style="color:var(--muted);font-size:12px">Novedad:</span><div style="font-size:13px;margin-top:4px">'+document.getElementById('c-novedad').value+'</div></div>':'')
     + '</div>';
@@ -655,6 +660,67 @@ async function cargarLaborCierre(){
   }catch(e){}
 }
 
+async function calcHorasTrabajadas(){
+  const equipo = document.getElementById('c-equipo').value;
+  const horaFin = parseFloat(document.getElementById('c-horometro').value);
+  const box = document.getElementById('horas-trabajadas-box');
+  const val = document.getElementById('horas-trabajadas-val');
+  const sub = document.getElementById('horas-trabajadas-sub');
+  const warn = document.getElementById('horas-trabajadas-warn');
+
+  box.style.display = 'none';
+  warn.style.display = 'none';
+
+  if(!equipo || isNaN(horaFin) || horaFin <= 0) return;
+
+  // Buscar horómetro inicial del preoperativo de hoy
+  try {
+    const hoy = new Date().toLocaleDateString('es-CO');
+    const r = await fetch(GS_URL + '?hoja=Preoperativos&t=' + Date.now());
+    const d = await r.json();
+    if (!d.ok || !d.datos) return;
+
+    // Normalizar nombre de equipo para comparar
+    const eqNorm = equipo.replace(/^#0*/,'').replace(/\s+/g,' ').trim().toLowerCase();
+
+    const preop = d.datos.find(row => {
+      let f = row[0]||'';
+      if(typeof f === 'object') f = f.toLocaleDateString('es-CO');
+      if(typeof f === 'string' && f.includes('T')) f = new Date(f).toLocaleDateString('es-CO');
+      const eqRow = String(row[3]||'').replace(/^#0*/,'').replace(/\s+/g,' ').trim().toLowerCase();
+      return f === hoy && eqRow === eqNorm;
+    });
+
+    if(!preop) {
+      warn.style.display = 'block';
+      warn.textContent = '⚠️ No se encontró el preoperativo de hoy para este tractor. Verifica que se haya registrado.';
+      return;
+    }
+
+    const horaIni = parseFloat(preop[6]); // col 7 = Horómetro inicial
+    if(isNaN(horaIni)) return;
+
+    const diff = Math.round((horaFin - horaIni) * 10) / 10;
+
+    if(diff < 0) {
+      warn.style.display = 'block';
+      warn.textContent = '⚠️ El horómetro final es menor al inicial (' + horaIni + ' h). Verifica el valor.';
+      return;
+    }
+
+    // Guardar para usarlo en el envío
+    window._horasTrabajadas = diff;
+    window._horometroInicial = horaIni;
+
+    box.style.display = 'block';
+    val.textContent = diff + ' h';
+    sub.textContent = 'Horómetro inicial: ' + horaIni + ' h → final: ' + horaFin + ' h';
+
+  } catch(e) {
+    // Sin conexión o error: silencioso, no bloqueamos el flujo
+  }
+}
+
 async function enviarCierre(){
   var btn = document.getElementById('btn-enviar-cierre');
   btn.disabled = true; btn.textContent = 'Enviando...';
@@ -666,11 +732,13 @@ async function enviarCierre(){
       document.getElementById('c-operario').value,
       document.getElementById('c-equipo').value,
       document.getElementById('c-horometro').value||'',
+      window._horometroInicial || '',
+      window._horasTrabajadas != null ? window._horasTrabajadas : '',
       ESTADO_CIERRE||'',
       document.getElementById('c-novedad').value||'',
       document.getElementById('c-labor').value||''
     ],
-    encabezados: ['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+    encabezados: ['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
   };
   try{
     await fetch(GS_URL, {method:'POST', body:JSON.stringify(datos)});
