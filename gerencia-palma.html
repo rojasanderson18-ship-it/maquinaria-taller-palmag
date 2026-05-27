@@ -653,7 +653,7 @@ async function cargarDatos(){
     const[preops,revs,altas,alertas,tanqs,prog,cierres]=await Promise.all([
       fetchH('Preoperativos'),fetchH('Revisiones'),fetchH('Altas'),
       fetchH('Alertas Mantenimiento'),fetchH('Tanqueos'),fetchH('Programacion'),
-      fetchH('CierreJornada')
+      fetchHTodo('CierreJornada')
     ]);
     const ph=hoy(preops),rh=hoy(revs),ah=hoy(altas),alh=hoy(alertas),th=hoy(tanqs),prh=hoy(prog).filter(r=>r[3]&&String(r[3]).trim());
     const total=ph.length;

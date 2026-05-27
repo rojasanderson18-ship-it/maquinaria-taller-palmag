@@ -1250,7 +1250,7 @@ async function cargarHistorialTractor(num, nombre, eq){
     const ultimaAlta=misAltas[misAltas.length-1];
     let varadoActivo=false;
     if(ultimoCierre){
-      const estC=String(ultimoCierre[5]||'').toLowerCase();
+      const estC=String(ultimoCierre[7]||'').toLowerCase();
       if(estC==='varado'||estC==='novedad'){
         const fC=new Date(String(ultimoCierre[0]||'').split('/').reverse().join('-'));
         const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
@@ -1262,7 +1262,7 @@ async function cargarHistorialTractor(num, nombre, eq){
     if(varadoActivo){
       html+='<div style="background:var(--rojo-p);border-radius:12px;padding:14px;margin-bottom:16px;border:1.5px solid var(--rojo-m,#dc2626)">'+
         '<div style="font-size:12px;font-weight:700;color:var(--rojo-m,#dc2626);margin-bottom:10px">🔴 TRACTOR VARADO — '+
-        (ultimoCierre[6]||'Sin descripción')+'</div>'+
+        (ultimoCierre[8]||'Sin descripción')+'</div>'+
         '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Reportado por: '+(ultimoCierre[2]||'—')+' · '+(ultimoCierre[0]||'—')+'</div>'+
         '<div style="display:flex;flex-direction:column;gap:8px">'+
         '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Trabajo realizado</div>'+
