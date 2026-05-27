@@ -480,14 +480,14 @@ async function darAltaVarado(equipo,operario,fecha,safeId){
       hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
       operario||'—',
       equipo,
-      '',
+      '','','',
       'operativo',
       'Alta mecánica: '+trabajo,
       ''
     ];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',fila:filaC,
-      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
     })});
 
     toast('✅ '+equipo+' dado de alta — ya está disponible');
@@ -822,11 +822,11 @@ async function darAltaVaradoNov(equipo,operario,fecha,safeId){
     const filaC=[
       hoy.toLocaleDateString('es-CO'),
       hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
-      operario||'—',equipo,'','operativo','Alta mecánica: '+trabajo,''
+      operario||'—',equipo,'','','','operativo','Alta mecánica: '+trabajo,''
     ];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',fila:filaC,
-      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
     })});
     toast('✅ '+equipo+' dado de alta — ya disponible');
     setTimeout(()=>recargar(),1500);
@@ -955,9 +955,15 @@ function renderAltaHecha(alta){
 }
 
 function renderDecision(equipo, safeId, r, rev){
-  const decActual = rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='CON OBSERVACIÓN'?'obs':rev?.[4]==='RETENIDO'?'nosale':'';
+  const decActual = rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='CON OBSERVACIÓN'?'obs':rev?.[4]==='RETENIDO'?'nosale':decTemp[equipo]||'';
   const noSale = decActual==='nosale';
+  const yaConfirmado = !!(rev && rev[4]);
+  const bannerColor = decActual==='sale'?'var(--verde-pp)':decActual==='obs'?'#fffbeb':decActual==='nosale'?'var(--rojo-p)':'';
+  const bannerBorder = decActual==='sale'?'var(--verde-s)':decActual==='obs'?'#f59e0b':decActual==='nosale'?'var(--rojo-m)':'';
+  const bannerText = decActual==='sale'?'✅ Autorizado hoy — toca para cambiar':decActual==='obs'?'⚠️ Con observación — toca para cambiar':'🚫 Retenido — toca para cambiar';
+  const bannerColor2 = decActual==='sale'?'var(--verde-m)':decActual==='obs'?'#92400e':decActual==='nosale'?'var(--rojo)':'';
   return `
+    ${yaConfirmado?`<div style="background:${bannerColor};border:1.5px solid ${bannerBorder};border-radius:10px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:12px;font-weight:700;color:${bannerColor2}">${bannerText}</span><span style="font-size:10px;color:var(--gris)">${rev[6]||''}</span></div>`:''}
     <div style="font-size:11px;color:var(--gris);margin-bottom:7px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">📋 Decisión del mecánico</div>
     <div class="dec-row" style="grid-template-columns:1fr 1fr 1fr">
       <button class="dec-btn dec-sale ${decActual==='sale'?'sel':''}" onclick="decidir('${equipo}','sale')">✅ SALE</button>
@@ -969,8 +975,8 @@ function renderDecision(equipo, safeId, r, rev){
       ${OBS_TAGS.map(t=>`<span class="badge-tag ${t.r?'rojo':''}" onclick="toggleTag(this,'notes-${safeId}','obs-${safeId}')">${t.l}</span>`).join('')}
     </div>
     <textarea class="mec-notes" id="notes-${safeId}" placeholder="Detalle adicional (opcional)...">${rev?.[7]||''}</textarea>
-    <button class="conf-btn ${rev?'done':''}" onclick="confirmar('${equipo}','${r[3]||''}','${r[0]||''}','${r[1]||''}')">
-      ${rev?'✅ Confirmado — toca para actualizar':'Confirmar decisión'}
+    <button class="conf-btn ${yaConfirmado?'done':''}" onclick="confirmar('${equipo}','${r[3]||''}','${r[0]||''}','${r[1]||''}')">
+      ${yaConfirmado?'↺ Actualizar decisión':'Confirmar decisión'}
     </button>
     ${noSale?`
     <div class="alta-section show" id="alta-sec-${safeId}">
@@ -987,6 +993,7 @@ function renderDecision(equipo, safeId, r, rev){
       </button>
     </div>`:''}`;
 }
+
 
 // ═══════════════════════════════════════════════
 //  ACCIONES — todo se guarda en Sheets
@@ -1054,21 +1061,23 @@ async function darAlta(equipo,operario,fecha,hora){
       hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'
     })});
 
-    // 2. Guardar en CierreJornada con estado "operativo" via GET para liberar el tractor
+    // 2. Guardar en CierreJornada con POST para liberar el tractor
     const hoy=new Date();
-    const params=new URLSearchParams({
-      action:'write',
+    const filaC=[
+      hoy.toLocaleDateString('es-CO'),
+      hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
+      operario||'—',
+      equipo,
+      '','','',
+      'operativo',
+      'Alta mecánica: '+trabajo,
+      ''
+    ];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',
-      fecha:hoy.toLocaleDateString('es-CO'),
-      hora:hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
-      operario:operario||'—',
-      equipo:equipo,
-      horometro:'',
-      estado:'operativo',
-      novedad:'Alta mecánica: '+trabajo,
-      labor:''
-    });
-    await fetch(GS_URL+'?'+params.toString());
+      fila:filaC,
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
+    })});
 
     toast(`✅ ${equipo} dado de alta — vuelve a estar disponible`);
     setTimeout(()=>recargar(),1500);
@@ -1332,8 +1341,8 @@ async function darAltaDesdeHistorial(num,eq,operarioEnc){
     const fila=[hoy.toLocaleDateString('es-CO'),'—',eq,operario,MECANICO,'—',horaAlta,'—',trabajo];
     const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos','Trabajo Realizado'];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'})});
-    const filaC=[hoy.toLocaleDateString('es-CO'),hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),operario,eq,'','operativo','Alta mecánica: '+trabajo,''];
-    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'CierreJornada',fila:filaC,encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']})});
+    const filaC=[hoy.toLocaleDateString('es-CO'),hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),operario,eq,'','','','operativo','Alta mecánica: '+trabajo,''];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'CierreJornada',fila:filaC,encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']})});
     toast('✅ '+eq+' dado de alta');
     cerrarHistorial();
     setTimeout(()=>recargar(),1500);
@@ -1518,7 +1527,16 @@ function enviarWhatsApp(){
 // ═══════════════════════════════════════════════
 function guardarMecanico(){MECANICO=document.getElementById('cfg-mecanico').value.trim()||'Mecánico';localStorage.setItem('palma_mecanico',MECANICO);document.getElementById('ef-nombre').textContent='Responsable: '+MECANICO;toast('✅ Guardado');}
 function guardarWA(){WA_NUM=document.getElementById('cfg-wa').value.trim();localStorage.setItem('palma_wa',WA_NUM);toast('✅ Guardado');}
-function limpiarCache(){localStorage.removeItem('palma_dec');localStorage.removeItem('palma_altas');recargar();toast('✅ Caché limpiado');}
+function limpiarCache(){
+  localStorage.removeItem('palma_dec');
+  localStorage.removeItem('palma_altas');
+  // Limpiar todas las claves de caché de hojas
+  Object.keys(localStorage).filter(k=>k.startsWith('palma_cache')).forEach(k=>localStorage.removeItem(k));
+  // Resetear decisiones temporales para que la UI quede limpia
+  decTemp={};
+  recargar();
+  toast('✅ Caché limpiado');
+}
 function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(type?' '+type:'');setTimeout(()=>t.className='',3000);}
 
 init();
