@@ -151,8 +151,30 @@ main{max-width:760px;margin:0 auto;padding:24px 16px}
 .spin{width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--ink2);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
 @keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── PRINT ── */
-@media print{
+/* ── EXECUTIVE BANNER ── */
+.exec-banner{border-radius:12px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;gap:14px;border:1.5px solid}
+.exec-banner.green{background:#f0fdf4;border-color:#86efac}.exec-banner.yellow{background:#fffbeb;border-color:#fcd34d}.exec-banner.red{background:#fef2f2;border-color:#fca5a5}
+.eb-icon{font-size:22px;flex-shrink:0}
+.eb-title{font-size:13px;font-weight:700;margin-bottom:2px}
+.eb-desc{font-size:11px;opacity:.75;line-height:1.4}
+.exec-banner.green .eb-title{color:#15803d}.exec-banner.yellow .eb-title{color:#92400e}.exec-banner.red .eb-title{color:#b91c1c}
+
+/* ── KPI ENHANCED ── */
+.kpi-trend{display:flex;align-items:center;gap:4px;font-size:10px;font-weight:700;margin-top:4px}
+.kpi-up{color:#15803d}.kpi-down{color:#b91c1c}.kpi-flat{color:var(--muted)}
+.mc-compare{font-size:10px;color:var(--muted);margin-top:2px}
+
+/* ── HORAS KPI ── */
+.horas-strip{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px}
+.hs-card{background:var(--surface);border-radius:12px;padding:14px 16px;border:1px solid var(--border);position:relative;overflow:hidden}
+.hs-card::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--ink2)}
+.hs-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.hs-value{font-family:'Playfair Display',serif;font-size:26px;color:var(--ink2);line-height:1}
+.hs-sub{font-size:10px;color:var(--muted);margin-top:3px}
+
+/* ── TABLA horas col ── */
+.th-horas{color:#1d4ed8;font-weight:700}
+
   header,.toolbar,.tabs,.btn-act,.period-select{display:none!important}
   body{background:#fff}
   .hero-metric,.metric-card,.chart-card,.data-section{break-inside:avoid;border:1px solid #ddd;box-shadow:none}
@@ -318,6 +340,12 @@ document.addEventListener('DOMContentLoaded', function(){
 
   <!-- TAB HOY -->
   <div id="sec-hoy">
+    <!-- BANNER EJECUTIVO -->
+    <div id="exec-banner" class="exec-banner green" style="display:none">
+      <div class="eb-icon" id="eb-icon">✅</div>
+      <div><div class="eb-title" id="eb-title">—</div><div class="eb-desc" id="eb-desc">—</div></div>
+    </div>
+
     <!-- ALERTAS -->
     <div class="alert danger" id="alert-consumo" style="display:none">
       <div class="alert-icon">⛽</div>
@@ -363,11 +391,13 @@ document.addEventListener('DOMContentLoaded', function(){
         <div class="mc-label">Combustible hoy</div>
         <div class="mc-value" id="kpi-comb">—</div>
         <div class="mc-sub">galones cargados</div>
+        <div class="kpi-trend" id="kpi-comb-trend"></div>
       </div>
       <div class="metric-card mc-slate">
         <div class="mc-label">Programados</div>
         <div class="mc-value" id="kpi-prog">—</div>
-        <div class="mc-sub">tractores con labor</div>
+        <div class="mc-sub" id="kpi-prog-sub">tractores con labor</div>
+        <div class="kpi-trend" id="kpi-prog-trend"></div>
       </div>
       <div class="metric-card mc-sage">
         <div class="mc-label">Dados de alta</div>
@@ -378,6 +408,25 @@ document.addEventListener('DOMContentLoaded', function(){
         <div class="mc-label">Alerta mantenimiento</div>
         <div class="mc-value" id="kpi-mtto">—</div>
         <div class="mc-sub">equipos con alerta</div>
+      </div>
+    </div>
+
+    <!-- HORAS TRABAJADAS -->
+    <div class="horas-strip" id="horas-strip" style="display:none">
+      <div class="hs-card">
+        <div class="hs-label">Horas totales flota</div>
+        <div class="hs-value" id="hs-total">—</div>
+        <div class="hs-sub">horas operadas hoy</div>
+      </div>
+      <div class="hs-card">
+        <div class="hs-label">Promedio por tractor</div>
+        <div class="hs-value" id="hs-prom">—</div>
+        <div class="hs-sub">horas · tractores con cierre</div>
+      </div>
+      <div class="hs-card">
+        <div class="hs-label">Tractores con cierre</div>
+        <div class="hs-value" id="hs-cierres">—</div>
+        <div class="hs-sub" id="hs-cierres-sub">registros de hoy</div>
       </div>
     </div>
 
@@ -630,6 +679,65 @@ async function cargarDatos(){
     document.getElementById('kpi-altas').textContent=ah.length||'—';
     document.getElementById('kpi-mtto').textContent=alh.length||'—';
 
+    // KPI tendencias
+    const limTotal=11*8; // promedio simple: 11 tractores × 8 gal promedio
+    const pctComb=galones>0?Math.round(galones/limTotal*100):null;
+    const combTrend=document.getElementById('kpi-comb-trend');
+    if(combTrend&&pctComb!=null){
+      combTrend.innerHTML=pctComb>100
+        ?`<span class="kpi-down">↑ ${pctComb}% del límite esperado</span>`
+        :pctComb>=80
+          ?`<span class="kpi-flat">≈ ${pctComb}% del límite esperado</span>`
+          :`<span class="kpi-up">✓ ${pctComb}% del límite esperado</span>`;
+    }
+    const progTrend=document.getElementById('kpi-prog-trend');
+    const progSub=document.getElementById('kpi-prog-sub');
+    if(progSub) progSub.textContent='de 11 tractores programados';
+    if(progTrend){
+      const pctProg=Math.round(prh.length/11*100);
+      progTrend.innerHTML=pctProg>=80
+        ?`<span class="kpi-up">✓ ${pctProg}% de la flota activa</span>`
+        :pctProg>=50
+          ?`<span class="kpi-flat">≈ ${pctProg}% de la flota activa</span>`
+          :`<span class="kpi-down">↓ ${pctProg}% de la flota activa</span>`;
+    }
+
+    // Banner ejecutivo
+    const banner=document.getElementById('exec-banner');
+    const ebIcon=document.getElementById('eb-icon');
+    const ebTitle=document.getElementById('eb-title');
+    const ebDesc=document.getElementById('eb-desc');
+    if(banner){
+      banner.style.display='flex';
+      const varadosActivos=varadosN;
+      const sinPreop=11-total;
+      if(disp>=85&&varadosActivos===0&&retN===0){
+        banner.className='exec-banner green';
+        ebIcon.textContent='✅';
+        ebTitle.textContent='Operación normal — flota en buen estado';
+        ebDesc.textContent=`${authN} de 11 tractores autorizados · disponibilidad ${disp}% (sobre objetivo 85%)${galones>0?' · '+galones.toFixed(0)+' gal cargados':''}`;
+      } else if(disp>=70&&varadosActivos<=1&&retN<=1){
+        banner.className='exec-banner yellow';
+        ebIcon.textContent='⚠️';
+        ebTitle.textContent='Operación con observaciones — revisar';
+        const obs=[];
+        if(retN>0) obs.push(retN+' tractor'+(retN>1?'es':'')+' retenido'+(retN>1?'s':''));
+        if(varadosActivos>0) obs.push(varadosActivos+' varado'+(varadosActivos>1?'s':''));
+        if(sinPreop>0) obs.push(sinPreop+' sin preoperativo');
+        ebDesc.textContent=obs.join(' · ')||`Disponibilidad ${disp}%`;
+      } else {
+        banner.className='exec-banner red';
+        ebIcon.textContent='🚨';
+        ebTitle.textContent='Atención requerida — disponibilidad crítica';
+        const obs=[];
+        if(retN>0) obs.push(retN+' retenido'+(retN>1?'s':''));
+        if(varadosActivos>0) obs.push(varadosActivos+' varado'+(varadosActivos>1?'s':''));
+        if(sinPreop>0) obs.push(sinPreop+' sin preoperativo');
+        obs.push('disponibilidad '+disp+'%');
+        ebDesc.textContent=obs.join(' · ');
+      }
+    }
+
     // Alerts
     const ar=document.getElementById('alert-retenidos');
     if(retN>0){ar.classList.add('show');document.getElementById('alert-ret-title').textContent=retN+' equipo'+(retN>1?'s':'')+' retenido'+(retN>1?'s':'')+' en taller';document.getElementById('alert-ret-sub').textContent=rh.filter(r=>r[4]==='RETENIDO'&&!ah.find(a=>normF(a[0])===HOY&&a[2]===r[2])).map(r=>r[2]).join(' · ');}
@@ -798,6 +906,16 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
     if(!fA||fB>=fA)varadosMap[num]=row;
   });
 
+  // Build horas trabajadas from cierres HOY (col 6 = Horas Trabajadas)
+  const horasMap={};
+  (cierres||[]).filter(row=>normF(row[0])===HOY).forEach(row=>{
+    const m=String(row[3]||'').match(/#.?0*(\d+)/);
+    if(!m)return;
+    const num=m[1].padStart(2,'0');
+    const h=parseFloat(row[6]);
+    if(!isNaN(h)&&h>0) horasMap[num]=h;
+  });
+
   const rows=TRACTORES_ALL.map(t=>{
     const preop=ph.find(r=>{const e=r[3]||'';return e.includes('#'+t.num)||e.startsWith(t.num+' ')||e.startsWith(t.num+'-');});
     const rev=rh.find(r=>{const e=String(r[2]||r[3]||'');return !!e.match(new RegExp('(^|\\D)0*'+parseInt(t.num)+'(\\D|$)'));});
@@ -814,7 +932,8 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
     const obsRev=rev?.[7]||'';
     const labor=prog?.[3]||preop?.[4]||'—';
     const galones=tanq?parseFloat(tanq[6])||0:0;
-    return {t,dec,decColors,decLabels,rowBg,preop,horometro,novedad,obsRev,labor,galones,varado};
+    const horas=horasMap[t.num]||null;
+    return {t,dec,decColors,decLabels,rowBg,preop,horometro,novedad,obsRev,labor,galones,varado,horas};
   });
 
   // Summary counts for subtitle
@@ -822,8 +941,21 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
   const ret=rows.filter(r=>r.dec==='ret').length;
   const var_=rows.filter(r=>r.dec==='varado').length;
   const sinP=rows.filter(r=>r.dec==='sin').length;
+  const conHoras=rows.filter(r=>r.horas!=null).length;
   document.getElementById('tbl-sub').textContent=
     auth+' autorizados · '+ret+' retenidos · '+var_+' varados · '+sinP+' sin preoperativo';
+
+  // Actualizar horas strip
+  const horasVals=Object.values(horasMap);
+  if(horasVals.length>0){
+    const totalH=horasVals.reduce((s,v)=>s+v,0);
+    const promH=Math.round(totalH/horasVals.length*10)/10;
+    document.getElementById('hs-total').textContent=Math.round(totalH*10)/10+' h';
+    document.getElementById('hs-prom').textContent=promH+' h';
+    document.getElementById('hs-cierres').textContent=horasVals.length;
+    document.getElementById('hs-cierres-sub').textContent='de 11 tractores cerraron jornada';
+    document.getElementById('horas-strip').style.display='grid';
+  }
 
   el.innerHTML=`
   <table style="width:100%;border-collapse:collapse;font-size:12px">
@@ -833,6 +965,7 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
         <th style="padding:10px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Operario</th>
         <th style="padding:10px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Labor</th>
         <th style="padding:10px 8px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Horóm.</th>
+        <th style="padding:10px 8px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#1d4ed8;font-weight:700">Horas</th>
         <th style="padding:10px 8px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Tanqueo</th>
         <th style="padding:10px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Novedad</th>
         <th style="padding:10px 8px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700">Estado</th>
@@ -841,19 +974,25 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
     <tbody>
       ${rows.map(r=>`
       <tr style="border-bottom:1px solid var(--border);background:${r.rowBg}">
-        <td style="padding:10px 12px;font-weight:700">#${r.t.num} <span style="font-weight:400;color:var(--muted)">${r.t.nombre}</span></td>
-        <td style="padding:10px 8px">${r.preop?(r.preop[2]||'—'):'Sin preop'}</td>
-        <td style="padding:10px 8px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.labor||'—'}</td>
-        <td style="padding:10px 8px;text-align:center">${r.horometro} h</td>
-        <td style="padding:10px 8px;text-align:center">${r.galones?r.galones+' gal':'—'}</td>
-        <td style="padding:10px 8px;color:#b91c1c;font-size:11px;max-width:180px;word-wrap:break-word;white-space:normal">${r.novedad||r.obsRev||'—'}</td>
+        <td style="padding:10px 12px;font-weight:700">#${r.t.num} <span style="font-weight:400;color:var(--muted);font-size:11px">${r.t.nombre}</span></td>
+        <td style="padding:10px 8px">${r.preop?(r.preop[2]||'—'):'<span style="color:var(--muted);font-style:italic">Sin preop</span>'}</td>
+        <td style="padding:10px 8px;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.labor||'—'}</td>
+        <td style="padding:10px 8px;text-align:center;font-size:11px;color:var(--muted)">${r.horometro!=='—'?r.horometro+' h':'—'}</td>
         <td style="padding:10px 8px;text-align:center">
-          <span style="background:${r.decColors[r.dec]}18;color:${r.decColors[r.dec]};font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap">${r.decLabels[r.dec]}</span>
+          ${r.horas!=null
+            ?`<span style="background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:700;padding:2px 7px;border-radius:10px;border:1px solid #bfdbfe">${r.horas} h</span>`
+            :'<span style="color:var(--muted);font-size:11px">—</span>'}
+        </td>
+        <td style="padding:10px 8px;text-align:center">${r.galones?'<span style="color:#1d4ed8;font-weight:700">'+r.galones+' gal</span>':'—'}</td>
+        <td style="padding:10px 8px;color:#b91c1c;font-size:11px;max-width:160px;word-wrap:break-word;white-space:normal">${r.novedad||r.obsRev||'—'}</td>
+        <td style="padding:10px 8px;text-align:center">
+          <span style="background:${r.decColors[r.dec]}18;color:${r.decColors[r.dec]};font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;white-space:nowrap;border:1px solid ${r.decColors[r.dec]}30">${r.decLabels[r.dec]}</span>
         </td>
       </tr>`).join('')}
     </tbody>
   </table>`;
 }
+
 
 function renderTractores(ph,rh,ah){
   document.getElementById('cnt-tractores').textContent=ph.length+' registros';
