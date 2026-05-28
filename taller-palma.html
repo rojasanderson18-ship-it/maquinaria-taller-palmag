@@ -152,7 +152,7 @@ if(localStorage.getItem('pin_ok_taller')==='1'){document.write('<style>#pin-scre
       <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-2"></div>
       <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-3"></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="pin-keypad">
       <button onclick="pinInput('1')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">1</button>
 <button onclick="pinInput('2')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">2</button>
 <button onclick="pinInput('3')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">3</button>
@@ -207,7 +207,7 @@ function checkPin(){
     err.textContent='PIN incorrecto. Inténtalo de nuevo.';
     err.style.color='#fca5a5';
     // Shake animation
-    var screen=document.getElementById('pin-screen').querySelector('[style*="gap:10px"]');
+    var screen=document.getElementById('pin-keypad');
     if(screen){screen.style.animation='none';setTimeout(()=>{screen.style.animation='shake .4s ease';},10);}
   }
 }
