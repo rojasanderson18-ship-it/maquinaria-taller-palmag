@@ -174,6 +174,7 @@ textarea{min-height:80px;resize:vertical}
       </div>
       <div style="color:var(--dorado);font-size:22px;font-weight:700">›</div>
     </div>
+    <a href="https://rojasanderson18-ship-it.github.io/maquinaria-taller-palmag/" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-top:20px;color:rgba(0,0,0,.3);font-size:13px;font-weight:600;text-decoration:none;padding:10px 20px;border-radius:10px;border:1px solid rgba(0,0,0,.08);background:rgba(0,0,0,.03)">← Menú principal</a>
 
   </div>
 </div>
@@ -631,6 +632,15 @@ function buildCierreResumen(){
     + '</div>';
 }
 
+function normFecha(f){
+  if(!f) return '';
+  if(typeof f==='object') f=f.toISOString?f.toISOString():String(f);
+  if(typeof f==='string'&&f.includes('T')) f=f.slice(0,10);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(f)){const[y,m,d]=f.split('-');return d+'/'+m+'/'+y;}
+  if(/\d{1,2}\/\d{1,2}\/\d{4}/.test(f)){const[d,m,y]=f.split('/');return d.padStart(2,'0')+'/'+m.padStart(2,'0')+'/'+y;}
+  return f;
+}
+
 async function cargarLaborCierre(){
   var equipo = document.getElementById('c-equipo').value;
   if(!equipo) return;
@@ -641,14 +651,12 @@ async function cargarLaborCierre(){
   if(!m) return;
   var num = m[1].padStart(2,'0');
   try{
-    var hoy = new Date().toLocaleDateString('es-CO');
+    var hoy = normFecha(new Date().toLocaleDateString('es-CO'));
     var r = await fetch(GS_URL+'?hoja=Programacion&t='+Date.now());
     var d = await r.json();
     if(d.ok){
       var asig = (d.datos||[]).find(function(row){
-        var f = row[0]||'';
-        if(typeof f==='object') f=f.toLocaleDateString('es-CO');
-        if(typeof f==='string'&&f.includes('T')) f=new Date(f).toLocaleDateString('es-CO');
+        var f = normFecha(row[0]||'');
         var tm = String(row[2]||'').match(/#\s*0*(\d+)/);
         return f===hoy && tm && tm[1].padStart(2,'0')===num;
       });
@@ -675,20 +683,17 @@ async function calcHorasTrabajadas(){
 
   // Buscar horómetro inicial del preoperativo de hoy
   try {
-    const hoy = new Date().toLocaleDateString('es-CO');
+    const hoy = normFecha(new Date().toLocaleDateString('es-CO'));
     const r = await fetch(GS_URL + '?hoja=Preoperativos&t=' + Date.now());
     const d = await r.json();
     if (!d.ok || !d.datos) return;
 
-    // Normalizar nombre de equipo para comparar
-    const eqNorm = equipo.replace(/^#0*/,'').replace(/\s+/g,' ').trim().toLowerCase();
+    const eqNum = (equipo.match(/#\s*0*(\d+)/)||[])[1]||'';
 
     const preop = d.datos.find(row => {
-      let f = row[0]||'';
-      if(typeof f === 'object') f = f.toLocaleDateString('es-CO');
-      if(typeof f === 'string' && f.includes('T')) f = new Date(f).toLocaleDateString('es-CO');
-      const eqRow = String(row[3]||'').replace(/^#0*/,'').replace(/\s+/g,' ').trim().toLowerCase();
-      return f === hoy && eqRow === eqNorm;
+      const f = normFecha(row[0]||'');
+      const rowNum = (String(row[3]||'').match(/#\s*0*(\d+)/)||[])[1]||'';
+      return f === hoy && (eqNum ? rowNum===eqNum : false);
     });
 
     if(!preop) {
@@ -732,13 +737,13 @@ async function enviarCierre(){
       document.getElementById('c-operario').value,
       document.getElementById('c-equipo').value,
       document.getElementById('c-horometro').value||'',
-      window._horometroInicial || '',
-      window._horasTrabajadas != null ? window._horasTrabajadas : '',
       ESTADO_CIERRE||'',
       document.getElementById('c-novedad').value||'',
-      document.getElementById('c-labor').value||''
+      document.getElementById('c-labor').value||'',
+      window._horometroInicial || '',
+      window._horasTrabajadas != null ? window._horasTrabajadas : ''
     ],
-    encabezados: ['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
+    encabezados: ['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada','Horómetro Inicial','Horas Trabajadas']
   };
   try{
     await fetch(GS_URL, {method:'POST', body:JSON.stringify(datos)});
@@ -817,11 +822,10 @@ async function cargarProgramacion(){
     const r = await fetch(GS_URL+'?hoja=Programacion');
     const d = await r.json();
     if(!d.ok||!d.datos) return;
-    const hoy = new Date().toLocaleDateString('es-CO');
+    const hoy = normFecha(new Date().toLocaleDateString('es-CO'));
     const asig = d.datos.find(row=>{
       let f = row[0]||'';
-      if(typeof f==='string'&&f.includes('T')) f=new Date(f).toLocaleDateString('es-CO');
-      if(typeof f==='object') f=f.toLocaleDateString('es-CO');
+      f=normFecha(f);
       const tStr = String(row[2]||'');
       const tm = tStr.match(/#?\s*0*(\d+)/);
       return f===hoy && tm && tm[1].padStart(2,'0')===num;
