@@ -737,13 +737,13 @@ async function enviarCierre(){
       document.getElementById('c-operario').value,
       document.getElementById('c-equipo').value,
       document.getElementById('c-horometro').value||'',
-      window._horometroInicial || '',
-      window._horasTrabajadas != null ? window._horasTrabajadas : '',
       ESTADO_CIERRE||'',
       document.getElementById('c-novedad').value||'',
-      document.getElementById('c-labor').value||''
+      document.getElementById('c-labor').value||'',
+      window._horometroInicial || '',
+      window._horasTrabajadas != null ? window._horasTrabajadas : ''
     ],
-    encabezados: ['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
+    encabezados: ['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada','Horómetro Inicial','Horas Trabajadas']
   };
   try{
     await fetch(GS_URL, {method:'POST', body:JSON.stringify(datos)});
