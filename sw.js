@@ -1,7 +1,9 @@
-const CACHE = 'flota-palma-v1';
+const CACHE = 'flota-palma-v2';
 const ASSETS = [
+  '/maquinaria-taller-palmag/index.html',
   '/maquinaria-taller-palmag/preoperativo-palma.html',
   '/maquinaria-taller-palmag/taller-palma.html',
+  '/maquinaria-taller-palmag/gerencia-palma.html',
   'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap',
 ];
 
@@ -23,11 +25,6 @@ self.addEventListener('activate', e => {
 
 // Cola de envíos pendientes (cuando no hay internet)
 const QUEUE_KEY = 'flota_queue';
-
-async function getQueue() {
-  const clients = await self.clients.matchAll();
-  return JSON.parse((await (await caches.open(CACHE)).match('/__queue__'))?.text() || '[]');
-}
 
 async function saveQueue(queue) {
   const cache = await caches.open(CACHE);

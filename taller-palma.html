@@ -176,7 +176,7 @@ if(localStorage.getItem('pin_ok_taller')==='1'){document.write('<style>#pin-scre
 
 <script>
 var pinVal = '';
-var correctPin = '2026';
+var PIN_HASH = '158a323a7ba44870f23d96f1516dd70aa48e9a72db4ebb026b0a89e212a208ab';
 
 function pinInput(n){
   if(pinVal.length>=4) return;
@@ -196,8 +196,10 @@ function updateDots(){
     d.style.borderColor = i<pinVal.length ? '#fff' : 'rgba(255,255,255,.3)';
   }
 }
-function checkPin(){
-  if(pinVal===correctPin){
+async function checkPin(){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pinVal));
+  const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  if(hash===PIN_HASH){
     localStorage.setItem('pin_ok_taller','1');
     document.getElementById('pin-screen').style.display='none';
   } else {
@@ -206,7 +208,6 @@ function checkPin(){
     var err=document.getElementById('pin-error');
     err.textContent='PIN incorrecto. Inténtalo de nuevo.';
     err.style.color='#fca5a5';
-    // Shake animation
     var screen=document.getElementById('pin-keypad');
     if(screen){screen.style.animation='none';setTimeout(()=>{screen.style.animation='shake .4s ease';},10);}
   }
