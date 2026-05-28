@@ -448,16 +448,15 @@ function init(){
     'Flota Palma — '+now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('ef-nombre').textContent='Responsable: '+MECANICO;
   recargar();
-  // Auto-refresh cada 90 segundos SOLO si no hay nada en edición
+  // Registrar última interacción del usuario
+  let _ultimaInteraccion = Date.now();
+  ['input','click','keydown','touchstart'].forEach(ev=>
+    document.addEventListener(ev, ()=>{ _ultimaInteraccion = Date.now(); }, {passive:true})
+  );
+  // Auto-refresh cada 90 segundos, solo si el usuario lleva más de 60s sin interactuar
   setInterval(()=>{
-    // No recargar si hay algún textarea con contenido activo o foco
-    const hayFoco = document.activeElement && 
-      (document.activeElement.tagName==='TEXTAREA' || document.activeElement.tagName==='INPUT');
-    const hayContenido = [...document.querySelectorAll('.mec-notes, .alta-fields textarea')]
-      .some(el=>el.value.trim().length>0);
-    if(!hayFoco && !hayContenido){
-      recargar();
-    }
+    if(Date.now() - _ultimaInteraccion < 60000) return;
+    recargar();
   }, 90000);
 }
 
