@@ -481,33 +481,46 @@ async function darAltaVarado(equipo,operario,fecha,safeId){
   if(!trabajo){toast('⚠️ Describe el trabajo realizado','error');return;}
   const horaAlta=document.getElementById('hora-alta-'+safeId)?.value||new Date().toTimeString().slice(0,5);
   const hoy=new Date();
+  const btn=document.querySelector('[onclick*="darAltaVarado"][onclick*="'+safeId+'"]');
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
 
   try{
-    // 1. Guardar Alta
+    // 1. Guardar en hoja Altas
     const fila=[fecha,'—',equipo,operario,MECANICO,'—',horaAlta,'—',trabajo];
-    const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos Resolución','Trabajo Realizado'];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
-      hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'
+      hoja:'Altas',
+      fila,
+      encabezados:['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos Resolución','Trabajo Realizado'],
+      colorCol:9,color:'#dbeafe'
     })});
 
-    // 2. Registrar en CierreJornada como "operativo" para liberar el tractor
+    // 2. Registrar en CierreJornada con 10 columnas para liberar el tractor
     const filaC=[
       hoy.toLocaleDateString('es-CO'),
       hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
       operario||'—',
       equipo,
-      '',
+      '',   // Horómetro Final
+      '',   // Horómetro Inicial
+      '',   // Horas Trabajadas
       'operativo',
       'Alta mecánica: '+trabajo,
-      ''
+      ''    // Labor Realizada
     ];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
-      hoja:'CierreJornada',fila:filaC,
-      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+      hoja:'CierreJornada',
+      fila:filaC,
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
     })});
 
-    toast('✅ '+equipo+' dado de alta — ya está disponible');
+    toast('✅ '+equipo+' dado de alta');
     setTimeout(()=>loadVarados(),1500);
+  }catch(e){
+    console.error('darAltaVarado error:',e);
+    toast('❌ Error al guardar el alta','error');
+    if(btn){btn.disabled=false;btn.textContent='✅ Confirmar alta — Equipo listo para operar';}
+  }
+}
   }catch(e){
     toast('Error al guardar','error');
   }
@@ -848,20 +861,23 @@ async function darAltaVaradoNov(equipo,operario,fecha,safeId){
   const hoy=new Date();
   try{
     const fila=[fecha,'—',equipo,operario,MECANICO,'—',horaAlta,'—',trabajo];
-    const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos','Trabajo Realizado'];
-    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'})});
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
+      hoja:'Altas',fila,
+      encabezados:['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos','Trabajo Realizado'],
+      colorCol:9,color:'#dbeafe'
+    })});
     const filaC=[
       hoy.toLocaleDateString('es-CO'),
       hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
-      operario||'—',equipo,'','operativo','Alta mecánica: '+trabajo,''
+      operario||'—',equipo,'','','','operativo','Alta mecánica: '+trabajo,''
     ];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',fila:filaC,
-      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
     })});
     toast('✅ '+equipo+' dado de alta — ya disponible');
     setTimeout(()=>recargar(),1500);
-  }catch(e){toast('Error al guardar','error');}
+  }catch(e){toast('❌ Error al guardar','error');}
 }
 
 function renderNovedades(){
@@ -1085,21 +1101,25 @@ async function darAlta(equipo,operario,fecha,hora){
       hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'
     })});
 
-    // 2. Guardar en CierreJornada con estado "operativo" via GET para liberar el tractor
+    // 2. Guardar en CierreJornada como "operativo" — POST con 10 columnas
     const hoy=new Date();
-    const params=new URLSearchParams({
-      action:'write',
+    const filaC=[
+      hoy.toLocaleDateString('es-CO'),
+      hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
+      operario||'—',
+      equipo,
+      '',   // Horómetro Final
+      '',   // Horómetro Inicial
+      '',   // Horas Trabajadas
+      'operativo',
+      'Alta mecánica: '+trabajo,
+      ''    // Labor Realizada
+    ];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',
-      fecha:hoy.toLocaleDateString('es-CO'),
-      hora:hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
-      operario:operario||'—',
-      equipo:equipo,
-      horometro:'',
-      estado:'operativo',
-      novedad:'Alta mecánica: '+trabajo,
-      labor:''
-    });
-    await fetch(GS_URL+'?'+params.toString());
+      fila:filaC,
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
+    })});
 
     toast(`✅ ${equipo} dado de alta — vuelve a estar disponible`);
     setTimeout(()=>recargar(),1500);
