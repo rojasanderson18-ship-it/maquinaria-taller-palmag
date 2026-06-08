@@ -398,6 +398,22 @@ document.addEventListener('DOMContentLoaded', function(){
 //  CONFIG
 // ═══════════════════════════════════════════════
 const GS_URL  = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
+
+// Parser robusto de fechas — maneja serial GS, ISO, DD/MM/YYYY, MM/DD/YYYY
+function parseFechaGS(v){
+  if(!v)return null;
+  if(typeof v==='number')return new Date(Math.round((v-25569)*86400*1000));
+  if(typeof v==='object'&&v.getTime)return v;
+  const s=String(v).trim();
+  if(s.includes('T')||s.match(/^\d{4}-\d{2}-\d{2}/))return new Date(s);
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m){
+    const a=parseInt(m[1]),b=parseInt(m[2]);
+    if(a>12)return new Date(m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'));
+    return new Date(m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0'));
+  }
+  return null;
+}
 let MECANICO  = localStorage.getItem('palma_mecanico')||'Mecánico';
 let WA_NUM    = localStorage.getItem('palma_wa')||'';
 const HOY     = new Date().toLocaleDateString('es-CO');
@@ -461,37 +477,50 @@ function init(){
 }
 
 async function darAltaVarado(equipo,operario,fecha,safeId){
-  const trabajo=document.getElementById('alta-var-'+safeId)?.value?.trim()||'';
+  const trabajo=document.getElementById('txt-alta-'+safeId)?.value?.trim()||'';
   if(!trabajo){toast('⚠️ Describe el trabajo realizado','error');return;}
-  const horaAlta=document.getElementById('hora-var-'+safeId)?.value||new Date().toTimeString().slice(0,5);
+  const horaAlta=document.getElementById('hora-alta-'+safeId)?.value||new Date().toTimeString().slice(0,5);
   const hoy=new Date();
+  const btn=document.querySelector('[onclick*="darAltaVarado"][onclick*="'+safeId+'"]');
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
 
   try{
-    // 1. Guardar Alta
+    // 1. Guardar en hoja Altas
     const fila=[fecha,'—',equipo,operario,MECANICO,'—',horaAlta,'—',trabajo];
-    const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos Resolución','Trabajo Realizado'];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
-      hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'
+      hoja:'Altas',
+      fila,
+      encabezados:['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos Resolución','Trabajo Realizado'],
+      colorCol:9,color:'#dbeafe'
     })});
 
-    // 2. Registrar en CierreJornada como "operativo" para liberar el tractor
+    // 2. Registrar en CierreJornada con 10 columnas para liberar el tractor
     const filaC=[
       hoy.toLocaleDateString('es-CO'),
       hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
       operario||'—',
       equipo,
-      '',
+      '',   // Horómetro Final
+      '',   // Horómetro Inicial
+      '',   // Horas Trabajadas
       'operativo',
       'Alta mecánica: '+trabajo,
-      ''
+      ''    // Labor Realizada
     ];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
-      hoja:'CierreJornada',fila:filaC,
-      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+      hoja:'CierreJornada',
+      fila:filaC,
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
     })});
 
-    toast('✅ '+equipo+' dado de alta — ya está disponible');
+    toast('✅ '+equipo+' dado de alta');
     setTimeout(()=>loadVarados(),1500);
+  }catch(e){
+    console.error('darAltaVarado error:',e);
+    toast('❌ Error al guardar el alta','error');
+    if(btn){btn.disabled=false;btn.textContent='✅ Confirmar alta — Equipo listo para operar';}
+  }
+}
   }catch(e){
     toast('Error al guardar','error');
   }
@@ -501,19 +530,34 @@ async function loadVarados(){
   const el=document.getElementById('lista-varados');
   if(!el)return;
   try{
-    const r=await fetch(GS_URL+'?hoja=CierreJornada&t='+Date.now());
-    const d=await r.json();
-    if(!d.ok||!d.datos||!d.datos.length){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin tractores varados</div></div>';return;}
+    const[resCierres,resAltas]=await Promise.all([
+      fetch(GS_URL+'?hoja=CierreJornada&t='+Date.now()).then(r=>r.json()),
+      fetch(GS_URL+'?hoja=Altas&t='+Date.now()).then(r=>r.json())
+    ]);
+    const cierresData=(resCierres.ok&&resCierres.datos)||[];
+    const altasData=(resAltas.ok&&resAltas.datos)||[];
+    if(!cierresData.length){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin tractores varados</div></div>';return;}
     const por={};
-    d.datos.forEach(function(row){
+    cierresData.forEach(function(row){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
-      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
-      const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
+      const fB=parseFechaGS(row[0]);
+      const fA=por[num]?parseFechaGS(por[num][0]):null;
       if(!fA||fB>=fA)por[num]=row;
+    });
+    // Cruzar con Altas: si hay Alta posterior -> ya resuelto
+    Object.keys(por).forEach(function(num){
+      const altasNum=altasData.filter(function(a){
+        const m=String(a[2]||'').match(/#.?0*(\d+)/);
+        return m&&parseInt(m[1]).toString()===num;
+      });
+      if(!altasNum.length)return;
+      const fCierre=parseFechaGS(por[num][0]);
+      const fAlta=parseFechaGS(altasNum[altasNum.length-1][0]);
+      if(fAlta&&fCierre&&!isNaN(fAlta)&&!isNaN(fCierre)&&fAlta>=fCierre)delete por[num];
     });
     const lista=Object.values(por);
     const tab=document.getElementById('tab-varados');
@@ -523,17 +567,17 @@ async function loadVarados(){
     }
     if(tab)tab.textContent='🔴 Varados ('+lista.length+')';
     el.innerHTML=lista.map(function(row){
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       const esV=est==='varado';
       const color=esV?'var(--rojo-m,#dc2626)':'var(--dorado)';
-      const num=(String(row[3]||'').match(/\d+/)||['?'])[0];
-      const safeId='var_'+num;
+      const numRaw=(String(row[3]||'').match(/\d+/)||['?'])[0];
+      const safeId='v'+numRaw;
       return '<div style="background:#fff;border-radius:12px;margin-bottom:10px;border-left:4px solid '+color+';box-shadow:0 1px 4px rgba(0,0,0,.08)">'
         +'<div style="padding:12px 14px;display:flex;align-items:flex-start;gap:10px">'
         +'<div class="tr-num" style="background:'+color+'">#'+num+'</div>'
         +'<div style="flex:1"><div class="tr-nombre">'+(row[3]||'—')+'</div>'
         +'<div class="tr-meta">Op: '+(row[2]||'—')+' · '+(row[0]||'—')+' · '+(row[1]||'—')+'</div>'
-        +(row[6]?'<div class="tr-meta" style="color:'+color+';margin-top:4px">⚙️ '+row[6]+'</div>':'')
+        +(row[8]?'<div class="tr-meta" style="color:'+color+';margin-top:4px">⚙️ '+row[8]+'</div>':'')
         +'</div><span class="pill" style="background:'+(esV?'var(--rojo-p,#fee2e2)':'var(--dorado-p,#fef3c7)')+';color:'+color+';white-space:nowrap">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span></div>'
         +'<div style="padding:0 14px 14px">'
         +'<div style="background:#f8fafc;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">'
@@ -649,8 +693,8 @@ async function recargar(){
     [PREOPS, REVISIONES, ALTAS, _CIERRES] = await Promise.all([
       fetchHoja('Preoperativos'),
       fetchHoja('Revisiones'),
-      fetchHoja('Altas'),
-      fetchHoja('CierreJornada'),
+      fetchHojaTodo('Altas'),
+      fetchHojaTodo('CierreJornada'),
     ]);
     // Build VARADOS_FLOTA: tractors with varado/novedad not yet resolved by Alta
     VARADOS_FLOTA={};
@@ -659,16 +703,16 @@ async function recargar(){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
-      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
-      const fA=_porTractor[num]?new Date(String(_porTractor[num][0]||'').split('/').reverse().join('-')):null;
+      const fB=parseFechaGS(row[0]);
+      const fA=_porTractor[num]?parseFechaGS(_porTractor[num][0]):null;
       if(!fA||fB>=fA)_porTractor[num]=row;
     });
     Object.keys(_porTractor).forEach(function(num){
       const ultimaAlta=ALTAS.filter(r=>(r[2]||'').includes('#'+num)).slice(-1)[0];
-      const fC=new Date(String(_porTractor[num][0]||'').split('/').reverse().join('-'));
-      const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+      const fC=parseFechaGS(_porTractor[num][0]);
+      const fA=ultimaAlta?parseFechaGS(ultimaAlta[0]):null;
       if(!fA||fC>fA) VARADOS_FLOTA[num]=_porTractor[num];
     });
     renderVaradosNovedades(_CIERRES);
@@ -766,10 +810,10 @@ function renderVaradosNovedades(cierres){
     const m=String(row[3]||'').match(/#.?0*(\d+)/);
     if(!m)return;
     const num=m[1].padStart(2,'0');
-    const est=String(row[5]||'').toLowerCase();
+    const est=String(row[7]||'').toLowerCase();
     if(est!=='varado'&&est!=='novedad')return;
-    const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
-    const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
+    const fB=parseFechaGS(row[0]);
+    const fA=por[num]?parseFechaGS(por[num][0]):null;
     if(!fA||fB>=fA)por[num]=row;
   });
   const lista=Object.values(por);
@@ -780,7 +824,7 @@ function renderVaradosNovedades(cierres){
   if(!lista.length){el.innerHTML='';return;}
   el.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--rojo-m,#dc2626);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 8px">🔴 Tractores varados ('+lista.length+')</div>'+
   lista.map(function(row){
-    const est=String(row[5]||'').toLowerCase();
+    const est=String(row[7]||'').toLowerCase();
     const esV=est==='varado';
     const color=esV?'var(--rojo-m,#dc2626)':'var(--dorado)';
     const bg=esV?'var(--rojo-p,#fee2e2)':'var(--dorado-p,#fef3c7)';
@@ -817,20 +861,23 @@ async function darAltaVaradoNov(equipo,operario,fecha,safeId){
   const hoy=new Date();
   try{
     const fila=[fecha,'—',equipo,operario,MECANICO,'—',horaAlta,'—',trabajo];
-    const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos','Trabajo Realizado'];
-    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'})});
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
+      hoja:'Altas',fila,
+      encabezados:['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos','Trabajo Realizado'],
+      colorCol:9,color:'#dbeafe'
+    })});
     const filaC=[
       hoy.toLocaleDateString('es-CO'),
       hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
-      operario||'—',equipo,'','operativo','Alta mecánica: '+trabajo,''
+      operario||'—',equipo,'','','','operativo','Alta mecánica: '+trabajo,''
     ];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',fila:filaC,
-      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
     })});
     toast('✅ '+equipo+' dado de alta — ya disponible');
     setTimeout(()=>recargar(),1500);
-  }catch(e){toast('Error al guardar','error');}
+  }catch(e){toast('❌ Error al guardar','error');}
 }
 
 function renderNovedades(){
@@ -1054,21 +1101,25 @@ async function darAlta(equipo,operario,fecha,hora){
       hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'
     })});
 
-    // 2. Guardar en CierreJornada con estado "operativo" via GET para liberar el tractor
+    // 2. Guardar en CierreJornada como "operativo" — POST con 10 columnas
     const hoy=new Date();
-    const params=new URLSearchParams({
-      action:'write',
+    const filaC=[
+      hoy.toLocaleDateString('es-CO'),
+      hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
+      operario||'—',
+      equipo,
+      '',   // Horómetro Final
+      '',   // Horómetro Inicial
+      '',   // Horas Trabajadas
+      'operativo',
+      'Alta mecánica: '+trabajo,
+      ''    // Labor Realizada
+    ];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',
-      fecha:hoy.toLocaleDateString('es-CO'),
-      hora:hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
-      operario:operario||'—',
-      equipo:equipo,
-      horometro:'',
-      estado:'operativo',
-      novedad:'Alta mecánica: '+trabajo,
-      labor:''
-    });
-    await fetch(GS_URL+'?'+params.toString());
+      fila:filaC,
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
+    })});
 
     toast(`✅ ${equipo} dado de alta — vuelve a estar disponible`);
     setTimeout(()=>recargar(),1500);
@@ -1127,18 +1178,18 @@ async function cambiarFechaFlota(){
       const m=String(row[3]||'').match(/0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
-      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
-      const fA=_porTractorV[num]?new Date(String(_porTractorV[num][0]||'').split('/').reverse().join('-')):null;
+      const fB=parseFechaGS(row[0]);
+      const fA=_porTractorV[num]?parseFechaGS(_porTractorV[num][0]):null;
       if(!fA||fB>=fA)_porTractorV[num]=row;
     });
     // Only keep varados that don't have a later Alta
     Object.keys(_porTractorV).forEach(function(num){
       const ultimaAlta=FLOTA_ALTAS.filter(a=>(a[2]||'').includes('#'+num)).slice(-1)[0]||
                        ALTAS.filter(a=>(a[2]||'').includes('#'+num)).slice(-1)[0];
-      const fC=new Date(String(_porTractorV[num][0]||'').split('/').reverse().join('-'));
-      const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+      const fC=parseFechaGS(_porTractorV[num][0]);
+      const fA=ultimaAlta?parseFechaGS(ultimaAlta[0]):null;
       if(!fA||fC>fA) FLOTA_VARADOS[num]=_porTractorV[num];
     });
   }catch(e){FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];FLOTA_VARADOS={};}
@@ -1243,8 +1294,8 @@ async function cargarHistorialTractor(num, nombre, eq){
     if(ultimoCierre){
       const estC=String(ultimoCierre[5]||'').toLowerCase();
       if(estC==='varado'||estC==='novedad'){
-        const fC=new Date(String(ultimoCierre[0]||'').split('/').reverse().join('-'));
-        const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+        const fC=parseFechaGS(ultimoCierre[0]);
+        const fA=ultimaAlta?parseFechaGS(ultimaAlta[0]):null;
         if(!fA||fC>fA) varadoActivo=true;
       }
     }
@@ -1271,7 +1322,7 @@ async function cargarHistorialTractor(num, nombre, eq){
       misPreops.forEach(r=>eventos.push({tipo:'preop',fecha:r[0],data:r}));
       misCierres.forEach(r=>eventos.push({tipo:'cierre',fecha:r[0],data:r}));
       misAltas.forEach(r=>eventos.push({tipo:'alta',fecha:r[0],data:r}));
-      eventos.sort((a,b)=>new Date(String(b.fecha||'').split('/').reverse().join('-'))-new Date(String(a.fecha||'').split('/').reverse().join('-')));
+      eventos.sort((a,b)=>parseFechaGS(b.fecha)-parseFechaGS(a.fecha));
       html+=eventos.map(function(ev){
         if(ev.tipo==='preop'){
           const r=ev.data;
@@ -1332,8 +1383,8 @@ async function darAltaDesdeHistorial(num,eq,operarioEnc){
     const fila=[hoy.toLocaleDateString('es-CO'),'—',eq,operario,MECANICO,'—',horaAlta,'—',trabajo];
     const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos','Trabajo Realizado'];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'})});
-    const filaC=[hoy.toLocaleDateString('es-CO'),hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),operario,eq,'','operativo','Alta mecánica: '+trabajo,''];
-    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'CierreJornada',fila:filaC,encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']})});
+    const filaC=[hoy.toLocaleDateString('es-CO'),hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),operario,eq,'','','','operativo','Alta mecánica: '+trabajo,''];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'CierreJornada',fila:filaC,encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']})});
     toast('✅ '+eq+' dado de alta');
     cerrarHistorial();
     setTimeout(()=>recargar(),1500);
