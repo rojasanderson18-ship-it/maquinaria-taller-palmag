@@ -542,7 +542,7 @@ async function loadVarados(){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=parseFechaGS(row[0]);
       const fA=por[num]?parseFechaGS(por[num][0]):null;
@@ -567,7 +567,7 @@ async function loadVarados(){
     }
     if(tab)tab.textContent='🔴 Varados ('+lista.length+')';
     el.innerHTML=lista.map(function(row){
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       const esV=est==='varado';
       const color=esV?'var(--rojo-m,#dc2626)':'var(--dorado)';
       const numRaw=(String(row[3]||'').match(/\d+/)||['?'])[0];
@@ -577,7 +577,7 @@ async function loadVarados(){
         +'<div class="tr-num" style="background:'+color+'">#'+num+'</div>'
         +'<div style="flex:1"><div class="tr-nombre">'+(row[3]||'—')+'</div>'
         +'<div class="tr-meta">Op: '+(row[2]||'—')+' · '+(row[0]||'—')+' · '+(row[1]||'—')+'</div>'
-        +(row[6]?'<div class="tr-meta" style="color:'+color+';margin-top:4px">⚙️ '+row[6]+'</div>':'')
+        +(row[8]?'<div class="tr-meta" style="color:'+color+';margin-top:4px">⚙️ '+row[8]+'</div>':'')
         +'</div><span class="pill" style="background:'+(esV?'var(--rojo-p,#fee2e2)':'var(--dorado-p,#fef3c7)')+';color:'+color+';white-space:nowrap">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span></div>'
         +'<div style="padding:0 14px 14px">'
         +'<div style="background:#f8fafc;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">'
@@ -703,7 +703,7 @@ async function recargar(){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=parseFechaGS(row[0]);
       const fA=_porTractor[num]?parseFechaGS(_porTractor[num][0]):null;
@@ -810,7 +810,7 @@ function renderVaradosNovedades(cierres){
     const m=String(row[3]||'').match(/#.?0*(\d+)/);
     if(!m)return;
     const num=m[1].padStart(2,'0');
-    const est=String(row[5]||'').toLowerCase();
+    const est=String(row[7]||'').toLowerCase();
     if(est!=='varado'&&est!=='novedad')return;
     const fB=parseFechaGS(row[0]);
     const fA=por[num]?parseFechaGS(por[num][0]):null;
@@ -824,7 +824,7 @@ function renderVaradosNovedades(cierres){
   if(!lista.length){el.innerHTML='';return;}
   el.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--rojo-m,#dc2626);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 8px">🔴 Tractores varados ('+lista.length+')</div>'+
   lista.map(function(row){
-    const est=String(row[5]||'').toLowerCase();
+    const est=String(row[7]||'').toLowerCase();
     const esV=est==='varado';
     const color=esV?'var(--rojo-m,#dc2626)':'var(--dorado)';
     const bg=esV?'var(--rojo-p,#fee2e2)':'var(--dorado-p,#fef3c7)';
@@ -1178,7 +1178,7 @@ async function cambiarFechaFlota(){
       const m=String(row[3]||'').match(/0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=parseFechaGS(row[0]);
       const fA=_porTractorV[num]?parseFechaGS(_porTractorV[num][0]):null;
@@ -1383,8 +1383,8 @@ async function darAltaDesdeHistorial(num,eq,operarioEnc){
     const fila=[hoy.toLocaleDateString('es-CO'),'—',eq,operario,MECANICO,'—',horaAlta,'—',trabajo];
     const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos','Trabajo Realizado'];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'})});
-    const filaC=[hoy.toLocaleDateString('es-CO'),hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),operario,eq,'','operativo','Alta mecánica: '+trabajo,''];
-    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'CierreJornada',fila:filaC,encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']})});
+    const filaC=[hoy.toLocaleDateString('es-CO'),hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),operario,eq,'','','','operativo','Alta mecánica: '+trabajo,''];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'CierreJornada',fila:filaC,encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']})});
     toast('✅ '+eq+' dado de alta');
     cerrarHistorial();
     setTimeout(()=>recargar(),1500);
