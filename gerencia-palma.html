@@ -538,50 +538,6 @@ document.addEventListener('DOMContentLoaded', function(){
 
 <script>
 const GS_URL='https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
-// ── FECHA: PARSER ROBUSTO ──
-function parseGSDate(v){
-  if(!v)return null;
-  if(typeof v==='number')return new Date(Math.round((v-25569)*86400*1000));
-  if(typeof v==='object'&&v.getTime)return v;
-  const s=String(v).trim();
-  if(s.includes('T')||s.match(/^\d{4}-\d{2}-\d{2}/))return new Date(s);
-  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(m){const a=parseInt(m[1]);
-    if(a>12)return new Date(m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'));
-    return new Date(m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0'));}
-  return null;
-}
-
-// ── EXTRACTOR DE NÚMERO DE TRACTOR ──
-function extraerNum(s){
-  const m=String(s||'').match(/#.?0*(\d+)/);
-  return m?parseInt(m[1]).toString():null;
-}
-
-// ── VARADOS: FUNCIÓN CENTRAL ──
-function calcularVarados(cierres,altasTodas){
-  const por={};
-  (cierres||[]).forEach(row=>{
-    const num=extraerNum(row[3]);
-    if(!num)return;
-    const est=String(row[7]||'').toLowerCase();
-    if(est!=='varado'&&est!=='novedad')return;
-    const fB=parseGSDate(row[0]);
-    if(!fB||isNaN(fB))return;
-    const fA=por[num]?parseGSDate(por[num][0]):null;
-    if(!fA||fB>=fA)por[num]=row;
-  });
-  Object.keys(por).forEach(num=>{
-    const altasNum=(altasTodas||[]).filter(a=>extraerNum(a[2])===num);
-    if(!altasNum.length)return;
-    const fCierre=parseGSDate(por[num][0]);
-    const fAlta=parseGSDate(altasNum[altasNum.length-1][0]);
-    if(fAlta&&fCierre&&!isNaN(fAlta)&&!isNaN(fCierre)&&fAlta>=fCierre)delete por[num];
-  });
-  return por;
-}
-
-
 const HOY=new Date().toLocaleDateString('es-CO');
 let chartDisp=null,chartComb=null,chartTanq=null;
 
@@ -644,8 +600,18 @@ async function cargarDatos(){
     const galones=th.filter(r=>r[5]==='Sí').reduce((s,r)=>s+(parseFloat(r[6])||0),0);
 
     // Varados del último cierre por tractor
-    const varadosMapCD=calcularVarados(cierres,altasTodas);
-    const varadosN=Object.keys(varadosMapCD).length;
+    const porTractor={};
+    (cierres||[]).forEach(function(row){
+      const m=String(row[3]||'').match(/#.?0*(\d+)/);
+      if(!m)return;
+      const num=m[1].padStart(2,'0');
+      const est=String(row[5]||'').toLowerCase();
+      if(est!=='varado'&&est!=='novedad')return;
+      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const fA=porTractor[num]?new Date(String(porTractor[num][0]||'').split('/').reverse().join('-')):null;
+      if(!fA||fB>=fA)porTractor[num]=row;
+    });
+    const varadosN=Object.values(porTractor).filter(r=>String(r[5]||'').toLowerCase()==='varado').length;
 
     // Hero
     document.getElementById('dh-pct').innerHTML=total>0?disp+'<span class="hm-unit">%</span>':'—';
@@ -677,7 +643,7 @@ async function cargarDatos(){
       if(varadosN>0){
         av.style.display='flex';
         document.getElementById('alert-var-title').textContent=varadosN+' tractor'+(varadosN>1?'es':'')+' varado'+(varadosN>1?'s':'')+' por cierre de jornada';
-        document.getElementById('alert-var-sub').textContent=Object.values(porTractor).filter(r=>String(r[7]||'').toLowerCase()==='varado').map(r=>r[3]).join(' · ');
+        document.getElementById('alert-var-sub').textContent=Object.values(porTractor).filter(r=>String(r[5]||'').toLowerCase()==='varado').map(r=>r[3]).join(' · ');
       } else av.style.display='none';
     }
 
@@ -732,14 +698,14 @@ function renderTanqueoHoy(th, ph){
     const e=String(row[3]||'');
     TRACTORES.forEach(t=>{
       if(e.includes('#'+t.num)||e.includes(t.num+' ')||e.includes(t.num+'-')){
-        varadosMapCD[t.num]=(varadosMapCD[t.num]||0)+(parseFloat(row[6])||0);
+        porTractor[t.num]=(porTractor[t.num]||0)+(parseFloat(row[6])||0);
       }
     });
   });
 
   // Show all tractors that have preop today, or tanqueo
   const activos=TRACTORES.filter(t=>
-    varadosMapCD[t.num]||ph.find(r=>(r[3]||'').includes('#'+t.num)||(r[3]||'').startsWith(t.num))
+    porTractor[t.num]||ph.find(r=>(r[3]||'').includes('#'+t.num)||(r[3]||'').startsWith(t.num))
   );
 
   if(!activos.length){
@@ -748,7 +714,7 @@ function renderTanqueoHoy(th, ph){
   }
 
   const labels=activos.map(t=>'#'+t.num+' '+t.n);
-  const data=activos.map(t=>varadosMapCD[t.num]||0);
+  const data=activos.map(t=>porTractor[t.num]||0);
   const limites=activos.map(t=>_getLim(t.num));
   const colors=data.map((v,i)=>v>limites[i]?'rgba(220,38,38,.8)':v>=limites[i]*.8?'rgba(217,119,6,.8)':'rgba(82,183,136,.8)');
 
@@ -825,10 +791,10 @@ function renderTablaEjecutiva(ph, rh, ah, th, prh, cierres){
     const m=String(row[3]||'').match(/#.?0*(\d+)/);
     if(!m)return;
     const num=m[1].padStart(2,'0');
-    const est=String(row[7]||'').toLowerCase();
+    const est=String(row[5]||'').toLowerCase();
     if(est!=='varado'&&est!=='novedad')return;
-    const fB=parseGSDate(row[0]);
-    const fA=varadosMap[num]?parseGSDate(varadosMap[num][0]):null;
+    const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
+    const fA=varadosMap[num]?new Date(String(varadosMap[num][0]||'').split('/').reverse().join('-')):null;
     if(!fA||fB>=fA)varadosMap[num]=row;
   });
 
@@ -1019,13 +985,32 @@ async function renderVaradosGer(){
   if(!el)return;
   try{
     const [cierres, altas] = await Promise.all([fetchHTodo('CierreJornada'), fetchHTodo('Altas')]);
-    const varadosMap=calcularVarados(cierres,altas);
-    const lista=Object.values(varadosMap);
+    const por={};
+    (cierres||[]).forEach(function(row){
+      const m=String(row[3]||'').match(/#.?0*(\d+)/);
+      if(!m)return;
+      const num=m[1].padStart(2,'0');
+      const est=String(row[5]||'').toLowerCase();
+      if(est!=='varado'&&est!=='novedad')return;
+      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
+      if(!fA||fB>=fA)por[num]=row;
+    });
+    // Remove tractors that have been given alta after the varado
+    const lista=Object.values(por).filter(row=>{
+      const m=String(row[3]||'').match(/#.?0*(\d+)/);
+      if(!m)return true;
+      const num=m[1].padStart(2,'0');
+      const fC=new Date(String(row[0]||'').split('/').reverse().join('-'));
+      const ultimaAlta=altas.filter(a=>(a[2]||'').includes('#'+num)).slice(-1)[0];
+      const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+      return !fA||fC>fA;
+    });
     if(badge)badge.textContent=lista.length?lista.length+' equipo'+(lista.length>1?'s':''):'Sin varados';
     // Update KPIs
     const hoyV=new Date();hoyV.setHours(0,0,0,0);
     const diasList=lista.map(row=>{
-      const fV=parseGSDate(row[0]);
+      const fV=new Date(String(row[0]||'').split('/').reverse().join('-'));
       return Math.max(0,Math.round((hoyV-fV)/(1000*60*60*24)));
     });
     const maxD=diasList.length?Math.max(...diasList):0;
@@ -1035,8 +1020,8 @@ async function renderVaradosGer(){
     const vd=document.getElementById('var-disponible');if(vd)vd.textContent=dispPct+'%';
     // Sort by days desc
     lista.sort((a,b)=>{
-      const fa=parseGSDate(a[0]);
-      const fb=parseGSDate(b[0]);
+      const fa=new Date(String(a[0]||'').split('/').reverse().join('-'));
+      const fb=new Date(String(b[0]||'').split('/').reverse().join('-'));
       return fa-fb;
     });
     if(!lista.length){
@@ -1045,7 +1030,7 @@ async function renderVaradosGer(){
     }
     const hoy=new Date(); hoy.setHours(0,0,0,0);
     el.innerHTML=lista.map(row=>{
-      const fV=parseGSDate(row[0]);
+      const fV=new Date(String(row[0]||'').split('/').reverse().join('-'));
       const diasV=Math.max(0,Math.round((hoy-fV)/(1000*60*60*24)));
       const urgColor=diasV>=3?'#dc2626':diasV>=1?'#d97706':'#ca8a04';
       const num=(String(row[3]||'').match(/\d+/)||['?'])[0];
@@ -1059,7 +1044,7 @@ async function renderVaradosGer(){
             </span>
           </div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px">👤 ${row[2]||'—'} · 📅 ${row[0]||'—'}</div>
-          ${row[8]?'<div style="font-size:12px;color:#b91c1c;margin-top:4px;font-weight:600">⚙️ '+row[8]+'</div>':''}
+          ${row[6]?'<div style="font-size:12px;color:#b91c1c;margin-top:4px;font-weight:600">⚙️ '+row[6]+'</div>':''}
         </div>
       </div>`;
     }).join('');
