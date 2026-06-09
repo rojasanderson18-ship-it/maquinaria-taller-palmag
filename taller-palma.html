@@ -397,6 +397,30 @@ document.addEventListener('DOMContentLoaded', function(){
 // ═══════════════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════════════
+
+// ── PARSER ROBUSTO DE FECHAS ──
+function parseFechaGS(v){
+  if(!v)return null;
+  if(typeof v==='number')return new Date(Math.round((v-25569)*86400*1000));
+  if(typeof v==='object'&&v.getTime)return v;
+  const s=String(v).trim();
+  if(s.includes('T')||s.match(/^\d{4}-\d{2}-\d{2}/))return new Date(s);
+  const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m){const a=parseInt(m[1]);
+    if(a>12)return new Date(m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'));
+    return new Date(m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0'));}
+  return null;
+}
+// Normaliza fecha a string localeDateString es-CO
+function normFechaGS(v){
+  const d=parseFechaGS(v);
+  return(d&&!isNaN(d))?d.toLocaleDateString('es-CO'):String(v||'').trim();
+}
+// Extrae número de tractor normalizado de cualquier string
+function extraerNumT(s){
+  const m=String(s||'').match(/#.?0*(\d+)/);
+  return m?parseInt(m[1]).toString():null;
+}
 const GS_URL  = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
 let MECANICO  = localStorage.getItem('palma_mecanico')||'Mecánico';
 let WA_NUM    = localStorage.getItem('palma_wa')||'';
@@ -461,9 +485,9 @@ function init(){
 }
 
 async function darAltaVarado(equipo,operario,fecha,safeId){
-  const trabajo=document.getElementById('alta-var-'+safeId)?.value?.trim()||'';
+  const trabajo=document.getElementById('txa-'+safeId)?.value?.trim()||'';
   if(!trabajo){toast('⚠️ Describe el trabajo realizado','error');return;}
-  const horaAlta=document.getElementById('hora-var-'+safeId)?.value||new Date().toTimeString().slice(0,5);
+  const horaAlta=document.getElementById('hra-'+safeId)?.value||new Date().toTimeString().slice(0,5);
   const hoy=new Date();
 
   try{
@@ -480,14 +504,14 @@ async function darAltaVarado(equipo,operario,fecha,safeId){
       hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
       operario||'—',
       equipo,
-      '',
+      '','','',
       'operativo',
       'Alta mecánica: '+trabajo,
       ''
     ];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',fila:filaC,
-      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
     })});
 
     toast('✅ '+equipo+' dado de alta — ya está disponible');
@@ -501,20 +525,32 @@ async function loadVarados(){
   const el=document.getElementById('lista-varados');
   if(!el)return;
   try{
-    const r=await fetch(GS_URL+'?hoja=CierreJornada&t='+Date.now());
-    const d=await r.json();
-    if(!d.ok||!d.datos||!d.datos.length){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin tractores varados</div></div>';return;}
+    const [resCierres,resAltas]=await Promise.all([
+      fetch(GS_URL+'?hoja=CierreJornada&t='+Date.now()).then(r=>r.json()),
+      fetch(GS_URL+'?hoja=Altas&t='+Date.now()).then(r=>r.json())
+    ]);
+    const cierresLV=(resCierres.ok&&resCierres.datos)||[];
+    const altasLV=(resAltas.ok&&resAltas.datos)||[];
     const por={};
-    d.datos.forEach(function(row){
-      const m=String(row[3]||'').match(/#.?0*(\d+)/);
-      if(!m)return;
-      const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+    cierresLV.forEach(function(row){
+      const num=extraerNumT(row[3]);
+      if(!num)return;
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
-      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
-      const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
+      const fB=parseFechaGS(row[0]);
+      if(!fB||isNaN(fB))return;
+      const fA=por[num]?parseFechaGS(por[num][0]):null;
       if(!fA||fB>=fA)por[num]=row;
     });
+    // Cruzar con Altas: si hay Alta igual o posterior -> ya resuelto
+    Object.keys(por).forEach(function(num){
+      const altasNum=altasLV.filter(function(a){return extraerNumT(a[2])===num;});
+      if(!altasNum.length)return;
+      const fCierre=parseFechaGS(por[num][0]);
+      const fAlta=parseFechaGS(altasNum[altasNum.length-1][0]);
+      if(fAlta&&fCierre&&!isNaN(fAlta)&&!isNaN(fCierre)&&fAlta>=fCierre)delete por[num];
+    });
+    if(!Object.keys(por).length){el.innerHTML='<div class="empty"><div class="empty-icon">✅</div><div class="empty-title">Sin tractores varados</div></div>';return;}
     const lista=Object.values(por);
     const tab=document.getElementById('tab-varados');
     if(!lista.length){
@@ -523,17 +559,17 @@ async function loadVarados(){
     }
     if(tab)tab.textContent='🔴 Varados ('+lista.length+')';
     el.innerHTML=lista.map(function(row){
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       const esV=est==='varado';
       const color=esV?'var(--rojo-m,#dc2626)':'var(--dorado)';
-      const num=(String(row[3]||'').match(/\d+/)||['?'])[0];
-      const safeId='var_'+num;
+      const numRaw=(String(row[3]||'').match(/\d+/)||['?'])[0];
+      const safeId='v'+numRaw;
       return '<div style="background:#fff;border-radius:12px;margin-bottom:10px;border-left:4px solid '+color+';box-shadow:0 1px 4px rgba(0,0,0,.08)">'
         +'<div style="padding:12px 14px;display:flex;align-items:flex-start;gap:10px">'
         +'<div class="tr-num" style="background:'+color+'">#'+num+'</div>'
         +'<div style="flex:1"><div class="tr-nombre">'+(row[3]||'—')+'</div>'
         +'<div class="tr-meta">Op: '+(row[2]||'—')+' · '+(row[0]||'—')+' · '+(row[1]||'—')+'</div>'
-        +(row[6]?'<div class="tr-meta" style="color:'+color+';margin-top:4px">⚙️ '+row[6]+'</div>':'')
+        +(row[8]?'<div class="tr-meta" style="color:'+color+';margin-top:4px">⚙️ '+row[8]+'</div>':'')
         +'</div><span class="pill" style="background:'+(esV?'var(--rojo-p,#fee2e2)':'var(--dorado-p,#fef3c7)')+';color:'+color+';white-space:nowrap">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span></div>'
         +'<div style="padding:0 14px 14px">'
         +'<div style="background:#f8fafc;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px">'
@@ -649,8 +685,8 @@ async function recargar(){
     [PREOPS, REVISIONES, ALTAS, _CIERRES] = await Promise.all([
       fetchHoja('Preoperativos'),
       fetchHoja('Revisiones'),
-      fetchHoja('Altas'),
-      fetchHoja('CierreJornada'),
+      fetchHojaTodo('Altas'),
+      fetchHojaTodo('CierreJornada'),
     ]);
     // Build VARADOS_FLOTA: tractors with varado/novedad not yet resolved by Alta
     VARADOS_FLOTA={};
@@ -659,19 +695,24 @@ async function recargar(){
       const m=String(row[3]||'').match(/#.?0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
-      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
-      const fA=_porTractor[num]?new Date(String(_porTractor[num][0]||'').split('/').reverse().join('-')):null;
+      const fB=parseFechaGS(row[0]);
+      const fA=_porTractor[num]?parseFechaGS(_porTractor[num][0]):null;
       if(!fA||fB>=fA)_porTractor[num]=row;
     });
     Object.keys(_porTractor).forEach(function(num){
-      const ultimaAlta=ALTAS.filter(r=>(r[2]||'').includes('#'+num)).slice(-1)[0];
-      const fC=new Date(String(_porTractor[num][0]||'').split('/').reverse().join('-'));
-      const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
-      if(!fA||fC>fA) VARADOS_FLOTA[num]=_porTractor[num];
+      const altasNum=ALTAS.filter(r=>extraerNumT(r[2])===num);
+      const ultimaAlta=altasNum[altasNum.length-1];
+      const fC=parseFechaGS(_porTractor[num][0]);
+      const fA=ultimaAlta?parseFechaGS(ultimaAlta[0]):null;
+      if(!fA||!fC||isNaN(fA)||isNaN(fC)||fC>fA) VARADOS_FLOTA[num]=_porTractor[num];
     });
-    renderVaradosNovedades(_CIERRES);
+    // Filtrar ALTAS a solo hoy para el resto del módulo (novedades, KPIs)
+    ALTAS=ALTAS.filter(r=>{ const rawDate=r[0]||''; let f=rawDate; if(rawDate.includes('T')||rawDate.includes('-')){const d2=new Date(rawDate);f=d2.toLocaleDateString('es-CO');} return f===HOY; });
+    // También filtrar _CIERRES a solo hoy para renderVaradosNovedades
+    const _CIERRES_HOY=_CIERRES.filter(r=>{ const rawDate=r[0]||''; let f=rawDate; if(rawDate.includes('T')||rawDate.includes('-')){const d2=new Date(rawDate);f=d2.toLocaleDateString('es-CO');} return f===HOY; });
+    renderVaradosNovedades(_CIERRES_HOY);
     // Deduplicar preops: un preop por equipo por día (último registro)
     const vistoP={};
     PREOPS=[...PREOPS].reverse().filter(r=>{ const k=(r[3]||'').trim(); if(vistoP[k])return false; vistoP[k]=true; return true; }).reverse();
@@ -766,10 +807,10 @@ function renderVaradosNovedades(cierres){
     const m=String(row[3]||'').match(/#.?0*(\d+)/);
     if(!m)return;
     const num=m[1].padStart(2,'0');
-    const est=String(row[5]||'').toLowerCase();
+    const est=String(row[7]||'').toLowerCase();
     if(est!=='varado'&&est!=='novedad')return;
-    const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
-    const fA=por[num]?new Date(String(por[num][0]||'').split('/').reverse().join('-')):null;
+    const fB=parseFechaGS(row[0]);
+    const fA=por[num]?parseFechaGS(por[num][0]):null;
     if(!fA||fB>=fA)por[num]=row;
   });
   const lista=Object.values(por);
@@ -780,7 +821,7 @@ function renderVaradosNovedades(cierres){
   if(!lista.length){el.innerHTML='';return;}
   el.innerHTML='<div style="font-size:11px;font-weight:700;color:var(--rojo-m,#dc2626);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 8px">🔴 Tractores varados ('+lista.length+')</div>'+
   lista.map(function(row){
-    const est=String(row[5]||'').toLowerCase();
+    const est=String(row[7]||'').toLowerCase();
     const esV=est==='varado';
     const color=esV?'var(--rojo-m,#dc2626)':'var(--dorado)';
     const bg=esV?'var(--rojo-p,#fee2e2)':'var(--dorado-p,#fef3c7)';
@@ -791,7 +832,7 @@ function renderVaradosNovedades(cierres){
       '<div>'+
       '<div class="nov-equipo">'+(row[3]||'—')+'</div>'+
       '<div class="nov-meta">👤 '+(row[2]||'—')+' · 📅 '+formatFechaV(row[0]||'')+' · '+(row[1]||'—')+'</div>'+
-      (row[6]?'<div style="font-size:12px;color:'+color+';margin-top:4px;font-weight:600">⚙️ '+(row[6])+'</div>':'')+
+      (row[8]?'<div style="font-size:12px;color:'+color+';margin-top:4px;font-weight:600">⚙️ '+(row[8])+'</div>':'')+
       '</div>'+
       '<span class="pill" style="background:'+bg+';color:'+color+'">'+(esV?'🔴 Varado':'⚠️ Novedad')+'</span>'+
       '</div>'+
@@ -822,11 +863,11 @@ async function darAltaVaradoNov(equipo,operario,fecha,safeId){
     const filaC=[
       hoy.toLocaleDateString('es-CO'),
       hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
-      operario||'—',equipo,'','operativo','Alta mecánica: '+trabajo,''
+      operario||'—',equipo,'','','','operativo','Alta mecánica: '+trabajo,''
     ];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',fila:filaC,
-      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
     })});
     toast('✅ '+equipo+' dado de alta — ya disponible');
     setTimeout(()=>recargar(),1500);
@@ -955,9 +996,15 @@ function renderAltaHecha(alta){
 }
 
 function renderDecision(equipo, safeId, r, rev){
-  const decActual = rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='CON OBSERVACIÓN'?'obs':rev?.[4]==='RETENIDO'?'nosale':'';
+  const decActual = rev?.[4]==='AUTORIZADO'?'sale':rev?.[4]==='CON OBSERVACIÓN'?'obs':rev?.[4]==='RETENIDO'?'nosale':decTemp[equipo]||'';
   const noSale = decActual==='nosale';
+  const yaConfirmado = !!(rev && rev[4]);
+  const bannerColor = decActual==='sale'?'var(--verde-pp)':decActual==='obs'?'#fffbeb':decActual==='nosale'?'var(--rojo-p)':'';
+  const bannerBorder = decActual==='sale'?'var(--verde-s)':decActual==='obs'?'#f59e0b':decActual==='nosale'?'var(--rojo-m)':'';
+  const bannerText = decActual==='sale'?'✅ Autorizado hoy — toca para cambiar':decActual==='obs'?'⚠️ Con observación — toca para cambiar':'🚫 Retenido — toca para cambiar';
+  const bannerColor2 = decActual==='sale'?'var(--verde-m)':decActual==='obs'?'#92400e':decActual==='nosale'?'var(--rojo)':'';
   return `
+    ${yaConfirmado?`<div style="background:${bannerColor};border:1.5px solid ${bannerBorder};border-radius:10px;padding:9px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between"><span style="font-size:12px;font-weight:700;color:${bannerColor2}">${bannerText}</span><span style="font-size:10px;color:var(--gris)">${rev[6]||''}</span></div>`:''}
     <div style="font-size:11px;color:var(--gris);margin-bottom:7px;font-weight:700;text-transform:uppercase;letter-spacing:.04em">📋 Decisión del mecánico</div>
     <div class="dec-row" style="grid-template-columns:1fr 1fr 1fr">
       <button class="dec-btn dec-sale ${decActual==='sale'?'sel':''}" onclick="decidir('${equipo}','sale')">✅ SALE</button>
@@ -969,8 +1016,8 @@ function renderDecision(equipo, safeId, r, rev){
       ${OBS_TAGS.map(t=>`<span class="badge-tag ${t.r?'rojo':''}" onclick="toggleTag(this,'notes-${safeId}','obs-${safeId}')">${t.l}</span>`).join('')}
     </div>
     <textarea class="mec-notes" id="notes-${safeId}" placeholder="Detalle adicional (opcional)...">${rev?.[7]||''}</textarea>
-    <button class="conf-btn ${rev?'done':''}" onclick="confirmar('${equipo}','${r[3]||''}','${r[0]||''}','${r[1]||''}')">
-      ${rev?'✅ Confirmado — toca para actualizar':'Confirmar decisión'}
+    <button class="conf-btn ${yaConfirmado?'done':''}" onclick="confirmar('${equipo}','${r[3]||''}','${r[0]||''}','${r[1]||''}')">
+      ${yaConfirmado?'↺ Actualizar decisión':'Confirmar decisión'}
     </button>
     ${noSale?`
     <div class="alta-section show" id="alta-sec-${safeId}">
@@ -987,6 +1034,7 @@ function renderDecision(equipo, safeId, r, rev){
       </button>
     </div>`:''}`;
 }
+
 
 // ═══════════════════════════════════════════════
 //  ACCIONES — todo se guarda en Sheets
@@ -1054,21 +1102,23 @@ async function darAlta(equipo,operario,fecha,hora){
       hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'
     })});
 
-    // 2. Guardar en CierreJornada con estado "operativo" via GET para liberar el tractor
+    // 2. Guardar en CierreJornada con POST para liberar el tractor
     const hoy=new Date();
-    const params=new URLSearchParams({
-      action:'write',
+    const filaC=[
+      hoy.toLocaleDateString('es-CO'),
+      hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
+      operario||'—',
+      equipo,
+      '','','',
+      'operativo',
+      'Alta mecánica: '+trabajo,
+      ''
+    ];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
       hoja:'CierreJornada',
-      fecha:hoy.toLocaleDateString('es-CO'),
-      hora:hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),
-      operario:operario||'—',
-      equipo:equipo,
-      horometro:'',
-      estado:'operativo',
-      novedad:'Alta mecánica: '+trabajo,
-      labor:''
-    });
-    await fetch(GS_URL+'?'+params.toString());
+      fila:filaC,
+      encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']
+    })});
 
     toast(`✅ ${equipo} dado de alta — vuelve a estar disponible`);
     setTimeout(()=>recargar(),1500);
@@ -1127,18 +1177,19 @@ async function cambiarFechaFlota(){
       const m=String(row[3]||'').match(/0*(\d+)/);
       if(!m)return;
       const num=m[1].padStart(2,'0');
-      const est=String(row[5]||'').toLowerCase();
+      const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
-      const fB=new Date(String(row[0]||'').split('/').reverse().join('-'));
-      const fA=_porTractorV[num]?new Date(String(_porTractorV[num][0]||'').split('/').reverse().join('-')):null;
+      const fB=parseFechaGS(row[0]);
+      const fA=_porTractorV[num]?parseFechaGS(_porTractorV[num][0]):null;
       if(!fA||fB>=fA)_porTractorV[num]=row;
     });
     // Only keep varados that don't have a later Alta
     Object.keys(_porTractorV).forEach(function(num){
-      const ultimaAlta=FLOTA_ALTAS.filter(a=>(a[2]||'').includes('#'+num)).slice(-1)[0]||
-                       ALTAS.filter(a=>(a[2]||'').includes('#'+num)).slice(-1)[0];
-      const fC=new Date(String(_porTractorV[num][0]||'').split('/').reverse().join('-'));
-      const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+      const _aNum=FLOTA_ALTAS.filter(a=>extraerNumT(a[2])===num);
+      const _aNum2=ALTAS.filter(a=>extraerNumT(a[2])===num);
+      const ultimaAlta=(_aNum.length?_aNum:_aNum2).slice(-1)[0];
+      const fC=parseFechaGS(_porTractorV[num][0]);
+      const fA=ultimaAlta?parseFechaGS(ultimaAlta[0]):null;
       if(!fA||fC>fA) FLOTA_VARADOS[num]=_porTractorV[num];
     });
   }catch(e){FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];FLOTA_VARADOS={};}
@@ -1241,10 +1292,10 @@ async function cargarHistorialTractor(num, nombre, eq){
     const ultimaAlta=misAltas[misAltas.length-1];
     let varadoActivo=false;
     if(ultimoCierre){
-      const estC=String(ultimoCierre[5]||'').toLowerCase();
+      const estC=String(ultimoCierre[7]||'').toLowerCase();
       if(estC==='varado'||estC==='novedad'){
-        const fC=new Date(String(ultimoCierre[0]||'').split('/').reverse().join('-'));
-        const fA=ultimaAlta?new Date(String(ultimaAlta[0]||'').split('/').reverse().join('-')):null;
+        const fC=parseFechaGS(ultimoCierre[0]);
+        const fA=ultimaAlta?parseFechaGS(ultimaAlta[0]):null;
         if(!fA||fC>fA) varadoActivo=true;
       }
     }
@@ -1253,7 +1304,7 @@ async function cargarHistorialTractor(num, nombre, eq){
     if(varadoActivo){
       html+='<div style="background:var(--rojo-p);border-radius:12px;padding:14px;margin-bottom:16px;border:1.5px solid var(--rojo-m,#dc2626)">'+
         '<div style="font-size:12px;font-weight:700;color:var(--rojo-m,#dc2626);margin-bottom:10px">🔴 TRACTOR VARADO — '+
-        (ultimoCierre[6]||'Sin descripción')+'</div>'+
+        (ultimoCierre[8]||'Sin descripción')+'</div>'+
         '<div style="font-size:11px;color:var(--muted);margin-bottom:10px">Reportado por: '+(ultimoCierre[2]||'—')+' · '+(ultimoCierre[0]||'—')+'</div>'+
         '<div style="display:flex;flex-direction:column;gap:8px">'+
         '<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase">Trabajo realizado</div>'+
@@ -1271,7 +1322,7 @@ async function cargarHistorialTractor(num, nombre, eq){
       misPreops.forEach(r=>eventos.push({tipo:'preop',fecha:r[0],data:r}));
       misCierres.forEach(r=>eventos.push({tipo:'cierre',fecha:r[0],data:r}));
       misAltas.forEach(r=>eventos.push({tipo:'alta',fecha:r[0],data:r}));
-      eventos.sort((a,b)=>new Date(String(b.fecha||'').split('/').reverse().join('-'))-new Date(String(a.fecha||'').split('/').reverse().join('-')));
+      eventos.sort((a,b)=>parseFechaGS(b.fecha)-parseFechaGS(a.fecha));
       html+=eventos.map(function(ev){
         if(ev.tipo==='preop'){
           const r=ev.data;
@@ -1297,7 +1348,7 @@ async function cargarHistorialTractor(num, nombre, eq){
             '</div>';
         } else if(ev.tipo==='cierre'){
           const r=ev.data;
-          const est=String(r[5]||'').toLowerCase();
+          const est=String(r[7]||'').toLowerCase();
           const esV=est==='varado';
           const c=esV?'var(--rojo-m,#dc2626)':est==='novedad'?'var(--dorado)':'var(--verde-m)';
           return '<div style="background:#f8fafc;border-radius:11px;padding:12px;margin-bottom:8px;border-left:3px solid '+c+'">'+
@@ -1305,7 +1356,7 @@ async function cargarHistorialTractor(num, nombre, eq){
             '<div style="font-size:12px;font-weight:700;color:var(--muted)">🌇 CIERRE JORNADA · '+formatFechaV(r[0]||'')+'</div>'+
             '<span style="background:'+(esV?'var(--rojo-p)':est==='novedad'?'var(--dorado-p)':'var(--verde-p)')+';color:'+c+';font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">'+(esV?'🔴 Varado':est==='novedad'?'⚠️ Novedad':est==='operativo'?'✅ Operativo':r[5]||'—')+'</span>'+
             '</div>'+
-            '<div style="font-size:12px;color:var(--gris)">👤 '+(r[2]||'—')+(r[6]?'  ⚙️ '+(r[6]):'')+'</div>'+
+            '<div style="font-size:12px;color:var(--gris)">👤 '+(r[2]||'—')+(r[8]?'  ⚙️ '+(r[8]):'')+'</div>'+
             '</div>';
         } else {
           const r=ev.data;
@@ -1332,8 +1383,8 @@ async function darAltaDesdeHistorial(num,eq,operarioEnc){
     const fila=[hoy.toLocaleDateString('es-CO'),'—',eq,operario,MECANICO,'—',horaAlta,'—',trabajo];
     const enc=['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos','Trabajo Realizado'];
     await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'Altas',fila,encabezados:enc,colorCol:9,color:'#dbeafe'})});
-    const filaC=[hoy.toLocaleDateString('es-CO'),hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),operario,eq,'','operativo','Alta mecánica: '+trabajo,''];
-    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'CierreJornada',fila:filaC,encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Estado','Novedad','Labor Realizada']})});
+    const filaC=[hoy.toLocaleDateString('es-CO'),hoy.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}),operario,eq,'','','','operativo','Alta mecánica: '+trabajo,''];
+    await fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:'CierreJornada',fila:filaC,encabezados:['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada']})});
     toast('✅ '+eq+' dado de alta');
     cerrarHistorial();
     setTimeout(()=>recargar(),1500);
@@ -1518,7 +1569,16 @@ function enviarWhatsApp(){
 // ═══════════════════════════════════════════════
 function guardarMecanico(){MECANICO=document.getElementById('cfg-mecanico').value.trim()||'Mecánico';localStorage.setItem('palma_mecanico',MECANICO);document.getElementById('ef-nombre').textContent='Responsable: '+MECANICO;toast('✅ Guardado');}
 function guardarWA(){WA_NUM=document.getElementById('cfg-wa').value.trim();localStorage.setItem('palma_wa',WA_NUM);toast('✅ Guardado');}
-function limpiarCache(){localStorage.removeItem('palma_dec');localStorage.removeItem('palma_altas');recargar();toast('✅ Caché limpiado');}
+function limpiarCache(){
+  localStorage.removeItem('palma_dec');
+  localStorage.removeItem('palma_altas');
+  // Limpiar todas las claves de caché de hojas
+  Object.keys(localStorage).filter(k=>k.startsWith('palma_cache')).forEach(k=>localStorage.removeItem(k));
+  // Resetear decisiones temporales para que la UI quede limpia
+  decTemp={};
+  recargar();
+  toast('✅ Caché limpiado');
+}
 function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='show'+(type?' '+type:'');setTimeout(()=>t.className='',3000);}
 
 init();
