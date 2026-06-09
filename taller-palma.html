@@ -1174,23 +1174,21 @@ async function cambiarFechaFlota(){
     FLOTA_VARADOS={};
     const _porTractorV={};
     allCierres.forEach(function(row){
-      const m=String(row[3]||'').match(/0*(\d+)/);
-      if(!m)return;
-      const num=m[1].padStart(2,'0');
+      const num=extraerNumT(row[3]);
+      if(!num)return;
       const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=parseFechaGS(row[0]);
       const fA=_porTractorV[num]?parseFechaGS(_porTractorV[num][0]):null;
       if(!fA||fB>=fA)_porTractorV[num]=row;
     });
-    // Only keep varados that don't have a later Alta
+    // Only keep varados that don't have a later Alta (usar historial completo de altas)
     Object.keys(_porTractorV).forEach(function(num){
-      const _aNum=FLOTA_ALTAS.filter(a=>extraerNumT(a[2])===num);
-      const _aNum2=ALTAS.filter(a=>extraerNumT(a[2])===num);
-      const ultimaAlta=(_aNum.length?_aNum:_aNum2).slice(-1)[0];
+      const altasNum=allAltas.filter(a=>extraerNumT(a[2])===num);
+      const ultimaAlta=altasNum[altasNum.length-1];
       const fC=parseFechaGS(_porTractorV[num][0]);
       const fA=ultimaAlta?parseFechaGS(ultimaAlta[0]):null;
-      if(!fA||fC>fA) FLOTA_VARADOS[num]=_porTractorV[num];
+      if(!fA||!fC||isNaN(fA)||isNaN(fC)||fC>fA) FLOTA_VARADOS[num]=_porTractorV[num];
     });
   }catch(e){FLOTA_PREOPS=[];FLOTA_REVS=[];FLOTA_ALTAS=[];FLOTA_VARADOS={};}
   buildFlota(fechaES);
@@ -1242,7 +1240,7 @@ function buildFlota(fechaLabel){
       }
       return true;
     }):null;
-    const esVarado=Object.keys(FLOTA_VARADOS).length?FLOTA_VARADOS[t.num]:VARADOS_FLOTA[t.num];
+    const esVarado=VARADOS_FLOTA[t.num]||FLOTA_VARADOS[t.num];
     const dec=rev?.[4]||'';
     const color=esVarado?'var(--rojo-m,#dc2626)':dec==='AUTORIZADO'?'var(--verde-m)':dec==='CON OBSERVACIÓN'?'#ea580c':dec==='RETENIDO'?'var(--rojo)':preop?'var(--dorado)':'var(--gris,#64748b)';
     const pillTxt=esVarado?'🔴 Varado':alta?'🔵 Alta':dec==='AUTORIZADO'?'✅ Autorizado':dec==='CON OBSERVACIÓN'?'⚠️ Observación':dec==='RETENIDO'?'🚫 Retenido':preop?'⏳ Pendiente':'—';
