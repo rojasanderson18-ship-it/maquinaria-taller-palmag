@@ -416,10 +416,10 @@ function normFechaGS(v){
   const d=parseFechaGS(v);
   return(d&&!isNaN(d))?d.toLocaleDateString('es-CO'):String(v||'').trim();
 }
-// Extrae número de tractor normalizado de cualquier string
+// Extrae número de tractor normalizado de cualquier string (siempre 2 dígitos: '01','07','11')
 function extraerNumT(s){
-  const m=String(s||'').match(/#.?0*(\d+)/);
-  return m?parseInt(m[1]).toString():null;
+  const m=String(s||'').match(/#\s*0*(\d+)/);
+  return m?String(parseInt(m[1])).padStart(2,'0'):null;
 }
 const GS_URL  = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
 let MECANICO  = localStorage.getItem('palma_mecanico')||'Mecánico';
@@ -1174,9 +1174,8 @@ async function cambiarFechaFlota(){
     FLOTA_VARADOS={};
     const _porTractorV={};
     allCierres.forEach(function(row){
-      const numRaw=extraerNumT(row[3]);
-      if(!numRaw)return;
-      const num=String(parseInt(numRaw)).padStart(2,'0');
+      const num=extraerNumT(row[3]);
+      if(!num)return;
       const est=String(row[7]||'').toLowerCase();
       if(est!=='varado'&&est!=='novedad')return;
       const fB=parseFechaGS(row[0]);
@@ -1185,7 +1184,7 @@ async function cambiarFechaFlota(){
     });
     // Only keep varados that don't have a later Alta (usar historial completo de altas)
     Object.keys(_porTractorV).forEach(function(num){
-      const altasNum=allAltas.filter(a=>String(parseInt(extraerNumT(a[2])||0)).padStart(2,'0')===num);
+      const altasNum=allAltas.filter(a=>extraerNumT(a[2])===num);
       const ultimaAlta=altasNum[altasNum.length-1];
       const fC=parseFechaGS(_porTractorV[num][0]);
       const fA=ultimaAlta?parseFechaGS(ultimaAlta[0]):null;
