@@ -1,0 +1,1787 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"/>
+<title>Ciclos de Cosecha – Palma Grande S.A.S.</title>
+<!-- v3.1 - continuidad/nuevo ciclo -->
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --bg:#f4f6f9;--surface:#ffffff;--surface2:#f0f2f5;--border:#dde1e9;
+  --gold:#b8860b;--gold2:#d4a017;--text:#1a1f2e;--muted:#6b7280;
+  --verde:#16a34a;--verde-cell:rgba(22,163,74,.25);
+  --azul:#2563eb;--azul-cell:rgba(37,99,235,.22);
+  --rojo:#dc2626;--rojo-cell:rgba(220,38,38,.22);
+  --negro-cell:#1e3a5f;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;}
+
+.header{background:var(--surface);border-bottom:2px solid var(--border);padding:14px 20px;display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:200;}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--gold),var(--gold2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;}
+.brand-name{font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:2px;color:var(--gold2);}
+.brand-sub{font-size:9px;color:var(--muted);letter-spacing:1px;}
+.header-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:3px;color:var(--gold);flex:1;text-align:center;}
+.header-fecha{font-family:'DM Mono',monospace;font-size:13px;color:var(--gold);}
+.header-semana{font-size:11px;color:var(--muted);}
+
+.legend{display:flex;align-items:center;gap:14px;padding:8px 20px;background:var(--surface2);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);}
+.leg-box{width:14px;height:14px;border-radius:3px;border:1px solid rgba(255,255,255,.1);}
+.lb-negro{background:#1e3a5f;border-color:#2d5a8e;}
+.lb-verde{background:rgba(22,163,74,.2);border-color:rgba(22,163,74,.5);}
+.lb-azul{background:rgba(37,99,235,.2);border-color:rgba(37,99,235,.5);}
+.lb-rojo{background:rgba(220,38,38,.2);border-color:rgba(220,38,38,.5);}
+
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);}
+.stat-c{background:var(--surface);padding:10px 16px;text-align:center;}
+.stat-n{font-family:'Bebas Neue',sans-serif;font-size:26px;}
+.stat-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;}
+.sn-gold{color:#b8860b;}.sn-verde{color:#16a34a;}.sn-azul{color:#2563eb;}.sn-rojo{color:#dc2626;}
+
+.toolbar{padding:12px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--surface);}
+.btn-filter{background:var(--surface2);color:var(--muted);border:1px solid var(--border);padding:7px 13px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .2s;}
+.btn-filter:hover,.btn-filter.active{border-color:var(--gold);color:var(--gold);background:rgba(201,168,76,.08);}
+.sep{width:1px;height:24px;background:var(--border);}
+.weeks-ctrl{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+.weeks-ctrl button{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:14px;}
+.weeks-ctrl button:hover{border-color:var(--gold);color:var(--gold2);}
+.weeks-val{font-family:'DM Mono',monospace;color:var(--gold);font-size:13px;min-width:20px;text-align:center;}
+
+.hint{font-size:11px;color:var(--muted);font-style:italic;}
+
+.table-wrap{
+  overflow:auto;
+  padding:0;
+  height:calc(100vh - 240px);
+  min-height:300px;
+}
+.ciclos-table thead th{
+  position:sticky;
+  z-index:15;
+  background:var(--surface2);
+}
+
+
+.ciclos-table{border-collapse:collapse;font-size:11px;}
+.ciclos-table th,.ciclos-table td{border:1px solid var(--border);white-space:nowrap;}
+
+
+.col-finca{width:36px;min-width:36px;position:sticky;left:0;z-index:25;background:var(--surface);}
+.col-lote{width:44px;min-width:44px;position:sticky;left:36px;z-index:25;background:var(--surface);}
+.col-ha{width:30px;min-width:30px;position:sticky;left:80px;z-index:25;background:var(--surface);}
+.col-freq{width:72px;min-width:72px;position:sticky;left:110px;z-index:25;background:var(--surface);}
+.col-estado{width:90px;min-width:90px;position:sticky;left:182px;z-index:25;background:var(--surface);}
+/* Corner cells: sticky both top and left */
+.ciclos-table thead th.col-finca,
+.ciclos-table thead th.col-lote,
+.ciclos-table thead th.col-ha,
+.ciclos-table thead th.col-freq,
+.ciclos-table thead th.col-estado{z-index:35;background:var(--surface2);}
+
+.th-semana{background:var(--surface2);color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:1px;text-align:center;padding:4px 4px;}
+.th-fecha{background:var(--surface2);color:var(--muted);font-family:'DM Mono',monospace;font-size:9px;text-align:center;padding:2px 1px;}
+.th-diaSem{background:var(--surface2);color:var(--muted);font-size:9px;text-align:center;padding:1px;}
+.th-hoy-col{color:var(--gold2) !important;}
+.th-left{background:var(--surface2);color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.7px;font-weight:500;padding:6px 8px;text-align:center;}
+
+.td-finca{color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:9px;letter-spacing:1px;text-align:center;padding:2px 1px;}
+.td-lote{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;padding:2px 4px;color:var(--text);}
+.td-ha{text-align:center;color:var(--muted);padding:2px 2px;font-size:10px;}
+.td-freq{color:var(--muted);padding:2px 4px;font-size:9px;}
+.td-estado{text-align:center;padding:2px 4px;}
+.badge{display:inline-block;padding:1px 5px;border-radius:10px;font-size:8px;font-weight:600;letter-spacing:.3px;}
+.b-en{background:rgba(22,163,74,.12);color:#15803d;border:1px solid rgba(22,163,74,.35);}
+.b-tol{background:rgba(37,99,235,.12);color:#1d4ed8;border:1px solid rgba(37,99,235,.35);}
+.b-inc{background:rgba(220,38,38,.10);color:#b91c1c;border:1px solid rgba(220,38,38,.3);}
+.b-sin{background:rgba(107,114,128,.08);color:var(--muted);border:1px solid rgba(107,114,128,.2);}
+.b-cos{background:rgba(30,58,95,.12);color:#1e3a5f;border:1px solid rgba(30,58,95,.3);}
+
+/* CELDAS DE DÍAS */
+.td-dia{text-align:center;padding:0;min-width:22px;width:22px;max-width:22px;position:relative;}
+.td-dia.hoy-borde{border-left:3px solid var(--gold) !important;border-right:3px solid var(--gold) !important;background:rgba(184,134,11,.04);}
+.td-dia.futuro-vacio .dia-inner{color:rgba(0,0,0,.08);background:rgba(240,248,255,.5);}
+.td-dia.futuro-vacio{background:rgba(240,248,255,.3);}
+.td-dia.editable{cursor:pointer;}
+.td-dia.editable:hover .dia-inner{filter:brightness(1.4);outline:1px solid rgba(255,255,255,.2);}
+.dia-inner{display:flex;align-items:center;justify-content:center;width:100%;height:24px;font-family:'DM Mono',monospace;font-size:10px;font-weight:500;transition:filter .1s;}
+.di-vacio{color:rgba(0,0,0,.15);}
+.di-cosechando{background:#1e3a5f;color:#ffffff;font-weight:700;border:1px solid #2d5a8e;}
+.di-verde{background:var(--verde-cell);color:#14532d;font-weight:700;}
+.di-azul{background:var(--azul-cell);color:#1e3a8a;font-weight:700;}
+.di-rojo{background:var(--rojo-cell);color:#7f1d1d;font-weight:700;}
+
+.finca-row td{background:linear-gradient(90deg,rgba(184,134,11,.08),transparent) !important;padding:5px 10px;color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:2px;border-top:2px solid rgba(184,134,11,.25);}
+
+/* POPUP MENU */
+.cell-popup{position:fixed;z-index:500;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,.15);overflow:hidden;min-width:160px;animation:popIn .15s ease;}
+@keyframes popIn{from{transform:scale(.9);opacity:0;}to{transform:scale(1);opacity:1;}}
+.popup-header{padding:8px 12px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;}
+.popup-header strong{color:var(--gold);display:block;font-size:12px;font-family:'DM Mono',monospace;}
+.popup-opt{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-size:12px;color:var(--text);transition:background .15s;}
+.popup-opt:hover{background:var(--surface2);}
+.popup-opt .pop-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+.pd-negro{background:#1e3a5f;border:1px solid #2d5a8e;}
+.pd-libre{background:transparent;border:1px solid var(--border);}
+.pd-limpiar{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);}
+.popup-opt.pop-limpiar{color:var(--rojo);font-size:11px;}
+
+.toast{position:fixed;bottom:20px;right:20px;background:#fff;border:1px solid var(--verde);color:#15803d;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:500;z-index:600;transform:translateY(60px);opacity:0;transition:all .3s;box-shadow:0 4px 16px rgba(0,0,0,.12);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.err{border-color:#dc2626;color:#b91c1c;}
+
+/* ===================== INDICADORES ===================== */
+.ind-section{padding:14px 20px 18px;background:var(--surface);border-bottom:1px solid var(--border);}
+.ind-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;margin-bottom:0;}
+.ind-toggle-label{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:2px;color:var(--gold);}
+.ind-toggle-icon{font-size:12px;color:var(--muted);transition:transform .2s;}
+.ind-toggle-icon.open{transform:rotate(180deg);}
+.ind-body{display:none;margin-top:14px;}
+.ind-body.open{display:block;}
+
+/* KPI CARDS ROW */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px;}
+.kpi-card{background:#f8f9fa;border:1px solid var(--border);border-radius:10px;padding:11px 14px;position:relative;overflow:hidden;}
+.kpi-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:10px 0 0 10px;}
+.kpi-verde::before{background:#16a34a;}
+.kpi-rojo::before{background:#dc2626;}
+.kpi-azul::before{background:#2563eb;}
+.kpi-negro::before{background:#1e3a5f;}
+.kpi-gold::before{background:#b8860b;}
+.kpi-muted::before{background:#9ca3af;}
+.kpi-val{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;letter-spacing:1px;}
+.kv-verde{color:#15803d;}.kv-rojo{color:#b91c1c;}.kv-azul{color:#1d4ed8;}.kv-negro{color:#1e3a5f;}.kv-gold{color:#b8860b;}.kv-muted{color:#6b7280;}
+.kpi-label{font-size:11px;color:#6b7280;margin-top:3px;line-height:1.3;}
+.kpi-sub{font-size:10px;margin-top:2px;font-weight:500;}
+.ks-verde{color:#15803d;}.ks-rojo{color:#b91c1c;}.ks-azul{color:#1d4ed8;}.ks-muted{color:#9ca3af;}
+
+/* RANGOS ROW */
+.rangos-row{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+.rango-card{background:#f8f9fa;border:1px solid var(--border);border-radius:10px;padding:10px 12px;text-align:center;}
+.rango-label{font-size:10px;color:#6b7280;margin-bottom:6px;line-height:1.3;}
+.rango-val{font-family:'Bebas Neue',sans-serif;font-size:22px;line-height:1;}
+.rango-pct{font-size:10px;color:#6b7280;margin-top:2px;}
+.rango-bar{height:4px;border-radius:2px;margin-top:7px;}
+.rb1{background:#16a34a;}.rb2{background:#84cc16;}.rb3{background:#eab308;}.rb4{background:#f97316;}.rb5{background:#dc2626;}
+.rv1{color:#15803d;}.rv2{color:#4d7c0f;}.rv3{color:#854d0e;}.rv4{color:#9a3412;}.rv5{color:#b91c1c;}
+.ind-divider{font-size:10px;text-transform:uppercase;letter-spacing:.8px;color:#9ca3af;font-weight:500;margin:0 0 8px;}
+
+/* ===== TABS ===== */
+.tabs-bar{display:flex;background:#fff;border-bottom:2px solid #e5e7eb;padding:0 20px;position:sticky;top:0;z-index:190;}
+.tab-btn{padding:11px 18px;font-size:13px;font-weight:500;color:#9ca3af;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s;white-space:nowrap;font-family:'DM Sans',sans-serif;background:none;border-top:none;border-left:none;border-right:none;}
+.tab-btn.active{color:#b8860b;border-bottom-color:#b8860b;font-weight:600;}
+.tab-panel{display:none;}.tab-panel.active{display:block;min-height:200px;}
+
+/* ===== ALERTAS BANNER ===== */
+.alertas-banner{background:#fff;border-bottom:1px solid #e5e7eb;padding:8px 16px;display:flex;gap:8px;overflow-x:auto;align-items:center;}
+.alertas-banner::-webkit-scrollbar{height:3px;}.alertas-banner::-webkit-scrollbar-thumb{background:#e5e7eb;border-radius:2px;}
+.ab-label{font-size:10px;color:#9ca3af;text-transform:uppercase;letter-spacing:.7px;white-space:nowrap;flex-shrink:0;}
+.alerta-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:500;white-space:nowrap;flex-shrink:0;}
+.ap-rojo{background:rgba(220,38,38,.1);border:1px solid rgba(220,38,38,.2);color:#b91c1c;}
+.ap-naranja{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);color:#c2410c;}
+.ap-verde{background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.2);color:#15803d;}
+
+/* ===== DASHBOARD ===== */
+.dash-wrap{padding:16px 20px;min-height:400px;}
+.dash-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.dash-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;overflow:hidden;}
+.dash-card canvas{max-height:160px !important;}
+.dash-title{font-size:12px;font-weight:600;color:#1a1f2e;margin-bottom:12px;}
+
+.crit-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:11px;}
+.crit-item:last-child{border-bottom:none;}
+.crit-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.cd-rojo{background:#dc2626;}.cd-naranja{background:#f97316;}
+.crit-lote{font-weight:600;min-width:50px;color:#1a1f2e;}
+.crit-info{color:#6b7280;flex:1;}
+.crit-dias{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;}
+.dias-r{background:rgba(220,38,38,.1);color:#b91c1c;}
+.dias-n{background:rgba(249,115,22,.1);color:#c2410c;}
+
+.prox-item{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f3f4f6;font-size:11px;}
+.prox-item:last-child{border-bottom:none;}
+.prox-lote{font-weight:600;min-width:50px;color:#1a1f2e;}
+.prox-info{color:#6b7280;flex:1;}
+.prox-tag{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:500;}
+.pt-hoy{background:rgba(220,38,38,.1);color:#b91c1c;}
+.pt-man{background:rgba(249,115,22,.1);color:#c2410c;}
+.pt-2d{background:rgba(234,179,8,.1);color:#854d0e;}
+.pt-ok{background:rgba(22,163,74,.1);color:#15803d;}
+
+.wa-panel{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;}
+.wa-preview{background:#e8f5e9;border-radius:8px;padding:12px;font-size:11px;color:#1b5e20;line-height:1.8;font-family:'DM Mono',monospace;margin-bottom:10px;white-space:pre-wrap;}
+.wa-send-btn{display:inline-flex;align-items:center;gap:6px;background:#25d366;color:#fff;border:none;padding:9px 20px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;}
+
+/* MODAL WA */
+.modal-wa-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);z-index:500;display:none;align-items:center;justify-content:center;}
+.modal-wa-ov.open{display:flex;}
+.modal-wa-box{background:#fff;border-radius:14px;width:400px;max-width:95vw;overflow:hidden;animation:suwa .2s ease;}
+@keyframes suwa{from{transform:translateY(12px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+.mwa-hdr{padding:16px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;}
+.mwa-hdr h3{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1.5px;color:#b8860b;}
+.mwa-close{background:none;border:none;color:#9ca3af;font-size:18px;cursor:pointer;}
+.mwa-body{padding:16px 20px;}
+.mwa-ftr{padding:12px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end;}
+.mwa-preview{background:#e8f5e9;border-radius:8px;padding:12px;font-size:11px;color:#1b5e20;line-height:1.8;font-family:'DM Mono',monospace;white-space:pre-wrap;max-height:260px;overflow-y:auto;}
+.btn-wa-send{background:#25d366;color:#fff;border:none;padding:9px 18px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;}
+.btn-wa-cancel{background:#f3f4f6;color:#6b7280;border:none;padding:9px 16px;border-radius:8px;font-size:12px;cursor:pointer;}
+.btn-home{display:flex;align-items:center;gap:5px;background:#f8f9fa;border:1px solid #e5e7eb;color:#6b7280;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:500;cursor:pointer;text-decoration:none;flex-shrink:0;}
+.btn-home:hover{border-color:#b8860b;color:#b8860b;}
+
+/* ===== CALCULADORA ===== */
+.calc-card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-bottom:14px;}
+.calc-title{font-size:12px;font-weight:600;color:#1a1f2e;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.calc-input-row{display:flex;flex-direction:column;gap:4px;}
+.calc-label{font-size:11px;color:#6b7280;font-weight:500;}
+.calc-input{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:8px;padding:8px 12px;font-size:14px;font-weight:600;color:#1a1f2e;font-family:'DM Sans',sans-serif;outline:none;width:100%;transition:border .2s;}
+.calc-input:focus{border-color:#b8860b;}
+.calc-result{background:#f0f2f5;border-radius:10px;padding:12px 14px;}
+.calc-result-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px;}
+.calc-res-card{background:#fff;border-radius:8px;padding:10px 12px;text-align:center;border:1px solid #e5e7eb;}
+.calc-res-val{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;}
+.calc-res-lbl{font-size:10px;color:#6b7280;margin-top:2px;}
+.crv-gold{color:#b8860b;}.crv-verde{color:#15803d;}.crv-azul{color:#1d4ed8;}.crv-rojo{color:#b91c1c;}
+.calc-finca-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.calc-finca-card{border-radius:8px;padding:10px;border-left:4px solid;}
+.cfc-f1{background:#f0fdf4;border-color:#16a34a;}
+.cfc-f2{background:#eff6ff;border-color:#2563eb;}
+.cfc-f3{background:#faf5ff;border-color:#7c3aed;}
+.calc-finca-name{font-size:10px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;}
+.calc-finca-stat{display:flex;justify-content:space-between;font-size:11px;margin-top:3px;}
+.calc-finca-lbl{color:#6b7280;}
+.calc-finca-val{font-weight:700;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+    <div class="logo-icon">🌴</div>
+    <div>
+      <div class="brand-name">Palma Grande</div>
+      <div class="brand-sub">S.A.S.</div>
+    </div>
+  </div>
+  <a class="btn-home" href="index.html">← Inicio</a><div class="header-title">CICLOS DE COSECHA</div>
+  <button class="btn-filter" style="background:#25d366;color:#fff;border-color:#25d366;font-size:11px;padding:6px 12px;flex-shrink:0;" onclick="abrirModalWA()">📲 Compartir</button>
+  <div style="display:flex;flex-direction:column;align-items:flex-end;">
+    <div class="header-fecha" id="hdr-fecha">—</div>
+    <div class="header-semana" id="hdr-sem">Semana —</div>
+  </div>
+</div>
+
+<div class="legend">
+  <span style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;">Referencias:</span>
+  <div class="leg-item"><div class="leg-box lb-negro"></div>Cosechando (entrada al lote)</div>
+  <div class="leg-item"><div class="leg-box lb-verde"></div>En ciclo (cumplimiento)</div>
+  <div class="leg-item"><div class="leg-box lb-azul"></div>Tolerancia</div>
+  <div class="leg-item"><div class="leg-box lb-rojo"></div>Incumplimiento</div>
+</div>
+
+<!-- TABS -->
+<div class="tabs-bar">
+  <button class="tab-btn active" id="tab-btn-tablero" onclick="setTab('tablero')">📋 Tablero</button>
+  <button class="tab-btn" id="tab-btn-dashboard" onclick="setTab('dashboard')">📊 Dashboard</button>
+</div>
+
+<!-- PANEL TABLERO -->
+<div class="tab-panel active" id="tab-tablero">
+
+<!-- ALERTAS BANNER -->
+<div class="alertas-banner" id="alertas-banner">
+  <span class="ab-label">Alertas:</span>
+  <span id="alertas-pills" style="display:flex;gap:8px;flex-wrap:nowrap;">
+    <span style="font-size:11px;color:#9ca3af;font-style:italic;">Sin datos aún</span>
+  </span>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-c"><div class="stat-n sn-gold" id="st-total">0</div><div class="stat-l">Total Lotes</div></div>
+  <div class="stat-c"><div class="stat-n sn-verde" id="st-verde">0</div><div class="stat-l">En Ciclo</div></div>
+  <div class="stat-c"><div class="stat-n sn-azul" id="st-azul">0</div><div class="stat-l">Tolerancia</div></div>
+  <div class="stat-c"><div class="stat-n sn-rojo" id="st-rojo">0</div><div class="stat-l">Incumplimiento</div></div>
+</div>
+
+
+<!-- INDICADORES -->
+<div class="ind-section">
+  <div class="ind-toggle" onclick="toggleIndicadores()">
+    <span class="ind-toggle-label">📊 Indicadores de Ciclo</span>
+    <span class="ind-toggle-icon" id="ind-icon">▼</span>
+  </div>
+  <div class="ind-body" id="ind-body">
+
+    <!-- FILA 1: KPI CARDS -->
+    <p class="ind-divider">Estado general</p>
+    <div class="kpi-row" id="kpi-row">
+      <div class="kpi-card kpi-gold"><div class="kpi-val kv-gold" id="k-total">—</div><div class="kpi-label">Total lotes</div></div>
+      <div class="kpi-card kpi-negro"><div class="kpi-val kv-negro" id="k-cos">—</div><div class="kpi-label">Cosechando hoy</div><div class="kpi-sub ks-muted" id="k-cos-pct">—</div></div>
+      <div class="kpi-card kpi-verde"><div class="kpi-val kv-verde" id="k-ciclo">—</div><div class="kpi-label">En ciclo</div><div class="kpi-sub ks-verde" id="k-ciclo-pct">—</div></div>
+      <div class="kpi-card kpi-azul"><div class="kpi-val kv-azul" id="k-tol">—</div><div class="kpi-label">Tolerancia</div><div class="kpi-sub ks-azul" id="k-tol-pct">—</div></div>
+      <div class="kpi-card kpi-rojo"><div class="kpi-val kv-rojo" id="k-inc">—</div><div class="kpi-label">Incumplimiento</div><div class="kpi-sub ks-rojo" id="k-inc-pct">—</div></div>
+      <div class="kpi-card kpi-rojo"><div class="kpi-val kv-rojo" id="k-ha-fuera">—</div><div class="kpi-label">HA fuera de ciclo</div><div class="kpi-sub ks-rojo" id="k-ha-fuera-pct">—</div></div>
+      <div class="kpi-card kpi-verde"><div class="kpi-val kv-verde" id="k-ha-ciclo">—</div><div class="kpi-label">HA en ciclo</div><div class="kpi-sub ks-verde" id="k-ha-ciclo-pct">—</div></div>
+      <div class="kpi-card kpi-gold"><div class="kpi-val kv-gold" id="k-ha-total">—</div><div class="kpi-label">Total HA</div></div>
+    </div>
+
+    <!-- FILA 2: RANGOS DE DÍAS -->
+    <p class="ind-divider" style="margin-top:14px;">HA por rango de días del ciclo</p>
+    <div class="rangos-row" id="rangos-row">
+      <div class="rango-card"><div class="rango-label">Menores 13 días</div><div class="rango-val rv1" id="r1-val">—</div><div class="rango-pct" id="r1-pct">—</div><div class="rango-bar rb1" id="r1-bar" style="width:0%"></div></div>
+      <div class="rango-card"><div class="rango-label">13 – 15 días</div><div class="rango-val rv2" id="r2-val">—</div><div class="rango-pct" id="r2-pct">—</div><div class="rango-bar rb2" id="r2-bar" style="width:0%"></div></div>
+      <div class="rango-card"><div class="rango-label">16 – 20 días</div><div class="rango-val rv3" id="r3-val">—</div><div class="rango-pct" id="r3-pct">—</div><div class="rango-bar rb3" id="r3-bar" style="width:0%"></div></div>
+      <div class="rango-card"><div class="rango-label">21 – 30 días</div><div class="rango-val rv4" id="r4-val">—</div><div class="rango-pct" id="r4-pct">—</div><div class="rango-bar rb4" id="r4-bar" style="width:0%"></div></div>
+      <div class="rango-card"><div class="rango-label">Mayor 30 días</div><div class="rango-val rv5" id="r5-val">—</div><div class="rango-pct" id="r5-pct">—</div><div class="rango-bar rb5" id="r5-bar" style="width:0%"></div></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toolbar">
+  <button class="btn-filter" id="btn-toggle-panel" onclick="togglePanel()" style="display:flex;align-items:center;gap:5px;">⬆ Ocultar panel</button>
+
+  <button class="btn-filter active" id="bf-todas" onclick="setFinca('todas')">Todas</button>
+  <button class="btn-filter" id="bf-f1" onclick="setFinca('FINCA 1')">Finca 1</button>
+  <button class="btn-filter" id="bf-f2" onclick="setFinca('FINCA 2')">Finca 2</button>
+  <button class="btn-filter" id="bf-f3" onclick="setFinca('FINCA 3')">Finca 3</button>
+  <div class="sep"></div>
+  <div class="weeks-ctrl">
+    <span>Semanas:</span>
+    <button onclick="cambiarSemanas(-1)">−</button>
+    <span class="weeks-val" id="weeks-val">4</span>
+    <button onclick="cambiarSemanas(1)">+</button>
+  </div>
+  <div class="sep"></div>
+  <div class="weeks-ctrl">
+    <span>Proyección:</span>
+    <button onclick="cambiarProyeccion(-1)">−</button>
+    <span class="weeks-val" id="proj-val">0</span>
+    <button onclick="cambiarProyeccion(1)">+</button>
+  </div>
+  <div class="sep"></div>
+  <button class="btn-filter" id="btn-editar" onclick="toggleEdicion()" style="font-weight:600;">🔒 Editar</button>
+  <div class="sep"></div>
+  <button class="btn-filter" onclick="exportarPDF()" style="color:#b91c1c;border-color:#fca5a5;">📄 Exportar PDF</button>
+</div>
+
+<div class="table-wrap" id="table-wrap"></div>
+<div id="cell-popup" class="cell-popup" style="display:none;"></div>
+
+</div><!-- /tab-tablero -->
+
+<!-- PANEL DASHBOARD -->
+<div class="tab-panel" id="tab-dashboard">
+  <div class="dash-wrap">
+
+    <!-- GRÁFICAS -->
+    <div class="dash-grid2">
+      <div class="dash-card">
+        <div class="dash-title">📈 Cumplimiento semanal</div>
+        <canvas id="chart-trend" style="max-height:160px;"></canvas>
+      </div>
+      <div class="dash-card">
+        <div class="dash-title">🏭 Estado por finca</div>
+        <canvas id="chart-finca" style="max-height:160px;"></canvas>
+      </div>
+    </div>
+
+    <!-- CRÍTICOS + PRÓXIMAS -->
+    <div class="dash-grid2">
+      <div class="dash-card">
+        <div class="dash-title">⚠️ Lotes críticos</div>
+        <div id="dash-criticos"><p style="font-size:11px;color:#9ca3af;font-style:italic;">Sin datos aún</p></div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-title">🗓️ Próximas entradas</div>
+        <div id="dash-proximas"><p style="font-size:11px;color:#9ca3af;font-style:italic;">Sin datos aún</p></div>
+      </div>
+    </div>
+
+    <!-- CALCULADORA PERSONAL -->
+    <div class="calc-card">
+      <div class="calc-title">👷 Calculadora de Personal Cosecha</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+        <div class="calc-input-row">
+          <label class="calc-label">Días para recuperar atraso</label>
+          <input type="number" class="calc-input" id="calc-dias-rec" value="" placeholder="ej: 7" min="1" oninput="guardarCalc();calcularPersonal()"/>
+        </div>
+        <div class="calc-input-row">
+          <label class="calc-label">% Contingencia (lluvia, ausencias)</label>
+          <input type="number" class="calc-input" id="calc-contingencia" value="" placeholder="ej: 15" min="0" max="100" oninput="guardarCalc();calcularPersonal()"/>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;">
+        <div class="calc-input-row">
+          <label class="calc-label" style="color:#15803d;">Finca 1 — HA/dia/persona</label>
+          <input type="number" class="calc-input" id="calc-rend-f1" value="" placeholder="ej: 2.3" step="0.1" min="0.1" oninput="guardarCalc();calcularPersonal()" style="border-color:#16a34a;"/>
+        </div>
+        <div class="calc-input-row">
+          <label class="calc-label" style="color:#1d4ed8;">Finca 2 — HA/dia/persona</label>
+          <input type="number" class="calc-input" id="calc-rend-f2" value="" placeholder="ej: 2.3" step="0.1" min="0.1" oninput="guardarCalc();calcularPersonal()" style="border-color:#2563eb;"/>
+        </div>
+        <div class="calc-input-row">
+          <label class="calc-label" style="color:#7c3aed;">Finca 3 — HA/dia/persona</label>
+          <input type="number" class="calc-input" id="calc-rend-f3" value="" placeholder="ej: 2.3" step="0.1" min="0.1" oninput="guardarCalc();calcularPersonal()" style="border-color:#7c3aed;"/>
+        </div>
+      </div>
+      <div class="calc-result" id="calc-result-wrap" style="display:none;">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
+          <div class="calc-res-card" style="border:2px solid #dc2626;">
+            <div class="calc-res-val crv-rojo" id="cr-total"></div>
+            <div class="calc-res-lbl">TOTAL personas</div>
+          </div>
+          <div class="calc-res-card"><div class="calc-res-val crv-verde" id="cr-f1"></div><div class="calc-res-lbl">Finca 1</div></div>
+          <div class="calc-res-card"><div class="calc-res-val crv-azul" id="cr-f2"></div><div class="calc-res-lbl">Finca 2</div></div>
+          <div class="calc-res-card"><div class="calc-res-val" style="color:#7c3aed;" id="cr-f3"></div><div class="calc-res-lbl">Finca 3</div></div>
+        </div>
+        <div class="calc-finca-grid">
+          <div class="calc-finca-card cfc-f1">
+            <div class="calc-finca-name">FINCA 1</div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Mantener ciclo</span><span class="calc-finca-val" style="color:#15803d;" id="cf1-mant"></span></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Desatrasar</span><span class="calc-finca-val" style="color:#b91c1c;" id="cf1-des"></span></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Subtotal</span><span class="calc-finca-val" id="cf1-sub"></span></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Contingencia</span><span class="calc-finca-val" style="color:#c2410c;" id="cf1-cont"></span></div>
+            <div style="height:1px;background:#e5e7eb;margin:5px 0;"></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl" style="font-weight:700;">Total</span><span class="calc-finca-val" style="font-weight:800;" id="cf1-per"></span></div>
+          </div>
+          <div class="calc-finca-card cfc-f2">
+            <div class="calc-finca-name">FINCA 2</div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Mantener ciclo</span><span class="calc-finca-val" style="color:#15803d;" id="cf2-mant"></span></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Desatrasar</span><span class="calc-finca-val" style="color:#b91c1c;" id="cf2-des"></span></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Subtotal</span><span class="calc-finca-val" id="cf2-sub"></span></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Contingencia</span><span class="calc-finca-val" style="color:#c2410c;" id="cf2-cont"></span></div>
+            <div style="height:1px;background:#e5e7eb;margin:5px 0;"></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl" style="font-weight:700;">Total</span><span class="calc-finca-val" style="font-weight:800;" id="cf2-per"></span></div>
+          </div>
+          <div class="calc-finca-card cfc-f3">
+            <div class="calc-finca-name">FINCA 3</div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Mantener ciclo</span><span class="calc-finca-val" style="color:#15803d;" id="cf3-mant"></span></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Desatrasar</span><span class="calc-finca-val" style="color:#b91c1c;" id="cf3-des"></span></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Subtotal</span><span class="calc-finca-val" id="cf3-sub"></span></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl">Contingencia</span><span class="calc-finca-val" style="color:#c2410c;" id="cf3-cont"></span></div>
+            <div style="height:1px;background:#e5e7eb;margin:5px 0;"></div>
+            <div class="calc-finca-stat"><span class="calc-finca-lbl" style="font-weight:700;">Total</span><span class="calc-finca-val" style="font-weight:800;" id="cf3-per"></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+        <!-- WHATSAPP -->
+    <div class="wa-panel">
+      <div class="dash-title">📱 Resumen del día</div>
+      <div class="wa-preview" id="wa-preview-dash">Generando resumen...</div>
+      <button class="wa-send-btn" onclick="abrirModalWA()">📲 Enviar por WhatsApp</button>
+    </div>
+
+  </div>
+</div><!-- /tab-dashboard -->
+
+<!-- MODAL WHATSAPP -->
+<div class="modal-wa-ov" id="modal-wa">
+  <div class="modal-wa-box">
+    <div class="mwa-hdr">
+      <h3>COMPARTIR POR WHATSAPP</h3>
+      <button class="mwa-close" onclick="cerrarModalWA()">✕</button>
+    </div>
+    <div class="mwa-body">
+      <div class="mwa-preview" id="mwa-preview">...</div>
+    </div>
+    <div class="mwa-ftr">
+      <button class="btn-wa-cancel" onclick="cerrarModalWA()">Cancelar</button>
+      <button class="btn-wa-send" onclick="enviarWA()">📲 Abrir WhatsApp</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const LOTES = [
+  {finca:'FINCA 1',lote:'1A',ha:25,tipo:'hibrido'},
+  {finca:'FINCA 1',lote:'2A',ha:16,tipo:'hibrido'},
+  {finca:'FINCA 1',lote:'3A',ha:16,tipo:'hibrido'},
+  {finca:'FINCA 1',lote:'4A',ha:29,tipo:'hibrido'},
+  {finca:'FINCA 1',lote:'5',ha:23,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'6',ha:30,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'7',ha:32,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'8',ha:13,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'9',ha:15,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'10',ha:14,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'11',ha:10,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'11A',ha:3,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'12',ha:12,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'13',ha:14,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'14',ha:17,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'15',ha:12,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'16',ha:20,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'17',ha:23,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'18',ha:10,tipo:'guineensis'},
+  {finca:'FINCA 1',lote:'18A',ha:4,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'19',ha:24,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'20',ha:19,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'21',ha:16,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'22',ha:19,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'23',ha:15,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'24',ha:22,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'25',ha:11,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'26',ha:11,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'27',ha:17,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'28',ha:13,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'29',ha:22,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'30',ha:23,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'31',ha:20,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'32A',ha:22,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'33A',ha:21,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'34A',ha:12,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'35A',ha:18,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'36',ha:24,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'37',ha:9,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'38',ha:10,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'39',ha:14,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'40',ha:15,tipo:'guineensis'},
+  {finca:'FINCA 2',lote:'41',ha:18,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'42',ha:29,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'43A',ha:7,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'43B',ha:6,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'44A',ha:22,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'45A',ha:11,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'45B',ha:10,tipo:'hibrido'},
+  {finca:'FINCA 3',lote:'46',ha:23,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'47',ha:24,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'48',ha:17,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'49',ha:23,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'50',ha:30,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'51',ha:18,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'52',ha:14,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'53',ha:18,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'54',ha:15,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'55',ha:15,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'56',ha:21,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'57',ha:11,tipo:'guineensis'},
+  {finca:'FINCA 3',lote:'58',ha:9,tipo:'guineensis'},
+];
+
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxzrPbQx5Sx4Q4G7e9CCEGqovZc-b3qTosmNhr51bQYbKqSe3-JqnhND0-mE9xb3cry/exec';
+const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const DIAS_SEM = ['D','L','M','M','J','V','S'];
+
+// registros[key][fechaISO] = 'cosechando' | null (null = borrado)
+// Solo guardamos los días marcados como cosechando; el resto es calculado
+let marcas = {};
+let modoEdicion = false;
+const PIN_EDICION = '2105'; // { "FINCA1_1A": { "2026-06-01": true, "2026-06-02": true } }
+let semanas = 4;
+let filtroFinca = 'todas';
+
+// =============================================
+// FECHA COLOMBIA UTC-5
+// =============================================
+function hoyLocal(){
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset()*60000;
+  return new Date(utc - 5*3600000);
+}
+function isoDate(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function parseISO(s){
+  const p=s.split('-');
+  return new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));
+}
+function diasEntre(a,b){
+  const A=new Date(a);A.setHours(0,0,0,0);
+  const B=new Date(b);B.setHours(0,0,0,0);
+  return Math.round((B-A)/86400000);
+}
+function semanaNum(d){
+  // Semana ISO 8601: empieza el lunes, semana 1 = la que contiene el primer jueves del año
+  const fecha = new Date(d);
+  fecha.setHours(0,0,0,0);
+  // Ir al jueves de la semana actual (lunes=0... domingo=6 en ISO)
+  fecha.setDate(fecha.getDate() + 4 - (fecha.getDay()||7));
+  const inicioAnio = new Date(fecha.getFullYear(),0,1);
+  return Math.ceil(((fecha-inicioAnio)/86400000+1)/7);
+}
+
+// =============================================
+// LÓGICA DE CELDA
+// =============================================
+// Para una fecha dada y un lote:
+// 1. Si ese día está marcado como cosechando → negro
+// 2. Si no, buscar el bloque de cosecha más reciente ANTES de esa fecha
+//    El bloque = días consecutivos marcados. El ciclo empieza desde el primer día del bloque.
+//    diasCiclo = diasDesde(primerDiaBloque, fecha) + 1
+//    Pero si diasCiclo > maxCiclo + margen → rojo, etc.
+// 3. Si no hay ningún bloque previo → vacío
+
+function getCicloMax(tipo){
+  return tipo==='hibrido' ? 22 : 12;
+}
+
+function getCicloOptimo(tipo){
+  // Día hasta el cual se considera dentro del ciclo normal (antes de tolerancia)
+  return tipo==='hibrido' ? 20 : 10;
+}
+
+function getCicloStart(key, tipo, hastaFecha){
+  // El ciclo reinicia cuando hay una marca 'nuevo' o cuando no hay marcas previas.
+  // Cualquier marca 'continuidad' sigue contando desde el inicio del ciclo actual.
+  const m = marcas[key] || {};
+  const hastaISO = isoDate(hastaFecha);
+
+  const todasMarks = Object.keys(m)
+    .filter(iso => iso <= hastaISO)
+    .sort()
+    .reverse(); // más nueva primero
+
+  if(todasMarks.length === 0) return null;
+
+  // Buscar hacia atrás hasta encontrar una marca 'nuevo' o el inicio de las marcas
+  let cicloActualInicio = todasMarks[0];
+
+  for(let i = 0; i < todasMarks.length; i++){
+    cicloActualInicio = todasMarks[i];
+    if(m[todasMarks[i]] === 'nuevo') break; // este es el inicio del ciclo actual
+    // si es 'continuidad' seguimos buscando hacia atrás
+  }
+
+  return parseISO(cicloActualInicio);
+}
+
+function getCellState(key, tipo, fecha){
+  const m = marcas[key] || {};
+  const dISO = isoDate(fecha);
+
+  const cicloStart = getCicloStart(key, tipo, fecha);
+  if(!cicloStart) return {tipo:'vacio', num:null};
+
+  // diasCiclo: 1 = primer dia del ciclo
+  const diasCiclo = diasEntre(cicloStart, fecha) + 1;
+
+  if(m[dISO]) return {tipo:'cosechando', num:diasCiclo, marca:m[dISO]};
+
+  if(tipo==='hibrido'){
+    if(diasCiclo<=20) return {tipo:'verde', num:diasCiclo};
+    if(diasCiclo<=22) return {tipo:'azul', num:diasCiclo};
+    return {tipo:'rojo', num:diasCiclo};
+  } else {
+    if(diasCiclo<=10) return {tipo:'verde', num:diasCiclo};
+    if(diasCiclo<=12) return {tipo:'azul', num:diasCiclo};
+    return {tipo:'rojo', num:diasCiclo};
+  }
+}
+
+function estadoHoy(key, tipo, hoy){
+  const m = marcas[key]||{};
+  const hoyISO = isoDate(hoy);
+  if(m[hoyISO]) return 'cosechando';
+  const cs = getCellState(key, tipo, hoy);
+  return cs.tipo==='vacio'?'sin':cs.tipo;
+}
+
+// =============================================
+// RENDER
+// =============================================
+function render(){
+  const hoy = hoyLocal();
+  const hoyISO = isoDate(hoy);
+  const totalDias = semanas*7;
+  const FUTUROS = semanasProyeccion * 7;
+  const fechas = [];
+  // Días futuros primero (más lejano a la izquierda)
+  for(let i=FUTUROS;i>=1;i--){
+    const d=new Date(hoy);d.setDate(d.getDate()+i);fechas.push(d);
+  }
+  // Hoy y días pasados
+  for(let i=0;i<totalDias;i++){
+    const d=new Date(hoy);d.setDate(d.getDate()-i);fechas.push(d);
+  }
+
+  // Agrupar semanas
+  const semanasGrupos=[];
+  let semActual=null;
+  fechas.forEach(d=>{
+    const sn=semanaNum(d);
+    const k=d.getFullYear()+'-'+sn;
+    if(!semActual||semActual.key!==k){
+      semActual={key:k,sn,count:0,primerDia:d};
+      semanasGrupos.push(semActual);
+    }
+    semActual.count++;
+  });
+
+  const lotesFiltrados = LOTES.filter(l=>filtroFinca==='todas'||l.finca===filtroFinca);
+
+  let stV=0,stA=0,stR=0,stC=0;
+  lotesFiltrados.forEach(l=>{
+    const k=l.finca+'_'+l.lote;
+    const e=estadoHoy(k,l.tipo,hoy);
+    if(e==='verde')stV++;
+    else if(e==='azul')stA++;
+    else if(e==='rojo')stR++;
+    else if(e==='cosechando')stC++;
+  });
+  document.getElementById('st-total').textContent=lotesFiltrados.length;
+  document.getElementById('st-verde').textContent=stV;
+  document.getElementById('st-azul').textContent=stA;
+  document.getElementById('st-rojo').textContent=stR;
+
+  let html='<table class="ciclos-table"><thead><tr>';
+  html+='<th class="th-left col-finca" rowspan="3">FINCA</th>';
+  html+='<th class="th-left col-lote" rowspan="3">LOTE</th>';
+  html+='<th class="th-left col-ha" rowspan="3">HA</th>';
+  html+='<th class="th-left col-freq" rowspan="3">FRECUENCIA</th>';
+  html+='<th class="th-left col-estado" rowspan="3">ESTADO HOY</th>';
+  semanasGrupos.forEach(sg=>{
+    const pd=sg.primerDia;
+    html+=`<th class="th-semana" colspan="${sg.count}">Sem ${sg.sn}<br/><span style="font-family:sans-serif;font-size:9px;font-weight:400;color:var(--muted);">${pd.getDate()} ${MESES[pd.getMonth()]}</span></th>`;
+  });
+  html+='</tr><tr>';
+  fechas.forEach(d=>{
+    const isH=isoDate(d)===hoyISO;
+    const isF=esFestivo(d);
+    html+=`<th class="th-fecha${isH?' th-hoy-col':isF?' th-festivo':''}">${d.getDate()}</th>`;
+  });
+  html+='</tr><tr>';
+  fechas.forEach(d=>{
+    const isH=isoDate(d)===hoyISO;
+    const isF=esFestivo(d);
+    html+=`<th class="th-diaSem${isH?' th-hoy-col':isF?' th-festivo-dia':''}">${DIAS_SEM[d.getDay()]}${isF?'🎉':''}</th>`;
+  });
+  html+='</tr></thead><tbody>';
+
+  let fincaActual='';
+  lotesFiltrados.forEach(l=>{
+    if(l.finca!==fincaActual){
+      fincaActual=l.finca;
+      html+=`<tr class="finca-row"><td colspan="${5+totalDias+FUTUROS}">🌴 ${l.finca}</td></tr>`;
+    }
+    const key=l.finca+'_'+l.lote;
+    const freq=l.tipo==='hibrido'?'Entre 21 y 22 días':'Entre 11 y 12 días';
+    const eH=estadoHoy(key,l.tipo,hoy);
+    let bCls,bTxt;
+    if(eH==='cosechando'){bCls='b-cos';bTxt='COSECHANDO';}
+    else if(eH==='verde'){bCls='b-en';bTxt='EN CICLO';}
+    else if(eH==='azul'){bCls='b-tol';bTxt='TOLERANCIA';}
+    else if(eH==='rojo'){bCls='b-inc';bTxt='INCUMPLIMIENTO';}
+    else{bCls='b-sin';bTxt='SIN REGISTRO';}
+
+    html+='<tr>';
+    html+=`<td class="td-finca col-finca">${l.finca.replace('FINCA ','F')}</td>`;
+    html+=`<td class="td-lote col-lote">${l.lote}</td>`;
+    html+=`<td class="td-ha col-ha">${l.ha}</td>`;
+    html+=`<td class="td-freq col-freq">${freq}</td>`;
+    html+=`<td class="td-estado col-estado"><span class="badge ${bCls}">${bTxt}</span></td>`;
+
+    fechas.forEach(d=>{
+      const dISO=isoDate(d);
+      const isH=dISO===hoyISO;
+      const esFuturo = diasEntre(hoy,d) > 0;
+      const cs = getCellState(key,l.tipo,d);
+
+      let cellHtml,clsExtra='';
+      if(esFuturo && cs.tipo==='vacio'){
+        cellHtml=`<div class="dia-inner di-vacio" style="color:rgba(0,0,0,.1);background:rgba(240,248,255,.4);">·</div>`;
+        clsExtra=' editable futuro-vacio';
+      } else if(cs.tipo==='cosechando'){
+        const esNuevo = cs.marca==='nuevo';
+        cellHtml=`<div class="dia-inner di-cosechando${esNuevo?' es-nuevo':''}">${cs.num}</div>`;
+        clsExtra=' editable';
+      } else if(cs.tipo==='vacio'){
+        cellHtml=`<div class="dia-inner di-vacio">·</div>`;
+        clsExtra=' editable';
+      } else {
+        const clsD=cs.tipo==='verde'?'di-verde':cs.tipo==='azul'?'di-azul':'di-rojo';
+        cellHtml=`<div class="dia-inner ${clsD}">${cs.num}</div>`;
+        clsExtra=' editable';
+      }
+
+      const isFestivo=esFestivo(d);
+      html+=`<td class="td-dia${isH?' hoy-borde':''}${isFestivo?' festivo-col':''}${clsExtra}" data-key="${key}" data-fecha="${dISO}" data-lote="${l.lote}" onclick="onCellClick(event,this)">${cellHtml}</td>`;
+    });
+    html+='</tr>';
+  });
+
+  html+='</tbody></table>';
+  document.getElementById('table-wrap').innerHTML=html;
+  // Calcular top dinámico para cada fila del thead
+  requestAnimationFrame(()=>{
+    const thead = document.querySelector('.ciclos-table thead');
+    if(!thead) return;
+    const rows = thead.querySelectorAll('tr');
+    let acum = 0;
+    rows.forEach(row=>{
+      row.querySelectorAll('th').forEach(th=>{ th.style.top = acum+'px'; });
+      acum += row.offsetHeight;
+    });
+  });
+}
+
+// =============================================
+// POPUP DE CELDA
+// =============================================
+let popupOpen=false;
+function onCellClick(e,td){
+  e.stopPropagation();
+  if(!modoEdicion) return;
+  if(!td.classList.contains('editable')) return;
+  const key=td.dataset.key;
+  const fecha=td.dataset.fecha;
+  const lote=td.dataset.lote;
+  showPopup(e, key, fecha, lote);
+}
+
+function showPopup(e, key, fecha, lote){
+  cerrarPopup();
+  const popup=document.getElementById('cell-popup');
+  const fechaD=parseISO(fecha);
+  const fechaStr=fechaD.getDate()+' '+MESES[fechaD.getMonth()]+' '+fechaD.getFullYear();
+
+  const marcaActual = (marcas[key]||{})[fecha];
+  popup.innerHTML=`
+    <div class="popup-header">Lote <strong>${lote} · ${fecha.split('-').reverse().join('/')}</strong></div>
+    ${!marcaActual?`
+      <div class="popup-opt" onclick="marcarCosechando('${key}','${fecha}','continuidad')">
+        <div class="pop-dot pd-negro"></div>
+        <div><div style="font-weight:600;">Continuidad</div><div style="font-size:10px;color:#6b7280;">Sigue el ciclo actual</div></div>
+      </div>
+      <div class="popup-opt" onclick="marcarCosechando('${key}','${fecha}','nuevo')">
+        <div class="pop-dot" style="background:#15803d;"></div>
+        <div><div style="font-weight:600;">Nuevo ciclo</div><div style="font-size:10px;color:#6b7280;">Reinicia desde 1</div></div>
+      </div>`:''}
+    ${marcaActual?`<div class="popup-opt" onclick="quitarMarca('${key}','${fecha}')"><div class="pop-dot pd-libre"></div>Quitar marca</div>`:''}
+    <div class="popup-opt pop-limpiar" onclick="limpiarCelda('${key}','${fecha}')"><div class="pop-dot pd-limpiar"></div>Limpiar celda</div>
+  `;
+
+  popup.style.display='block';
+  const rect=e.target.getBoundingClientRect();
+  let top=rect.bottom+6;
+  let left=rect.left;
+  if(left+180>window.innerWidth) left=window.innerWidth-185;
+  if(top+120>window.innerHeight) top=rect.top-130;
+  popup.style.top=top+'px';
+  popup.style.left=left+'px';
+  popupOpen=true;
+}
+
+function cerrarPopup(){
+  document.getElementById('cell-popup').style.display='none';
+  popupOpen=false;
+}
+
+function marcarCosechando(key,fecha,tipo){
+  if(!marcas[key]) marcas[key]={};
+  marcas[key][fecha]=tipo||'continuidad';
+  guardarLocal();
+  enviarGAS({accion:'marcarCosechando',key,fecha,tipo});
+  cerrarPopup();render();
+  showToast(tipo==='nuevo'?'✓ Nuevo ciclo iniciado':'✓ Continuidad registrada');
+}
+
+function quitarMarca(key,fecha){
+  if(marcas[key]) delete marcas[key][fecha];
+  guardarLocal();
+  enviarGAS({accion:'quitarMarca',key,fecha});
+  cerrarPopup();render();
+  showToast('Marca eliminada');
+}
+
+function limpiarCelda(key,fecha){
+  if(marcas[key]) delete marcas[key][fecha];
+  guardarLocal();
+  cerrarPopup();render();
+}
+
+document.addEventListener('click',()=>{ if(popupOpen) cerrarPopup(); });
+
+// =============================================
+// GAS
+// =============================================
+// GAS_URL already declared above
+async function enviarGAS(payload){
+  if(GAS_URL==='TU_APPS_SCRIPT_URL_AQUI') return;
+  try{ await fetch(GAS_URL,{method:'POST',body:JSON.stringify(payload),headers:{'Content-Type':'application/json'}}); }catch(e){}
+}
+async function cargarGAS(){
+  if(GAS_URL==='TU_APPS_SCRIPT_URL_AQUI') return;
+  try{
+    const r=await fetch(GAS_URL+'?accion=obtenerCosecha', {
+      method:'GET',
+      redirect:'follow',
+      mode:'cors',
+      credentials:'omit',
+    });
+    const text=await r.text();
+    const data=JSON.parse(text);
+    if(data&&data.marcas){
+      // Solo actualizar si el Sheet tiene MÁS datos que el local
+      // Esto evita que una respuesta vacía o incompleta borre datos locales
+      const marcasGAS = data.marcas;
+      const totalGAS = Object.values(marcasGAS).reduce((s,v)=>s+Object.keys(v).length,0);
+      const totalLocal = Object.values(marcas).reduce((s,v)=>s+Object.keys(v).length,0);
+      if(totalGAS >= totalLocal){
+        marcas = marcasGAS;
+        guardarLocal();
+      } else {
+        console.log('GAS tiene menos datos que local ('+totalGAS+' vs '+totalLocal+'), manteniendo local');
+      }
+    }
+  }catch(e){ console.error('Error GAS:',e); }
+}
+
+// =============================================
+// LOCAL STORAGE
+// =============================================
+const LS='ciclos_marcas_v1';
+function guardarLocal(){try{localStorage.setItem(LS,JSON.stringify(marcas));}catch(e){}}
+function cargarLocal(){try{const d=localStorage.getItem(LS);if(d)marcas=JSON.parse(d);}catch(e){}}
+
+// =============================================
+// FILTROS
+// =============================================
+function setFinca(f){
+  filtroFinca=f;
+  ['todas','f1','f2','f3'].forEach(id=>document.getElementById('bf-'+id).classList.remove('active'));
+  const map={'todas':'bf-todas','FINCA 1':'bf-f1','FINCA 2':'bf-f2','FINCA 3':'bf-f3'};
+  document.getElementById(map[f]).classList.add('active');
+  render();
+}
+function cambiarSemanas(d){
+  semanas=Math.max(1,semanas+d);
+  document.getElementById('weeks-val').textContent=semanas;
+  render();
+}
+
+// =============================================
+// TOAST
+// =============================================
+function showToast(msg,tipo){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show'+(tipo?' '+tipo:'');
+  setTimeout(()=>{t.className='toast';},2800);
+}
+
+// =============================================
+// INIT
+// =============================================
+
+// =============================================
+// INDICADORES
+// =============================================
+function toggleIndicadores(){
+  const body = document.getElementById('ind-body');
+  const icon = document.getElementById('ind-icon');
+  body.classList.toggle('open');
+  icon.classList.toggle('open');
+  if(body.classList.contains('open')) calcularIndicadores();
+}
+
+function calcularIndicadores(){
+  const hoy = hoyLocal();
+  const hoyISO = isoDate(hoy);
+
+  let lotesTotal=0, lotesCos=0, lotesVerde=0, lotesAzul=0, lotesRojo=0;
+  let haTotal=0, haFuera=0, haEnCiclo=0;
+
+  const rangosUnif = [
+    {min:0,  max:12,  ha:0},
+    {min:13, max:15,  ha:0},
+    {min:16, max:20,  ha:0},
+    {min:21, max:30,  ha:0},
+    {min:31, max:9999,ha:0},
+  ];
+
+  LOTES.forEach(l => {
+    const key = l.finca+'_'+l.lote;
+    const m = marcas[key]||{};
+    const cs = getCellState(key, l.tipo, hoy);
+    const dias = (cs.num !== null && cs.num !== undefined) ? cs.num : 0;
+    const estado = cs.tipo; // getCellState already handles cosechando
+
+    lotesTotal++;
+    haTotal += l.ha;
+
+    if(estado==='cosechando'){ lotesCos++; haEnCiclo+=l.ha; }
+    else if(estado==='verde'){ lotesVerde++; haEnCiclo+=l.ha; }
+    else if(estado==='azul'){ lotesAzul++; haFuera+=l.ha; }
+    else if(estado==='rojo'){ lotesRojo++; haFuera+=l.ha; }
+
+    // Rangos: incluir todos los lotes con registro (cualquier estado excepto vacio)
+    if(estado !== 'vacio' && dias > 0){
+      for(const r of rangosUnif){
+        if(dias >= r.min && dias <= r.max){ r.ha += l.ha; break; }
+      }
+    }
+  });
+
+  const lotesTotalActivo = lotesCos+lotesVerde+lotesAzul+lotesRojo;
+  const haTotalActivo = haEnCiclo+haFuera;
+  const pct = (a,b) => b>0 ? Math.round(a/b*100)+'%' : '0%';
+  const fmt = n => n.toLocaleString('es-CO');
+
+  // KPI cards
+  document.getElementById('k-total').textContent = lotesTotal;
+  document.getElementById('k-cos').textContent = lotesCos;
+  document.getElementById('k-cos-pct').textContent = pct(lotesCos,lotesTotalActivo);
+  document.getElementById('k-ciclo').textContent = lotesVerde;
+  document.getElementById('k-ciclo-pct').textContent = pct(lotesVerde,lotesTotalActivo);
+  document.getElementById('k-tol').textContent = lotesAzul;
+  document.getElementById('k-tol-pct').textContent = pct(lotesAzul,lotesTotalActivo);
+  document.getElementById('k-inc').textContent = lotesRojo;
+  document.getElementById('k-inc-pct').textContent = pct(lotesRojo,lotesTotalActivo);
+  document.getElementById('k-ha-fuera').textContent = fmt(haFuera);
+  document.getElementById('k-ha-fuera-pct').textContent = pct(haFuera,haTotalActivo);
+  document.getElementById('k-ha-ciclo').textContent = fmt(haEnCiclo);
+  document.getElementById('k-ha-ciclo-pct').textContent = pct(haEnCiclo,haTotalActivo);
+  document.getElementById('k-ha-total').textContent = fmt(haTotal);
+
+  // Rangos
+  const haTotalRangos = rangosUnif.reduce((s,r)=>s+r.ha,0);
+  const maxHa = Math.max(...rangosUnif.map(r=>r.ha),1);
+  const ids = ['r1','r2','r3','r4','r5'];
+  rangosUnif.forEach((r,i) => {
+    const p = haTotalRangos>0 ? Math.round(r.ha/haTotalRangos*100) : 0;
+    const barW = Math.round(r.ha/maxHa*100);
+    document.getElementById(ids[i]+'-val').textContent = r.ha>0 ? fmt(r.ha) : '—';
+    document.getElementById(ids[i]+'-pct').textContent = r.ha>0 ? p+'%' : '0%';
+    document.getElementById(ids[i]+'-bar').style.width = barW+'%';
+  });
+}
+
+
+// ===== TABS =====
+function setTab(t){
+  ['tablero','dashboard'].forEach(id=>{
+    const btn = document.getElementById('tab-btn-'+id);
+    const panel = document.getElementById('tab-'+id);
+    if(btn) btn.classList.toggle('active', id===t);
+    if(panel) panel.classList.toggle('active', id===t);
+  });
+  if(t==='dashboard'){ 
+    setTimeout(()=>{ calcularDashboard(); cargarCalc(); calcularPersonal(); }, 50);
+  }
+}
+
+// ===== ALERTAS BANNER =====
+function actualizarAlertas(){
+  const hoy = hoyLocal();
+  const hoyISO = isoDate(hoy);
+  const pills = [];
+
+  // Lotes en incumplimiento
+  const criticos = [];
+  const proximas = [];
+
+  LOTES.forEach(l => {
+    const key = l.finca+'_'+l.lote;
+    const cs = getCellState(key, l.tipo, hoy);
+    const dias = cs.num || 0;
+
+    // Críticos (rojo)
+    if(cs.tipo==='rojo'){
+      criticos.push({lote:l.lote, finca:l.finca, dias});
+      pills.push(`<span class="alerta-pill ap-rojo">🔴 Lote ${l.lote} · ${dias} días</span>`);
+    }
+
+    // Próximas entradas (verde, día 9-10 para guineensis, 19-20 para híbrido)
+    const limiteAviso = l.tipo==='hibrido' ? [19,20] : [9,10];
+    if(cs.tipo==='verde' && limiteAviso.includes(dias)){
+      const manana = dias===limiteAviso[0] ? 'mañana' : 'HOY';
+      proximas.push({lote:l.lote, finca:l.finca, dias, manana});
+      pills.push(`<span class="alerta-pill ap-${manana==='HOY'?'verde':'naranja'}">${manana==='HOY'?'✅':'🟠'} Lote ${l.lote} → entrar ${manana}</span>`);
+    }
+  });
+
+  const pillsEl = document.getElementById('alertas-pills');
+  if(pills.length===0){
+    pillsEl.innerHTML = '<span style="font-size:11px;color:#9ca3af;font-style:italic;">Sin alertas hoy ✓</span>';
+  } else {
+    pillsEl.innerHTML = pills.join('');
+  }
+
+  // Store for dashboard
+  window._criticos = criticos;
+  window._proximas = proximas;
+}
+
+// ===== DASHBOARD =====
+let chartsInit = false;
+let chartTrend = null;
+let chartFinca = null;
+
+function calcularDashboard(){
+  const hoy = hoyLocal();
+  actualizarAlertas();
+
+  // Stats por finca
+  const fincas = ['FINCA 1','FINCA 2','FINCA 3'];
+  const fincaStats = {};
+  fincas.forEach(f=>{ fincaStats[f]={verde:0,azul:0,rojo:0}; });
+
+  LOTES.forEach(l=>{
+    const key=l.finca+'_'+l.lote;
+    const cs=getCellState(key,l.tipo,hoy);
+    if(fincaStats[l.finca]){
+      if(cs.tipo==='verde'||cs.tipo==='cosechando') fincaStats[l.finca].verde++;
+      else if(cs.tipo==='azul') fincaStats[l.finca].azul++;
+      else if(cs.tipo==='rojo') fincaStats[l.finca].rojo++;
+    }
+  });
+
+  // Charts
+  if(!chartsInit){
+    chartsInit=true;
+    chartTrend = new Chart(document.getElementById('chart-trend'),{
+      type:'line',
+      data:{
+        labels:['Sem 19','Sem 20','Sem 21','Sem 22','Sem 23'],
+        datasets:[
+          {label:'En ciclo',data:[28,30,33,29,31],borderColor:'#16a34a',backgroundColor:'rgba(22,163,74,.1)',fill:true,tension:.4,pointRadius:3,borderWidth:2},
+          {label:'Incumplimiento',data:[14,12,10,13,11],borderColor:'#dc2626',backgroundColor:'rgba(220,38,38,.08)',fill:true,tension:.4,pointRadius:3,borderWidth:2}
+        ]
+      },
+      options:{responsive:true,maintainAspectRatio:true,aspectRatio:2.5,plugins:{legend:{labels:{font:{size:10},boxWidth:10}}},scales:{x:{ticks:{font:{size:10}}},y:{ticks:{font:{size:10}},min:0,max:45}}}
+    });
+    chartFinca = new Chart(document.getElementById('chart-finca'),{
+      type:'bar',
+      data:{
+        labels:['Finca 1','Finca 2','Finca 3'],
+        datasets:[
+          {label:'En ciclo',data:fincas.map(f=>fincaStats[f].verde),backgroundColor:'#16a34a'},
+          {label:'Tolerancia',data:fincas.map(f=>fincaStats[f].azul),backgroundColor:'#2563eb'},
+          {label:'Incumplimiento',data:fincas.map(f=>fincaStats[f].rojo),backgroundColor:'#dc2626'},
+        ]
+      },
+      options:{responsive:true,maintainAspectRatio:true,aspectRatio:2.5,plugins:{legend:{labels:{font:{size:10},boxWidth:10}}},scales:{x:{stacked:true,ticks:{font:{size:10}}},y:{stacked:true,ticks:{font:{size:10}}}}}
+    });
+  } else {
+    chartFinca.data.datasets[0].data = fincas.map(f=>fincaStats[f].verde);
+    chartFinca.data.datasets[1].data = fincas.map(f=>fincaStats[f].azul);
+    chartFinca.data.datasets[2].data = fincas.map(f=>fincaStats[f].rojo);
+    chartFinca.update();
+  }
+
+  // Críticos
+  const criticos = (window._criticos||[]).sort((a,b)=>b.dias-a.dias).slice(0,6);
+  const critEl = document.getElementById('dash-criticos');
+  if(criticos.length===0){
+    critEl.innerHTML='<p style="font-size:11px;color:#9ca3af;font-style:italic;">Sin lotes en incumplimiento ✓</p>';
+  } else {
+    critEl.innerHTML = criticos.map(c=>`
+      <div class="crit-item">
+        <div class="crit-dot cd-rojo"></div>
+        <span class="crit-lote">Lote ${c.lote}</span>
+        <span class="crit-info">${c.finca}</span>
+        <span class="crit-dias dias-r">${c.dias} días</span>
+      </div>`).join('');
+  }
+
+  // Próximas
+  const proximas = (window._proximas||[]);
+  const proxEl = document.getElementById('dash-proximas');
+  if(proximas.length===0){
+    proxEl.innerHTML='<p style="font-size:11px;color:#9ca3af;font-style:italic;">Sin entradas programadas próximas</p>';
+  } else {
+    proxEl.innerHTML = proximas.map(p=>`
+      <div class="prox-item">
+        <span class="prox-lote">Lote ${p.lote}</span>
+        <span class="prox-info">${p.finca} · día ${p.dias}</span>
+        <span class="prox-tag ${p.manana==='HOY'?'pt-hoy':'pt-man'}">${p.manana}</span>
+      </div>`).join('');
+  }
+
+  // WA mensaje
+  generarMensajeWA();
+}
+
+// ===== WHATSAPP =====
+function generarMensajeWA(){
+  const hoy = hoyLocal();
+
+  let lotesEnCiclo=0, lotesFuera=0;
+  let haEnCiclo=0, haFuera=0, haTotal=0;
+
+  const rangos = [
+    {label:'< 13 días',  min:0,  max:12,  ha:0},
+    {label:'13-15 días', min:13, max:15,  ha:0},
+    {label:'16-20 días', min:16, max:20,  ha:0},
+    {label:'21-30 días', min:21, max:30,  ha:0},
+    {label:'> 30 días',  min:31, max:9999,ha:0},
+  ];
+
+  LOTES.forEach(l=>{
+    const key=l.finca+'_'+l.lote;
+    const cs=getCellState(key,l.tipo,hoy);
+    const dias=cs.num||0;
+    haTotal+=l.ha;
+
+    if(cs.tipo==='verde'||cs.tipo==='cosechando'){ lotesEnCiclo++; haEnCiclo+=l.ha; }
+    else if(cs.tipo==='azul'||cs.tipo==='rojo'){ lotesFuera++; haFuera+=l.ha; }
+
+    if(dias>0){
+      for(const r of rangos){
+        if(dias>=r.min && dias<=r.max){ r.ha+=l.ha; break; }
+      }
+    }
+  });
+
+  const lotesTotal = lotesEnCiclo + lotesFuera;
+  const haTotalActivo = haEnCiclo + haFuera;
+  const pct = (a,b) => b>0 ? Math.round(a/b*100)+'%' : '0%';
+  const fmt = n => n>0 ? n.toLocaleString('es-CO') : '—';
+  const pad = (s,n) => String(s).padEnd(n,' ');
+
+  const criticos = (window._criticos||[]).sort((a,b)=>b.dias-a.dias).slice(0,5);
+  const proximas = (window._proximas||[]).filter(p=>p.manana==='HOY').map(p=>'Lote '+p.lote);
+  const sn = semanaNum(hoy);
+  const fecha = hoy.getDate()+' '+MESES[hoy.getMonth()]+' '+hoy.getFullYear();
+
+  let msg = `🌴 *CICLOS DE COSECHA – ${fecha}*
+`;
+  msg += `*Palma Grande S.A.S. · Semana ${sn}*
+
+`;
+
+  msg += `📊 *Estado de lotes y HA:*
+`;
+  msg += `Lotes fuera de ciclo: ${lotesFuera} (${pct(lotesFuera,lotesTotal)})
+`;
+  msg += `Lotes en ciclo:       ${lotesEnCiclo} (${pct(lotesEnCiclo,lotesTotal)})
+`;
+  msg += `HA fuera de ciclo:    ${fmt(haFuera)} (${pct(haFuera,haTotalActivo)})
+`;
+  msg += `HA en ciclo:          ${fmt(haEnCiclo)} (${pct(haEnCiclo,haTotalActivo)})
+`;
+  msg += `Total HA:             ${fmt(haTotal)}
+
+`;
+
+  msg += `📅 *HA por rango de días:*
+`;
+  const haTotalRangos = rangos.reduce((s,r)=>s+r.ha,0);
+  rangos.forEach(r=>{
+    const p = haTotalRangos>0 ? Math.round(r.ha/haTotalRangos*100)+'%' : '0%';
+    msg += `${pad(r.label,12)} ${pad(r.ha>0?fmt(r.ha)+'  HA':'—',12)} (${p})
+`;
+  });
+
+  if(criticos.length>0){
+    msg += `
+⚠️ *Lotes críticos:*
+`;
+    criticos.forEach(c=>{ msg+=`• Lote ${c.lote} – ${c.dias} días (${c.finca})
+`; });
+  }
+
+  if(proximas.length>0){
+    msg += `
+✅ *Entrar hoy:* ${proximas.join(', ')}`;
+  }
+
+  window._waMensaje = msg;
+  const prev = document.getElementById('wa-preview-dash');
+  if(prev) prev.textContent = msg;
+}
+
+function abrirModalWA(){
+  generarMensajeWA();
+  document.getElementById('mwa-preview').textContent = window._waMensaje||'Sin datos';
+  document.getElementById('modal-wa').classList.add('open');
+}
+function cerrarModalWA(){ document.getElementById('modal-wa').classList.remove('open'); }
+function enviarWA(){
+  const url='https://wa.me/?text='+encodeURIComponent(window._waMensaje||'');
+  window.open(url,'_blank');
+  cerrarModalWA();
+}
+
+
+function togglePanel(){
+  const els = [
+    document.querySelector('.ind-section'),
+    document.querySelector('.stats-bar'),
+    document.querySelector('.alertas-banner'),
+    document.querySelector('.legend'),
+  ];
+  const btn = document.getElementById('btn-toggle-panel');
+  const hidden = btn.textContent.includes('Mostrar');
+  els.forEach(el=>{ if(el) el.style.display = hidden ? '' : 'none'; });
+  btn.innerHTML = hidden ? '⬆ Ocultar panel' : '⬇ Mostrar panel';
+  // Recalculate table height
+  const toolbar = document.querySelector('.toolbar');
+  const tabs = document.querySelector('.tabs-bar');
+  const usedH = (toolbar?toolbar.offsetHeight:0) + (tabs?tabs.offsetHeight:0) +
+    (hidden?0:els.reduce((s,el)=>s+(el?el.offsetHeight:0),0));
+  document.querySelector('.table-wrap').style.height = (window.innerHeight - usedH - 10) + 'px';
+}
+
+// =============================================
+// PDF EXPORT
+// =============================================
+function exportarPDF(){
+  const jspdfLib = window.jspdf || window.jsPDF;
+  if(!jspdfLib){ showToast('Libreria PDF no cargada','err'); return; }
+  const {jsPDF} = window.jspdf || {jsPDF: window.jsPDF};
+  if(!window.html2canvas){ showToast('Error: recarga la pagina e intenta de nuevo','err'); return; }
+
+  showToast('Generando PDF... espera');
+
+  const hoy = hoyLocal();
+  const sn = semanaNum(hoy);
+  const fecha = hoy.getDate()+' '+MESES[hoy.getMonth()]+' '+hoy.getFullYear();
+  const fmt = n => n.toLocaleString('es-CO');
+  const pct = (a,b) => b>0 ? Math.round(a/b*100)+'%' : '0%';
+
+  // ── CALCULOS GENERALES ──
+  let nV=0,nA=0,nR=0,nC=0,haEn=0,haFuera=0,haTotal=0;
+  const criticos=[], proximas=[];
+  const rangos=[
+    {label:'< 13 dias',min:0,max:12,ha:0},
+    {label:'13-15 dias',min:13,max:15,ha:0},
+    {label:'16-20 dias',min:16,max:20,ha:0},
+    {label:'21-30 dias',min:21,max:30,ha:0},
+    {label:'> 30 dias',min:31,max:9999,ha:0},
+  ];
+  LOTES.forEach(l=>{
+    const k=l.finca+'_'+l.lote;
+    const cs=getCellState(k,l.tipo,hoy);
+    const dias=cs.num||0;
+    haTotal+=l.ha;
+    if(cs.tipo==='cosechando'){nC++;haEn+=l.ha;}
+    else if(cs.tipo==='verde'){nV++;haEn+=l.ha;}
+    else if(cs.tipo==='azul'){nA++;haFuera+=l.ha;}
+    else if(cs.tipo==='rojo'){nR++;haFuera+=l.ha;criticos.push({lote:l.lote,finca:l.finca,dias,ha:l.ha});}
+    if(dias>0) for(const r of rangos){if(dias>=r.min&&dias<=r.max){r.ha+=l.ha;break;}}
+    const lim=l.tipo==='hibrido'?[19,20]:[9,10];
+    if(cs.tipo==='verde'&&lim.includes(dias)) proximas.push({lote:l.lote,finca:l.finca,esHoy:dias===lim[1]});
+  });
+  criticos.sort((a,b)=>b.dias-a.dias);
+  const lotesActivos=nC+nV+nA+nR;
+  const haTotalR=rangos.reduce((s,r)=>s+r.ha,0);
+  const proxH=proximas.filter(p=>p.esHoy).map(p=>'Lote '+p.lote).join(', ');
+  const proxM=proximas.filter(p=>!p.esHoy).map(p=>'Lote '+p.lote).join(', ');
+
+  // ── CALCULOS POR FINCA ──
+  const fincaStats={};
+  ['FINCA 1','FINCA 2','FINCA 3'].forEach(f=>{
+    const ls=LOTES.filter(l=>l.finca===f);
+    let fV=0,fA=0,fR=0,fC=0,fHAen=0,fHAf=0,fHA=0;
+    ls.forEach(l=>{
+      const cs=getCellState(l.finca+'_'+l.lote,l.tipo,hoy);
+      fHA+=l.ha;
+      if(cs.tipo==='cosechando'){fC++;fHAen+=l.ha;}
+      else if(cs.tipo==='verde'){fV++;fHAen+=l.ha;}
+      else if(cs.tipo==='azul'){fA++;fHAf+=l.ha;}
+      else if(cs.tipo==='rojo'){fR++;fHAf+=l.ha;}
+    });
+    const tot=fV+fA+fR+fC;
+    fincaStats[f]={v:fV+fC,a:fA,r:fR,tot,haEn:fHAen,haF:fHAf,ha:fHA};
+  });
+
+  // ── HTML GERENCIA ──
+  const fincaColors={
+    'FINCA 1':{hdr:'#052e16',txt:'#4ade80',name:'FINCA 1'},
+    'FINCA 2':{hdr:'#1e3a5f',txt:'#60a5fa',name:'FINCA 2'},
+    'FINCA 3':{hdr:'#3b0764',txt:'#c084fc',name:'FINCA 3'},
+  };
+
+  const fincaCols = ['FINCA 1','FINCA 2','FINCA 3'].map(f=>{
+    const s=fincaStats[f];
+    const fc=fincaColors[f];
+    return `<div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;flex:1;">
+      <div style="background:${fc.hdr};padding:10px 14px;font-size:14px;font-weight:900;color:${fc.txt};letter-spacing:2px;">🌴 ${fc.name}</div>
+      <div style="padding:10px 12px;display:flex;flex-direction:column;gap:5px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#f0fdf4;border-radius:6px;">
+          <span style="font-size:11px;color:#6b7280;">En ciclo</span>
+          <span style="font-size:13px;font-weight:800;color:#15803d;">${s.v} lotes (${pct(s.v,s.tot)})</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#eff6ff;border-radius:6px;">
+          <span style="font-size:11px;color:#6b7280;">Tolerancia</span>
+          <span style="font-size:13px;font-weight:800;color:#1d4ed8;">${s.a} lotes (${pct(s.a,s.tot)})</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;background:#fef2f2;border-radius:6px;">
+          <span style="font-size:11px;color:#6b7280;">Incumplimiento</span>
+          <span style="font-size:13px;font-weight:800;color:#b91c1c;">${s.r} lotes (${pct(s.r,s.tot)})</span>
+        </div>
+        <div style="height:1px;background:#f3f4f6;margin:3px 0;"></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 8px;background:#f9fafb;border-radius:6px;font-size:11px;">
+          <span style="color:#6b7280;">HA en ciclo</span>
+          <span style="font-weight:700;color:#15803d;">${fmt(s.haEn)} HA (${pct(s.haEn,s.ha)})</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:5px 8px;background:#f9fafb;border-radius:6px;font-size:11px;">
+          <span style="color:#6b7280;">HA fuera</span>
+          <span style="font-weight:700;color:#b91c1c;">${fmt(s.haF)} HA (${pct(s.haF,s.ha)})</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:5px 8px;background:#f0f2f5;border-radius:6px;font-size:11px;">
+          <span style="color:#374151;font-weight:600;">Total</span>
+          <span style="font-weight:700;color:#374151;">${fmt(s.ha)} HA</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const gerHTML = `<div style="width:794px;font-family:Arial,sans-serif;background:#fff;color:#1a1a1a;">
+    <div style="background:#0f1117;padding:22px 28px;text-align:center;">
+      <div style="font-size:28px;font-weight:900;color:#f0c96a;letter-spacing:4px;margin-bottom:4px;">CICLOS DE COSECHA</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:3px;">PALMA GRANDE S.A.S. · Departamento Agronomico</div>
+      <div style="font-size:13px;color:#f0c96a;font-weight:700;">${fecha} · Semana ${sn}</div>
+    </div>
+    <div style="padding:18px 22px;display:flex;flex-direction:column;gap:14px;">
+
+      <!-- GENERAL -->
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid #e5e7eb;">Estado general</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px;">
+          ${[
+            {v:nV+nC,l:'Lotes en ciclo',s:pct(nV+nC,lotesActivos),c:'#15803d',bg:'#f0fdf4',bc:'#16a34a'},
+            {v:nA,l:'Tolerancia',s:pct(nA,lotesActivos),c:'#1d4ed8',bg:'#eff6ff',bc:'#2563eb'},
+            {v:nR,l:'Incumplimiento',s:pct(nR,lotesActivos),c:'#b91c1c',bg:'#fef2f2',bc:'#dc2626'},
+            {v:fmt(haTotal),l:'Total HA',s:'62 lotes · 3 fincas',c:'#b8860b',bg:'#fffbeb',bc:'#b8860b'},
+          ].map(k=>`<div style="background:${k.bg};border-radius:8px;padding:10px 12px;border-left:4px solid ${k.bc};">
+            <div style="font-size:28px;font-weight:900;color:${k.c};line-height:1.1;">${k.v}</div>
+            <div style="font-size:10px;color:#6b7280;margin-top:3px;">${k.l}</div>
+            <div style="font-size:12px;font-weight:700;color:${k.c};margin-top:1px;">${k.s}</div>
+          </div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="background:#f0fdf4;border-radius:8px;padding:8px 12px;border-left:4px solid #16a34a;">
+            <div style="font-size:20px;font-weight:900;color:#15803d;">${fmt(haEn)} HA</div>
+            <div style="font-size:10px;color:#6b7280;">HA en ciclo · <strong style="color:#15803d;">${pct(haEn,haTotal)} del total</strong></div>
+          </div>
+          <div style="background:#fef2f2;border-radius:8px;padding:8px 12px;border-left:4px solid #dc2626;">
+            <div style="font-size:20px;font-weight:900;color:#b91c1c;">${fmt(haFuera)} HA</div>
+            <div style="font-size:10px;color:#6b7280;">HA fuera de ciclo · <strong style="color:#b91c1c;">${pct(haFuera,haTotal)} del total</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- POR FINCA -->
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid #e5e7eb;">Estado por finca</div>
+        <div style="display:flex;gap:10px;">${fincaCols}</div>
+      </div>
+
+      <!-- RANGOS -->
+      <div>
+        <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid #e5e7eb;">Distribucion de HA por dias del ciclo</div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;">
+          ${rangos.map((r,i)=>{
+            const cols=['#15803d','#4d7c0f','#854d0e','#9a3412','#b91c1c'];
+            const bgs=['#f0fdf4','#f7fee7','#fffbeb','#fff7ed','#fef2f2'];
+            const bars=['#16a34a','#84cc16','#eab308','#f97316','#dc2626'];
+            const p=haTotalR>0?Math.round(r.ha/haTotalR*100):0;
+            return `<div style="background:${bgs[i]};border-radius:8px;padding:10px;border:1px solid #e5e7eb;text-align:center;">
+              <div style="font-size:9px;color:#6b7280;margin-bottom:4px;">${r.label}</div>
+              <div style="font-size:20px;font-weight:900;color:${cols[i]};line-height:1;">${r.ha>0?fmt(r.ha):'—'}</div>
+              <div style="font-size:10px;color:#9ca3af;margin-top:2px;">${p}%</div>
+              <div style="height:4px;background:#e5e7eb;border-radius:2px;margin-top:6px;">
+                <div style="height:100%;width:${p}%;background:${bars[i]};border-radius:2px;"></div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- CRITICOS + PROXIMAS -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid #e5e7eb;">Lotes criticos</div>
+          ${criticos.slice(0,6).map(c=>`
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#fef2f2;border-radius:6px;margin-bottom:4px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:#dc2626;flex-shrink:0;"></div>
+            <span style="font-weight:700;font-size:12px;min-width:52px;">Lote ${c.lote}</span>
+            <span style="color:#6b7280;font-size:11px;flex:1;">${c.finca.replace('FINCA ','F')} · ${c.ha} ha</span>
+            <span style="font-weight:900;color:#b91c1c;font-size:12px;">${c.dias} dias</span>
+          </div>`).join('')}
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;padding-bottom:4px;border-bottom:2px solid #e5e7eb;">Proximas entradas</div>
+          ${proxH?`<div style="padding:8px 10px;background:#fef2f2;border-radius:6px;margin-bottom:5px;font-size:12px;">
+            <span style="font-weight:700;color:#b91c1c;">HOY: </span>${proxH}</div>`:''}
+          ${proxM?`<div style="padding:8px 10px;background:#fff7ed;border-radius:6px;font-size:12px;">
+            <span style="font-weight:700;color:#c2410c;">MANANA: </span>${proxM}</div>`:''}
+          ${!proxH&&!proxM?`<div style="font-size:11px;color:#9ca3af;font-style:italic;padding:8px;">Sin entradas programadas</div>`:''}
+        </div>
+      </div>
+
+    </div>
+    <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:8px 22px;display:flex;justify-content:space-between;font-size:10px;color:#9ca3af;">
+      <span>Palma Grande S.A.S. · Dpto. Agronomico</span>
+      <span>Sistema de Gestion Agricola · Generado automaticamente</span>
+      <span>Semana ${sn} · ${hoy.getFullYear()} · Pag. 1 de 4</span>
+    </div>
+  </div>`;
+
+  // Contenedor temporal
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-999;background:#fff;';
+  wrap.innerHTML = gerHTML;
+  document.body.appendChild(wrap);
+
+  const doc = new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  const fincas=['FINCA 1','FINCA 2','FINCA 3'];
+  const filtroOrig = filtroFinca;
+  const semanasOrig = semanas;
+
+  window.html2canvas(wrap.firstChild,{
+    scale:1.5, useCORS:true, backgroundColor:'#fff', logging:false
+  }).then(async canvas=>{
+    document.body.removeChild(wrap);
+    const imgData=canvas.toDataURL('image/jpeg',0.95);
+    const imgH=(canvas.height*210)/canvas.width;
+    doc.addImage(imgData,'JPEG',0,0,210,Math.min(imgH,297));
+
+    for(let fi=0;fi<fincas.length;fi++){
+      doc.addPage('a4','landscape');
+      filtroFinca=fincas[fi];
+      semanas=4;
+      render();
+      await new Promise(r=>setTimeout(r,400));
+
+      // Desactivar position:sticky temporalmente para captura correcta
+      const stickyEls = document.querySelectorAll('.col-finca,.col-lote,.col-ha,.col-freq,.col-estado,.ciclos-table thead th');
+      const origStyles = [];
+      stickyEls.forEach(el=>{
+        origStyles.push({el, pos:el.style.position, left:el.style.left, top:el.style.top, zIndex:el.style.zIndex});
+        el.style.position='relative';
+        el.style.left='auto';
+        el.style.top='auto';
+        el.style.zIndex='auto';
+      });
+
+      // También desactivar overflow en table-wrap
+      const tableWrapEl = document.getElementById('table-wrap');
+      const origOverflow = tableWrapEl.style.overflow;
+      const origHeight = tableWrapEl.style.height;
+      tableWrapEl.style.overflow='visible';
+      tableWrapEl.style.height='auto';
+
+      await new Promise(r=>setTimeout(r,200));
+
+      const tableEl = document.querySelector('.ciclos-table');
+      if(!tableEl){
+        stickyEls.forEach((el,i)=>{ el.style.position=origStyles[i].pos; el.style.left=origStyles[i].left; el.style.zIndex=origStyles[i].zIndex; });
+        tableWrapEl.style.overflow=origOverflow;
+        tableWrapEl.style.height=origHeight;
+        continue;
+      }
+
+      const snapW = tableEl.offsetWidth + 40;
+      const snap=document.createElement('div');
+      snap.style.cssText=`position:fixed;left:-9999px;top:0;background:#fff;width:${snapW}px;overflow:visible;`;
+      snap.innerHTML=`
+        <div style="background:#0f1117;padding:10px 20px;display:flex;justify-content:space-between;align-items:center;">
+          <div style="font-family:Arial;font-size:13px;font-weight:900;color:#f0c96a;letter-spacing:2px;">PALMA GRANDE S.A.S.</div>
+          <div style="font-family:Arial;font-size:17px;font-weight:900;color:#fff;letter-spacing:3px;">CICLOS DE COSECHA · ${fincas[fi]}</div>
+          <div style="font-family:Arial;font-size:12px;color:#f0c96a;">${fecha} · Sem ${sn}</div>
+        </div>
+        <div style="overflow:visible;padding:4px 0;"></div>
+        <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:6px 20px;display:flex;justify-content:space-between;font-size:10px;color:#9ca3af;">
+          <span>Palma Grande S.A.S.</span>
+          <span>Semana ${sn} · ${hoy.getFullYear()}</span>
+          <span>Pag. ${fi+2} de 4</span>
+        </div>`;
+
+      // Clonar tabla con estilos correctos
+      const tableClone = tableEl.cloneNode(true);
+      tableClone.style.cssText='border-collapse:collapse;font-size:11px;width:100%;';
+      // Quitar sticky en clon también
+      tableClone.querySelectorAll('th,td').forEach(el=>{
+        el.style.position='relative';
+        el.style.left='auto';
+        el.style.top='auto';
+        el.style.zIndex='auto';
+      });
+      snap.children[1].appendChild(tableClone);
+      document.body.appendChild(snap);
+      await new Promise(r=>setTimeout(r,400));
+
+      const snapCanvas=await window.html2canvas(snap,{
+        scale:1.3,
+        useCORS:true,
+        backgroundColor:'#fff',
+        logging:false,
+        width:snap.scrollWidth,
+        height:snap.scrollHeight,
+        windowWidth:snap.scrollWidth+100,
+        windowHeight:snap.scrollHeight+100,
+      });
+      document.body.removeChild(snap);
+
+      // Restaurar sticky
+      origStyles.forEach(s=>{ s.el.style.position=s.pos; s.el.style.left=s.left; s.el.style.top=s.top||''; s.el.style.zIndex=s.zIndex; });
+      tableWrapEl.style.overflow=origOverflow;
+      tableWrapEl.style.height=origHeight;
+
+      const snapImg=snapCanvas.toDataURL('image/jpeg',0.92);
+      const ratio=snapCanvas.width/snapCanvas.height;
+      let imgW=297,imgH=297/ratio;
+      if(imgH>210){imgH=210;imgW=210*ratio;}
+      const offX=(297-imgW)/2;
+      const offY=Math.max(0,(210-imgH)/2);
+      doc.addImage(snapImg,'JPEG',offX,offY,imgW,imgH);
+    }
+
+    filtroFinca=filtroOrig;
+    semanas=semanasOrig;
+    render();
+    doc.save('ciclos-cosecha-sem'+sn+'-'+isoDate(hoy)+'.pdf');
+    showToast('PDF generado correctamente');
+
+  }).catch(err=>{
+    document.body.removeChild(wrap);
+    filtroFinca=filtroOrig;semanas=semanasOrig;render();
+    console.error(err);
+    showToast('Error: abre desde GitHub Pages','err');
+  });
+}
+
+
+
+// =============================================
+// PROYECCIÓN TOGGLE
+// =============================================
+let semanasProyeccion = 0;
+
+function cambiarProyeccion(d){
+  semanasProyeccion = Math.max(0, semanasProyeccion + d);
+  document.getElementById('proj-val').textContent = semanasProyeccion;
+  render();
+}
+
+
+// =============================================
+// FESTIVOS COLOMBIA
+// =============================================
+const FESTIVOS_CO = new Set([
+  // 2025
+  '2025-01-01','2025-01-06','2025-03-24','2025-04-17','2025-04-18',
+  '2025-05-01','2025-06-02','2025-06-23','2025-06-30','2025-07-20',
+  '2025-08-07','2025-08-18','2025-10-13','2025-11-03','2025-11-17',
+  '2025-12-08','2025-12-25',
+  // 2026
+  '2026-01-01','2026-01-12','2026-03-23','2026-04-02','2026-04-03',
+  '2026-05-01','2026-05-18','2026-06-08','2026-06-15','2026-07-20',
+  '2026-08-07','2026-08-17','2026-10-12','2026-11-02','2026-11-16',
+  '2026-12-08','2026-12-25',
+  // 2027
+  '2027-01-01','2027-01-11','2027-03-22','2027-04-01','2027-04-02',
+  '2027-05-01','2027-05-17','2027-06-07','2027-06-14','2027-07-20',
+  '2027-08-07','2027-08-16','2027-10-18','2027-11-01','2027-11-15',
+  '2027-12-08','2027-12-25',
+]);
+
+function esFestivo(d){ return FESTIVOS_CO.has(isoDate(d)); }
+
+
+function toggleEdicion(){
+  if(modoEdicion){
+    modoEdicion=false;
+    document.getElementById('btn-editar').textContent='🔒 Editar';
+    document.getElementById('btn-editar').style.color='';
+    document.getElementById('btn-editar').style.borderColor='';
+    render();
+    return;
+  }
+  const pin=prompt('Ingresa el PIN para editar:');
+  if(pin===PIN_EDICION){
+    modoEdicion=true;
+    document.getElementById('btn-editar').textContent='🔓 Editando';
+    document.getElementById('btn-editar').style.color='#15803d';
+    document.getElementById('btn-editar').style.borderColor='#16a34a';
+    render();
+  } else if(pin!==null){
+    alert('PIN incorrecto');
+  }
+}
+
+// ===== CALCULADORA PERSONAL =====
+function calcularPersonal(){
+  const v1=document.getElementById('calc-rend-f1').value;
+  const v2=document.getElementById('calc-rend-f2').value;
+  const v3=document.getElementById('calc-rend-f3').value;
+  const vDias=document.getElementById('calc-dias-rec').value;
+  const vCont=document.getElementById('calc-contingencia').value;
+  const wrap=document.getElementById('calc-result-wrap');
+  if(!v1||!v2||!v3){wrap.style.display='none';return;}
+  wrap.style.display='block';
+  const hoy=hoyLocal();
+  const rendFinca=[parseFloat(v1),parseFloat(v2),parseFloat(v3)];
+  const diasRec=parseFloat(vDias)||0;
+  const contPct=parseFloat(vCont)||0;
+  const fincas=['FINCA 1','FINCA 2','FINCA 3'];
+  const ids=['f1','f2','f3'];
+  let totalPersonas=0;
+  fincas.forEach((finca,i)=>{
+    const rend=rendFinca[i];
+    let haMantDia=0, haFuera=0;
+    LOTES.filter(l=>l.finca===finca).forEach(l=>{
+      const frecDias=l.tipo==='hibrido'?22:12;
+      haMantDia+=l.ha/frecDias;
+      const cs=getCellState(l.finca+'_'+l.lote,l.tipo,hoy);
+      if(cs.tipo==='azul'||cs.tipo==='rojo') haFuera+=l.ha;
+    });
+    const persMant=haMantDia/rend;
+    const persDes=diasRec>0?(haFuera/diasRec/rend):0;
+    const subtotal=persMant+persDes;
+    const contVal=subtotal*contPct/100;
+    const total=Math.ceil(subtotal+contVal);
+    totalPersonas+=total;
+    document.getElementById('c'+ids[i]+'-mant').textContent=Math.ceil(persMant)+' personas';
+    document.getElementById('c'+ids[i]+'-des').textContent=diasRec>0?Math.ceil(persDes)+' personas':'—';
+    document.getElementById('c'+ids[i]+'-sub').textContent=Math.ceil(subtotal)+' personas';
+    document.getElementById('c'+ids[i]+'-cont').textContent=contPct>0?'+'+Math.ceil(contVal)+' ('+contPct+'%)':'—';
+    document.getElementById('c'+ids[i]+'-per').textContent=total+' personas';
+    document.getElementById('cr-'+ids[i]).textContent=total;
+  });
+  document.getElementById('cr-total').textContent=totalPersonas;
+}
+
+
+function guardarCalc(){
+  try{
+    localStorage.setItem('calc_config', JSON.stringify({
+      f1:document.getElementById('calc-rend-f1').value,
+      f2:document.getElementById('calc-rend-f2').value,
+      f3:document.getElementById('calc-rend-f3').value,
+      diasRec:document.getElementById('calc-dias-rec').value,
+      cont:document.getElementById('calc-contingencia').value,
+    }));
+  }catch(e){}
+}
+
+function cargarCalc(){
+  try{
+    const d = localStorage.getItem('calc_config');
+    if(!d) return;
+    const c = JSON.parse(d);
+    if(c.f1) document.getElementById('calc-rend-f1').value = c.f1;
+    if(c.f2) document.getElementById('calc-rend-f2').value = c.f2;
+    if(c.f3) document.getElementById('calc-rend-f3').value = c.f3;
+
+  }catch(e){}
+}
+
+function init(){
+  const hoy=hoyLocal();
+  document.getElementById('hdr-fecha').textContent=hoy.getDate()+' '+MESES[hoy.getMonth()]+' '+hoy.getFullYear();
+  document.getElementById('hdr-sem').textContent='Semana '+semanaNum(hoy);
+  cargarLocal();
+  cargarGAS().finally(()=>{ render(); actualizarAlertas(); });
+  setTimeout(()=>{ cargarCalc(); }, 300);
+  setInterval(()=>{
+    if(modoEdicion) return; // No recargar mientras se edita
+    cargarGAS().finally(()=>{ render(); actualizarAlertas(); });
+  },5*60*1000);
+  setInterval(()=>{ if(!modoEdicion) render(); },60*1000);
+  actualizarAlertas();
+}
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
