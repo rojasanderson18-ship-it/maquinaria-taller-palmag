@@ -152,7 +152,7 @@ if(localStorage.getItem('pin_ok_taller')==='1'){document.write('<style>#pin-scre
       <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-2"></div>
       <div style="width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent" id="dot-3"></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="pin-keypad">
       <button onclick="pinInput('1')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">1</button>
 <button onclick="pinInput('2')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">2</button>
 <button onclick="pinInput('3')" style="padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.08);color:#fff;font-family:'DM Sans',sans-serif;font-size:20px;font-weight:600;cursor:pointer">3</button>
@@ -176,7 +176,7 @@ if(localStorage.getItem('pin_ok_taller')==='1'){document.write('<style>#pin-scre
 
 <script>
 var pinVal = '';
-var correctPin = '2026';
+var PIN_HASH = '158a323a7ba44870f23d96f1516dd70aa48e9a72db4ebb026b0a89e212a208ab';
 
 function pinInput(n){
   if(pinVal.length>=4) return;
@@ -196,8 +196,10 @@ function updateDots(){
     d.style.borderColor = i<pinVal.length ? '#fff' : 'rgba(255,255,255,.3)';
   }
 }
-function checkPin(){
-  if(pinVal===correctPin){
+async function checkPin(){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pinVal));
+  const hash = Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  if(hash===PIN_HASH){
     localStorage.setItem('pin_ok_taller','1');
     document.getElementById('pin-screen').style.display='none';
   } else {
@@ -206,8 +208,7 @@ function checkPin(){
     var err=document.getElementById('pin-error');
     err.textContent='PIN incorrecto. Inténtalo de nuevo.';
     err.style.color='#fca5a5';
-    // Shake animation
-    var screen=document.getElementById('pin-screen').querySelector('[style*="gap:10px"]');
+    var screen=document.getElementById('pin-keypad');
     if(screen){screen.style.animation='none';setTimeout(()=>{screen.style.animation='shake .4s ease';},10);}
   }
 }
@@ -447,16 +448,15 @@ function init(){
     'Flota Palma — '+now.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('ef-nombre').textContent='Responsable: '+MECANICO;
   recargar();
-  // Auto-refresh cada 90 segundos SOLO si no hay nada en edición
+  // Registrar última interacción del usuario
+  let _ultimaInteraccion = Date.now();
+  ['input','click','keydown','touchstart'].forEach(ev=>
+    document.addEventListener(ev, ()=>{ _ultimaInteraccion = Date.now(); }, {passive:true})
+  );
+  // Auto-refresh cada 90 segundos, solo si el usuario lleva más de 60s sin interactuar
   setInterval(()=>{
-    // No recargar si hay algún textarea con contenido activo o foco
-    const hayFoco = document.activeElement && 
-      (document.activeElement.tagName==='TEXTAREA' || document.activeElement.tagName==='INPUT');
-    const hayContenido = [...document.querySelectorAll('.mec-notes, .alta-fields textarea')]
-      .some(el=>el.value.trim().length>0);
-    if(!hayFoco && !hayContenido){
-      recargar();
-    }
+    if(Date.now() - _ultimaInteraccion < 60000) return;
+    recargar();
   }, 90000);
 }
 

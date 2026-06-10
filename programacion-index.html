@@ -181,12 +181,14 @@ select:focus,input:focus{border-color:var(--verde-s);box-shadow:0 0 0 3px rgba(8
 <style>@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}</style>
 <script>
 var pinVal='';
-var correctPin='2025';
+var PIN_HASH='b2b2f104d32c638903e151a9b20d6e27b41d8c0c84cf8458738f83ca2f1dd744';
 function pinInput(n){if(pinVal.length>=4)return;pinVal+=n;updateDots();if(pinVal.length===4)checkPin();}
 function pinDelete(){pinVal=pinVal.slice(0,-1);updateDots();document.getElementById('pin-error').textContent='';}
 function updateDots(){for(var i=0;i<4;i++){var d=document.getElementById('dot-'+i);d.style.background=i<pinVal.length?'#fff':'transparent';d.style.borderColor=i<pinVal.length?'#fff':'rgba(255,255,255,.3)';}}
-function checkPin(){
-  if(pinVal===correctPin){document.getElementById('pin-screen').style.display='none';}
+async function checkPin(){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pinVal));
+  const hash=Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  if(hash===PIN_HASH){document.getElementById('pin-screen').style.display='none';}
   else{pinVal='';updateDots();var err=document.getElementById('pin-error');err.textContent='PIN incorrecto. Inténtalo de nuevo.';err.style.color='#fca5a5';var kp=document.getElementById('pin-keypad');kp.style.animation='none';setTimeout(function(){kp.style.animation='shake .4s ease';},10);}
 }
 </script>
