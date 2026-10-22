@@ -72,6 +72,7 @@
   .op.ancho{grid-column:1/-1;text-align:left;padding:15px 14px}
 
   .campo{display:block;margin-bottom:18px}
+  .campo[hidden]{display:none}
   .campo span{display:block;font-size:14px;font-weight:600;color:var(--soft);margin-bottom:6px}
   .campo span i{font-weight:400;font-style:normal;color:var(--steel)}
   .campo textarea,.campo input{width:100%;padding:13px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
@@ -365,11 +366,49 @@ function elegirPersona(despues){
 }
 
 /* =====================================================================
+   Desde cuándo está parada: Hoy / Ayer / otra fecha (nunca en el futuro)
+   ===================================================================== */
+function haceDias(n){ var x = new Date(); x.setDate(x.getDate() - n); return isoLocal(x); }
+function htmlFecha(){
+  return '<div class="rejilla" id="g-fecha">' +
+      '<button class="op" data-f="0">Hoy</button>' +
+      '<button class="op" data-f="1">Ayer</button>' +
+      '<button class="op" data-f="otra">Otra fecha</button>' +
+    '</div>' +
+    '<label class="campo" id="campo-fecha" hidden><span>Fecha en que quedó parada</span>' +
+      '<input type="date" id="in-fecha" max="' + hoy() + '"></label>';
+}
+function montarFecha(inicial, alCambiar){
+  var val = inicial || hoy(), otra = val !== hoy() && val !== haceDias(1);
+  function refrescar(){
+    Array.prototype.forEach.call($('#panel').querySelectorAll('[data-f]'), function(b){
+      var f = b.dataset.f;
+      b.setAttribute('aria-pressed', String(f === 'otra' ? otra : (!otra && val === haceDias(+f))));
+    });
+    $('#campo-fecha').hidden = !otra;
+    $('#in-fecha').value = val;
+    alCambiar(val);
+  }
+  Array.prototype.forEach.call($('#panel').querySelectorAll('[data-f]'), function(b){
+    b.onclick = function(){
+      if (b.dataset.f === 'otra'){ otra = true; refrescar(); $('#in-fecha').focus(); return; }
+      otra = false; val = haceDias(+b.dataset.f); refrescar();
+    };
+  });
+  $('#in-fecha').onchange = function(){
+    var v = $('#in-fecha').value;
+    if (v && v <= hoy()) val = v; else aviso('La fecha no puede ser después de hoy.');
+    refrescar();
+  };
+  refrescar();
+}
+
+/* =====================================================================
    Reportar una máquina dañada
    ===================================================================== */
 function reportar(codPre){
   if (!estado.yo) { elegirPersona(function(){ reportar(codPre); }); return; }
-  var sel = { equipo: codPre || null, tipo: 'falla' };
+  var sel = { equipo: codPre || null, tipo: 'falla', fecha: hoy() };
 
   var disponibles = FLOTA.filter(function(f){ return !abiertoDe(f.cod); });
   if (!disponibles.length){ aviso('Todas las máquinas ya están reportadas.'); return; }
@@ -387,12 +426,14 @@ function reportar(codPre){
         '<button class="op ancho" data-tipo="mantenimiento" aria-pressed="false">Mantenimiento programado<small>No cuenta como falla</small></button>' +
       '</div>' +
 
+      '<p class="paso">3. ¿Desde cuándo está parada?</p>' + htmlFecha() +
+
       '<label class="campo"><span>¿Qué le pasa? <i>— opcional</i></span>' +
         '<textarea id="nov" placeholder="Fuga, ruido, no arranca…"></textarea></label>' +
 
       '<button class="accion roja" id="guardar" disabled>Dejarla reportada</button>' +
       '<button class="accion gris" data-cerrar>Cancelar</button>' +
-      '<p class="nota">Queda parada desde hoy. De qué sistema fue la falla se escoge después, al darle el alta, que es cuando ya se sabe.</p>' +
+      '<p class="nota">De qué sistema fue la falla se escoge después, al darle el alta, que es cuando ya se sabe.</p>' +
     '</div>',
     function(){
       function refrescar(){
@@ -406,6 +447,7 @@ function reportar(codPre){
         b.onclick = function(){ sel.equipo = b.dataset.eq; refrescar(); }; });
       Array.prototype.forEach.call($('#panel').querySelectorAll('[data-tipo]'), function(b){
         b.onclick = function(){ sel.tipo = b.dataset.tipo; refrescar(); }; });
+      montarFecha(sel.fecha, function(v){ sel.fecha = v; });
       refrescar();
 
       $('#guardar').onclick = async function(){
@@ -418,7 +460,7 @@ function reportar(codPre){
           sistema: null,                 // lo clasifica el mecánico al cerrar
           novedad: $('#nov').value.trim(),
           reportadoPor: estado.yo,
-          fechaReporte: hoy(),
+          fechaReporte: sel.fecha,
           registradoEn: ahora(),
           fechaAlta: null,
           altaPor: null,
@@ -426,11 +468,10 @@ function reportar(codPre){
           cerradoEn: null
         };
         estado.eventos.push(ev);
-        encolar(HOJA, [fechaCO(ev.fechaReporte), horaAhora(), 'PARADA', ev.id, ev.equipo, nombreDe(ev.equipo),
-          ev.tipo, '', ev.novedad, ev.reportadoPor, ev.fechaReporte, '', '', ''], ENC_TALLER, ev.id);
+        encolarParada(ev);
         await persistir();
         cerrar(); pintar();
-        aviso(sel.equipo + ' quedó reportada como parada.');
+        aviso(sel.equipo + ' quedó reportada como parada' + (ev.fechaReporte === hoy() ? '.' : ' desde el ' + dcorta(ev.fechaReporte) + '.'));
         enviar();
       };
     });
@@ -454,8 +495,9 @@ function verEquipo(cod){
       '<div class="vl grande">' + (ab.novedad ? esc(ab.novedad) : 'Sin detalle') + '</div>' +
       '<div class="vl" style="color:var(--steel);font-size:14px;margin-top:6px">' +
         esc(ab.reportadoPor || '—') +
-        ' el ' + dcorta(ab.fechaReporte) +
-        ' · parada ' + (d === 0 ? 'desde hoy' : 'hace ' + d + (d===1?' día':' días')) + '</div>' +
+        ' · parada desde el ' + dcorta(ab.fechaReporte) +
+        ' (' + (d === 0 ? 'hoy' : 'hace ' + d + (d===1?' día':' días')) + ')' +
+        ' · <button id="corregir" style="text-decoration:underline;color:var(--ink)">Corregir fecha</button></div>' +
       '</div>';
 
     // El mecánico es quien sabe de qué fue: el operario reporta el síntoma, él clasifica
@@ -537,13 +579,44 @@ function verEquipo(cod){
     };
     var r = $('#rep');
     if (r) r.onclick = function(){ cerrar(); reportar(cod); };
+    var c = $('#corregir');
+    if (c) c.onclick = function(){ corregirFecha(cod); };
   });
 }
 
 
+function corregirFecha(cod){
+  var ab = abiertoDe(cod); if (!ab) return;
+  if (!estado.yo){ elegirPersona(function(){ corregirFecha(cod); }); return; }
+  var nueva = ab.fechaReporte;
+  abrir(tope(cod + ' · ' + nombreDe(cod), '¿Desde cuándo está parada?') +
+    '<div class="cuerpo">' + htmlFecha() +
+      '<button class="accion verde" id="ok-fecha">Guardar fecha</button>' +
+      '<button class="accion gris" id="volver">Cancelar</button></div>',
+    function(){
+      montarFecha(ab.fechaReporte, function(v){ nueva = v; });
+      $('#volver').onclick = function(){ verEquipo(cod); };
+      $('#ok-fecha').onclick = async function(){
+        ab.fechaReporte = nueva;
+        encolarParada(ab);
+        await persistir();
+        verEquipo(cod); pintar();
+        aviso(cod + ': parada desde el ' + dcorta(nueva) + '.');
+        enviar();
+      };
+    });
+}
+
 /* =====================================================================
    Google Sheets
    ===================================================================== */
+/* Una fila PARADA con el mismo ID reemplaza la fecha de parada al leer la hoja
+   (gana la última fila); si es del mismo día, el Apps Script la sobrescribe. */
+function encolarParada(ev){
+  encolar(HOJA, [fechaCO(hoy()), horaAhora(), 'PARADA', ev.id, ev.equipo, nombreDe(ev.equipo),
+    ev.tipo, '', ev.novedad, ev.reportadoPor, ev.fechaReporte, '', '', ''], ENC_TALLER, ev.id);
+}
+
 function encolar(hoja, fila, encabezados, id){
   estado.cola.push({ hoja: hoja, fila: fila, encabezados: encabezados, id: id });
 }
