@@ -68,6 +68,11 @@
   .foto svg{width:44%;height:auto;opacity:.45}
   .foto img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
   .eq.varado .foto img{filter:saturate(.55)}
+  .cambiar-foto{position:relative;padding:0;flex:none;border-radius:2px}
+  .cambiar-foto .marca-foto{position:absolute;right:6px;bottom:6px;background:rgba(14,22,18,.78);color:#EDF0EE;
+        font-size:12px;font-weight:600;padding:3px 8px;border-radius:12px;display:flex;align-items:center;gap:5px}
+  .cambiar-foto .marca-foto svg{width:14px;height:14px}
+  .cambiar-foto.subiendo .foto{opacity:.5}
 
   .fab{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(to top,var(--paper) 72%,rgba(237,240,238,0));
        padding:14px 16px calc(14px + env(safe-area-inset-bottom));z-index:15}
@@ -218,9 +223,9 @@ var FLOTA = [
   {cod:'SXY206', nombre:'Isuzu FVR',        clase:'camion'}
 ];
 
-/* Fotos: carpeta fotos/ del repositorio, con el código sin el #
-   (fotos/01.jpg, fotos/FORD.jpg, fotos/EXX568.jpg). Mientras no exista
-   el archivo se ve el dibujo del tractor o del camión. */
+/* Fotos: primero la que se subió desde el Taller (hoja "Fotos" de Sheets),
+   si no, la de la carpeta fotos/ del repositorio con el código sin el #
+   (fotos/01.jpg, fotos/FORD.jpg). Sin ninguna, el dibujo del tractor o camión. */
 var DIBUJO = {
   maquina: '<svg viewBox="0 0 48 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<circle cx="13" cy="22" r="8"/><circle cx="37" cy="24" r="6"/><path d="M6 14h9V7h11l5 7h11v8"/><path d="M15 14h11"/></svg>',
@@ -229,8 +234,9 @@ var DIBUJO = {
 };
 function fotoHtml(cod){
   var f = FLOTA.filter(function(x){ return x.cod === cod; })[0] || {};
+  var src = fotos[cod] || ('fotos/' + encodeURIComponent(String(cod).replace('#', '')) + '.jpg');
   return '<span class="foto">' + DIBUJO[f.clase || 'maquina'] +
-    '<img src="fotos/' + encodeURIComponent(String(cod).replace('#', '')) + '.jpg" alt="" loading="lazy" onerror="this.remove()"></span>';
+    '<img src="' + esc(src) + '" alt="" loading="lazy" onerror="this.remove()"></span>';
 }
 
 /* Los sistemas son botones, no una lista desplegable. De aquí sale el Pareto
@@ -258,6 +264,9 @@ var ENC_ALTAS = ['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Rete
 var PIN = '2026';
 
 var KEY = 'taller-palma-v1';
+var KEY_FOTOS = 'taller-palma-fotos-v1';
+var ENC_FOTOS = ['Fecha','Hora','Máquina','Equipo','Foto','Subió'];
+var fotos = {};   // código → data URL de la foto subida desde el Taller
 var estado = { eventos: [], yo: '', cola: [] };
 
 /* ---------- almacenamiento ---------- */
@@ -388,14 +397,24 @@ function abrir(html, alMontar){
   $('#hoja').hidden = false;
   document.body.style.overflow = 'hidden';
   Array.prototype.forEach.call($('#panel').querySelectorAll('[data-cerrar]'), function(b){ b.onclick = cerrar; });
+  var cf = $('#cambiar-foto');
+  if (cf){
+    cf.onclick = function(){ $('#in-foto').click(); };
+    $('#in-foto').onchange = function(){ var f = this.files && this.files[0]; this.value = ''; if (f) subirFoto(cf.dataset.cod, f); };
+  }
   if (alMontar) alMontar();
 }
 function cerrar(){ $('#hoja').hidden = true; $('#panel').innerHTML = ''; document.body.style.overflow = ''; }
 $('#hoja').addEventListener('click', function(e){ if (e.target.id === 'hoja') cerrar(); });
 document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('#hoja').hidden) cerrar(); });
 
+var ICONO_CAMARA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 function topeFicha(cod, estadoHtml){
-  return '<div class="tope ficha"><div class="fila">' + fotoHtml(cod) +
+  return '<div class="tope ficha"><div class="fila">' +
+    '<button class="cambiar-foto" id="cambiar-foto" data-cod="' + esc(cod) + '" aria-label="Cambiar la foto">' + fotoHtml(cod) +
+      '<span class="marca-foto">' + ICONO_CAMARA + (fotos[cod] ? 'Cambiar' : 'Subir foto') + '</span></button>' +
+    '<input type="file" accept="image/*" id="in-foto" hidden>' +
     '<div style="min-width:0"><div class="cod">' + esc(cod) + '</div><div class="nom">' + esc(nombreDe(cod)) + '</div>' +
     estadoHtml + '</div><button class="cerrar" data-cerrar aria-label="Cerrar">×</button></div></div>';
 }
@@ -751,6 +770,76 @@ async function traer(){
 }
 
 /* =====================================================================
+   Fotos de las máquinas
+   Van como texto (data URL) en la hoja "Fotos" con el mismo Apps Script:
+   una celda de Sheets admite 50.000 caracteres, así que la foto se achica
+   hasta caber. Columna 4 = equipo: subir otra el mismo día reemplaza la
+   fila; si es otro día se agrega y vale la última.
+   ===================================================================== */
+function cargarFotosLocal(){ try { fotos = JSON.parse(localStorage.getItem(KEY_FOTOS) || '{}') || {}; } catch(e){ fotos = {}; } }
+function guardarFotosLocal(){ try { localStorage.setItem(KEY_FOTOS, JSON.stringify(fotos)); return true; } catch(e){ return false; } }
+
+function leerImagen(file){
+  return new Promise(function(ok, mal){
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function(){ URL.revokeObjectURL(url); ok(img); };
+    img.onerror = function(){ URL.revokeObjectURL(url); mal(new Error('No se pudo abrir la imagen')); };
+    img.src = url;
+  });
+}
+async function comprimirFoto(file){
+  var img = await leerImagen(file);
+  // recorte horizontal 3:2, que es como se muestra en todas partes
+  var w = img.naturalWidth, h = img.naturalHeight, rw = w, rh = Math.round(w * 2 / 3);
+  if (rh > h){ rh = h; rw = Math.round(h * 3 / 2); }
+  var sx = Math.round((w - rw) / 2), sy = Math.round((h - rh) / 2);
+  var anchos = [600, 480, 400, 320], calidades = [0.72, 0.6, 0.5];
+  for (var i = 0; i < anchos.length; i++){
+    var c = document.createElement('canvas');
+    c.width = Math.min(anchos[i], rw); c.height = Math.round(c.width * rh / rw);
+    c.getContext('2d').drawImage(img, sx, sy, rw, rh, 0, 0, c.width, c.height);
+    for (var j = 0; j < calidades.length; j++){
+      var d = c.toDataURL('image/jpeg', calidades[j]);
+      if (d.length < 45000) return d;
+    }
+  }
+  throw new Error('La foto es demasiado pesada');
+}
+async function subirFoto(cod, file){
+  if (!estado.yo){ elegirPersona(function(){ verEquipo(cod); }); return; }
+  var b = $('#cambiar-foto'); if (b) b.classList.add('subiendo');
+  aviso('Procesando foto…');
+  var dataUrl;
+  try { dataUrl = await comprimirFoto(file); }
+  catch(e){ if (b) b.classList.remove('subiendo'); aviso(e.message); return; }
+  var anterior = fotos[cod];
+  fotos[cod] = dataUrl;
+  if (!guardarFotosLocal()){ if (anterior) fotos[cod] = anterior; else delete fotos[cod]; aviso('No cupo la foto en este celular.'); return; }
+  encolar('Fotos', [fechaCO(hoy()), horaAhora(), nombreDe(cod), cod, dataUrl, estado.yo], ENC_FOTOS, 'foto:' + cod);
+  await persistir();
+  verEquipo(cod); pintar();
+  aviso('Foto de ' + cod + ' guardada.');
+  enviar();
+}
+async function traerFotos(){
+  if (!navigator.onLine) return;
+  try {
+    var r = await fetch(GS_URL + '?hoja=Fotos&t=' + Date.now());
+    var d = await r.json();
+    if (!d || !d.ok || !Array.isArray(d.datos)) return;
+    var enCola = {};
+    estado.cola.forEach(function(x){ enCola[x.id] = true; });
+    var cambio = false;
+    d.datos.forEach(function(row){
+      var cod = String(row[3]||'').trim(), url = String(row[4]||'');
+      if (!cod || enCola['foto:' + cod] || url.indexOf('data:image/') !== 0) return;
+      if (fotos[cod] !== url){ fotos[cod] = url; cambio = true; }
+    });
+    if (cambio){ guardarFotosLocal(); if ($('#hoja').hidden) pintar(); }
+  } catch(e){}
+}
+
+/* =====================================================================
    PIN
    ===================================================================== */
 function montarPin(){
@@ -791,6 +880,7 @@ $('#btn-yo').onclick = function(){ elegirPersona(null); };
   if (g && g.eventos) estado = g;
   if (!estado.eventos) estado.eventos = [];
   if (!estado.cola) estado.cola = [];
+  cargarFotosLocal();
   // limpia datos de ejemplo y campos de la primera versión
   estado.eventos = estado.eventos.filter(function(e){ return !e.ejemplo; });
   delete estado.ejemploCargado; delete estado.pendientes;
@@ -799,8 +889,10 @@ $('#btn-yo').onclick = function(){ elegirPersona(null); };
   if (!(await DB.guardar(estado))) { sinGuardar = true; pintarSync(); }
   await enviar();
   await traer();
+  traerFotos();
   window.addEventListener('online', async function(){ await enviar(); traer(); });
   setInterval(function(){ if (!estado.cola.length) traer(); else enviar(); }, 60000);
+  setInterval(traerFotos, 10 * 60000);
 })();
 </script>
 </body>
