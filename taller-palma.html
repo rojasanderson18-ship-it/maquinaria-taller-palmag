@@ -154,8 +154,12 @@
    si fue falla o mantenimiento, y quién lo registró.
    Un evento = un registro, que nace abierto y se cierra con el alta.
    El taller es la única fuente de paradas: el preoperativo no entra aquí.
-   Cada evento se envía a la hoja "Taller" como dos filas (PARADA y ALTA)
+   Cada evento se envía a la hoja "Taller" como fila PARADA y luego ALTA,
    con el mismo ID; al leer la hoja se juntan por ID.
+   Ojo con el Apps Script: si ya hay una fila de hoy con el mismo valor en
+   la columna 4, la sobrescribe en vez de agregar. Por eso la columna 4 es
+   el ID (único por evento) y la fila ALTA lleva todos los datos: si el alta
+   es el mismo día, reemplaza a la PARADA sin perder nada.
    ===================================================================== */
 
 var FLOTA = [
@@ -192,7 +196,9 @@ var PERSONAS = ['Tulio', 'Juan Carlos Oviedo', 'Brayan Pérez', 'Ing. Luis Ferna
 
 var GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
 var HOJA = 'Taller';
-var ENC_TALLER = ['Fecha','Hora','ID','Acción','Equipo','Máquina','Tipo','Sistema','Detalle','Persona','Fecha Parada','Días Parada'];
+/* "Fecha Parada" va como aaaa-mm-dd para que Sheets no confunda día y mes */
+var ENC_TALLER = ['Fecha','Hora','Acción','ID','Equipo','Máquina','Tipo','Sistema','Novedad','Reportó',
+                  'Fecha Parada','Trabajo','Alta por','Días Parada'];
 /* mismas columnas que escribía el taller anterior; Gerencia las lee así */
 var ENC_ALTAS = ['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos Resolución','Trabajo Realizado'];
 var PIN = '2026';
@@ -420,8 +426,8 @@ function reportar(codPre){
           cerradoEn: null
         };
         estado.eventos.push(ev);
-        encolar(HOJA, [fechaCO(ev.fechaReporte), horaAhora(), ev.id, 'PARADA', ev.equipo, nombreDe(ev.equipo),
-          ev.tipo, '', ev.novedad, ev.reportadoPor, fechaCO(ev.fechaReporte), ''], ENC_TALLER, ev.id);
+        encolar(HOJA, [fechaCO(ev.fechaReporte), horaAhora(), 'PARADA', ev.id, ev.equipo, nombreDe(ev.equipo),
+          ev.tipo, '', ev.novedad, ev.reportadoPor, ev.fechaReporte, '', '', ''], ENC_TALLER, ev.id);
         await persistir();
         cerrar(); pintar();
         aviso(sel.equipo + ' quedó reportada como parada.');
@@ -520,8 +526,8 @@ function verEquipo(cod){
       ab.trabajo = ($('#trab').value || '').trim();
       ab.cerradoEn = ahora();
       var dias = diasEntre(ab.fechaReporte, ab.fechaAlta), hora = horaAhora();
-      encolar(HOJA, [fechaCO(ab.fechaAlta), hora, ab.id, 'ALTA', ab.equipo, nombreDe(ab.equipo), ab.tipo,
-        txtSistema(ab.sistema), ab.trabajo, ab.altaPor, fechaCO(ab.fechaReporte), dias], ENC_TALLER, ab.id);
+      encolar(HOJA, [fechaCO(ab.fechaAlta), hora, 'ALTA', ab.id, ab.equipo, nombreDe(ab.equipo), ab.tipo,
+        txtSistema(ab.sistema), ab.novedad, ab.reportadoPor, ab.fechaReporte, ab.trabajo, ab.altaPor, dias], ENC_TALLER, ab.id);
       encolar('Altas', [fechaCO(ab.fechaAlta), '—', ab.equipo + ' ' + nombreDe(ab.equipo), ab.reportadoPor || '—',
         ab.altaPor, '—', hora, '—', txtSistema(ab.sistema) + (ab.trabajo ? ' — ' + ab.trabajo : '')], ENC_ALTAS, ab.id);
       await persistir();
@@ -567,15 +573,21 @@ async function enviar(){
 function fusionar(filas){
   var rem = {};
   filas.forEach(function(r){
-    var id = String(r[2]||'').trim(), acc = String(r[3]||'').trim().toUpperCase();
+    var acc = String(r[2]||'').trim().toUpperCase(), id = String(r[3]||'').trim();
     if (!id || (acc !== 'PARADA' && acc !== 'ALTA')) return;
     var e = rem[id] || (rem[id] = { id: id, equipo: String(r[4]||'').trim(), tipo: 'falla', sistema: null,
       novedad: '', reportadoPor: '', fechaReporte: aIso(r[10] || r[0]), registradoEn: null,
       fechaAlta: null, altaPor: null, trabajo: '', cerradoEn: null });
     if (r[6]) e.tipo = String(r[6]).trim();
+    if (r[8]) e.novedad = String(r[8]);
+    if (r[9]) e.reportadoPor = String(r[9]);
     if (r[10]) e.fechaReporte = aIso(r[10]);
-    if (acc === 'PARADA'){ e.novedad = String(r[8]||''); e.reportadoPor = String(r[9]||''); }
-    else { e.fechaAlta = aIso(r[0]); e.altaPor = String(r[9]||''); e.trabajo = String(r[8]||''); e.sistema = idSistema(String(r[7]||'')); }
+    if (acc === 'ALTA'){
+      e.sistema = idSistema(String(r[7]||'')); e.trabajo = String(r[11]||''); e.altaPor = String(r[12]||'');
+      // la fecha del alta sale de la parada + días, que no depende de cómo Sheets lea la columna Fecha
+      var d = new Date(e.fechaReporte + 'T12:00:00'); d.setDate(d.getDate() + (parseInt(r[13], 10) || 0));
+      e.fechaAlta = isNaN(d) ? aIso(r[0]) : isoLocal(d);
+    }
   });
   var enCola = {};
   estado.cola.forEach(function(x){ enCola[x.id] = true; });
