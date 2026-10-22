@@ -252,7 +252,8 @@ var SISTEMAS = [
   {id:'otro',        txt:'Otro'}
 ];
 
-var PERSONAS = ['Tulio', 'Juan Carlos Oviedo', 'Brayan Pérez', 'Ing. Luis Fernando'];
+/* Solo Tulio maneja el taller; con una sola persona no se pregunta quién registra */
+var PERSONAS = ['Tulio Olaya'];
 
 var GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
 var HOJA = 'Taller';
@@ -869,7 +870,8 @@ function montarPin(){
    Arranque
    ===================================================================== */
 $('#btn-reportar').onclick = function(){ reportar(null); };
-$('#btn-yo').onclick = function(){ elegirPersona(null); };
+if (PERSONAS.length > 1) $('#btn-yo').onclick = function(){ elegirPersona(null); };
+else $('#btn-yo').style.cursor = 'default';
 
 (async function init(){
   if (document.documentElement.className === 'pin-ok') $('#pin').hidden = true;
@@ -881,6 +883,7 @@ $('#btn-yo').onclick = function(){ elegirPersona(null); };
   if (!estado.eventos) estado.eventos = [];
   if (!estado.cola) estado.cola = [];
   cargarFotosLocal();
+  if (PERSONAS.indexOf(estado.yo) < 0) estado.yo = PERSONAS.length === 1 ? PERSONAS[0] : '';
   // limpia datos de ejemplo y campos de la primera versión
   estado.eventos = estado.eventos.filter(function(e){ return !e.ejemplo; });
   delete estado.ejemploCargado; delete estado.pendientes;
