@@ -26,6 +26,9 @@
   header .marca{font-size:11px;letter-spacing:.14em;color:#8FA79A;font-weight:600;text-transform:uppercase}
   header h1{font-size:19px;margin:0;font-weight:700;line-height:1.15}
   header .fecha{font-size:12px;color:#8FA79A}
+  header .maq-btn{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#EDF0EE;background:#26352E;border:1px solid #34443C;border-radius:20px;padding:6px 13px;white-space:nowrap}
+  header .maq-btn svg{width:15px;height:15px}
+  header .yo[hidden]{display:none}
   header .yo{margin-left:auto;font-size:13px;color:#C9D8D0;background:#26352E;border:1px solid #34443C;border-radius:20px;padding:6px 13px;white-space:nowrap;max-width:46%;overflow:hidden;text-overflow:ellipsis}
   .sync{background:var(--amber);color:#fff;font-size:13px;padding:7px 16px;text-align:center}
   .sync[hidden]{display:none}
@@ -111,6 +114,13 @@
 
   .campo{display:block;margin-bottom:18px}
   .campo[hidden]{display:none}
+  .campo select{width:100%;padding:13px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+  .maq-fila{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:8px;margin-bottom:8px;width:100%;text-align:left}
+  .maq-fila .foto{width:72px;height:50px}
+  .maq-fila .txt{flex:1;min-width:0}
+  .maq-fila .cod{font-family:'JetBrains Mono',monospace;font-weight:700}
+  .maq-fila .det{display:block;font-size:13px;color:var(--steel)}
+  .maq-fila.baja{opacity:.6}
   .campo span{display:block;font-size:14px;font-weight:600;color:var(--soft);margin-bottom:6px}
   .campo span i{font-weight:400;font-style:normal;color:var(--steel)}
   .campo textarea,.campo input{width:100%;padding:13px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
@@ -178,7 +188,8 @@
 <header><div class="fila">
   <a class="volver" href="https://rojasanderson18-ship-it.github.io/maquinaria-taller-palmag/" aria-label="Volver a la página principal">‹</a>
   <div><div class="marca">Palma Grande S.A.S.</div><h1>Taller de maquinaria</h1><div class="fecha" id="fecha-hoy"></div></div>
-  <button class="yo" id="btn-yo">—</button>
+  <button class="maq-btn" id="btn-maquinas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Máquinas</button>
+  <button class="yo" id="btn-yo" hidden>—</button>
 </div></header>
 <div class="sync" id="sync" hidden></div>
 
@@ -190,6 +201,7 @@
 <div class="hoja" id="hoja" hidden><div class="panel" id="panel"></div></div>
 <div class="aviso" id="aviso" hidden></div>
 
+<script src="maestros.js"></script>
 <script>
 /* =====================================================================
    TALLER — Palma Grande S.A.S.
@@ -206,22 +218,9 @@
    es el mismo día, reemplaza a la PARADA sin perder nada.
    ===================================================================== */
 
-var FLOTA = [
-  {cod:'#01',  nombre:'Kubota B2441'},
-  {cod:'#02',  nombre:'Kubota B2441'},
-  {cod:'#03',  nombre:'Kubota M9540'},
-  {cod:'#04',  nombre:'Kubota M9540'},
-  {cod:'#05',  nombre:'John Deere 2850'},
-  {cod:'#06',  nombre:'Kubota K5100'},
-  {cod:'#07',  nombre:'Kubota M108S'},
-  {cod:'#08',  nombre:'Lovol TH754-H'},
-  {cod:'#09',  nombre:'Lovol TH754-H'},
-  {cod:'#10',  nombre:'Lovol TH904-X'},
-  {cod:'#11',  nombre:'Lovol TH904-X'},
-  {cod:'FORD', nombre:'Ford 5000'},
-  {cod:'EXX568', nombre:'VW Constellation', clase:'camion'},
-  {cod:'SXY206', nombre:'Isuzu FVR',        clase:'camion'}
-];
+/* La flota es la de la hoja Maestros, compartida con Programación y Gerencia
+   (ver maestros.js). Aquí se puede agregar una máquina o darla de baja. */
+var FLOTA = Maestros.flota();
 
 /* Fotos: primero la que se subió desde el Taller (hoja "Fotos" de Sheets),
    si no, la de la carpeta fotos/ del repositorio con el código sin el #
@@ -233,7 +232,7 @@ var DIBUJO = {
     '<path d="M3 8h25v14H3z"/><path d="M28 13h8l6 6v3h-14z"/><circle cx="13" cy="24" r="4"/><circle cx="36" cy="24" r="4"/></svg>'
 };
 function fotoHtml(cod){
-  var f = FLOTA.filter(function(x){ return x.cod === cod; })[0] || {};
+  var f = Maestros.flotaTodas().filter(function(x){ return x.cod === cod; })[0] || {};
   var src = fotos[cod] || ('fotos/' + encodeURIComponent(String(cod).replace('#', '')) + '.jpg');
   return '<span class="foto">' + DIBUJO[f.clase || 'maquina'] +
     '<img src="' + esc(src) + '" alt="" loading="lazy" onerror="this.remove()"></span>';
@@ -312,7 +311,7 @@ function diasEntre(a, b){
 }
 function aviso(m){ var a=$('#aviso'); a.textContent=m; a.hidden=false;
   clearTimeout(a._t); a._t=setTimeout(function(){ a.hidden=true; }, 3000); }
-function nombreDe(cod){ var e = FLOTA.filter(function(f){ return f.cod===cod; })[0]; return e ? e.nombre : ''; }
+function nombreDe(cod){ var e = Maestros.flotaTodas().filter(function(f){ return f.cod===cod; })[0]; return e ? e.nombre : ''; }
 function txtSistema(id){ var s = SISTEMAS.filter(function(x){ return x.id===id; })[0]; return s ? s.txt : id; }
 
 function idSistema(v){
@@ -688,6 +687,115 @@ function corregirFecha(cod){
 }
 
 /* =====================================================================
+   Máquinas: agregar, corregir o dar de baja (lista compartida)
+   ===================================================================== */
+function guardarFlota(lista){
+  var x = Maestros.fila('FLOTA', lista, estado.yo);
+  estado.cola = estado.cola.filter(function(c){ return c.id !== x.id; });   // basta con la última versión
+  encolar(x.hoja, x.fila, x.encabezados, x.id);
+  FLOTA = Maestros.flota();
+}
+function maquinas(){
+  var todas = Maestros.flotaTodas();
+  var activas = todas.filter(function(f){ return f.activa !== false; });
+  var bajas = todas.filter(function(f){ return f.activa === false; });
+  function fila(f){
+    var g = Maestros.GRUPOS[f.grupo] || 'Campo';
+    return '<button class="maq-fila' + (f.activa === false ? ' baja' : '') + '" data-ed="' + esc(f.cod) + '">' + fotoHtml(f.cod) +
+      '<span class="txt"><span class="cod">' + esc(f.cod) + '</span> ' + esc(f.nombre) +
+      '<span class="det">' + esc(g) + (f.uso ? ' · ' + esc(f.uso) : '') + (f.activa === false ? ' · dada de baja' : '') + '</span></span>' +
+      '<span class="ir" style="color:var(--steel);font-size:22px">›</span></button>';
+  }
+  abrir(tope('Máquinas', 'La misma lista que usan Programación y Gerencia') +
+    '<div class="cuerpo">' +
+      '<button class="accion verde" id="nueva">+ Agregar una máquina nueva</button>' +
+      '<h2>Activas <span class="cuenta">' + activas.length + '</span></h2>' + activas.map(fila).join('') +
+      (bajas.length ? '<h2>Dadas de baja <span class="cuenta">' + bajas.length + '</span></h2>' + bajas.map(fila).join('') : '') +
+    '</div>',
+    function(){
+      $('#nueva').onclick = function(){ editarMaquina(null); };
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-ed]'), function(b){
+        b.onclick = function(){ editarMaquina(b.dataset.ed); };
+      });
+    });
+}
+function editarMaquina(cod){
+  var todas = Maestros.flotaTodas();
+  var m = cod ? todas.filter(function(f){ return f.cod === cod; })[0] : null;
+  var nueva = !m;
+  m = m || { cod:'', nombre:'', grupo:'campo', clase:'maquina', uso:'' };
+  var ab = cod ? abiertoDe(cod) : null;
+  var opG = function(v, t){ return '<option value="' + v + '"' + (m.grupo === v ? ' selected' : '') + '>' + t + '</option>'; };
+  abrir(tope(nueva ? 'Máquina nueva' : m.cod + ' · ' + m.nombre, nueva ? 'Aparece en Taller, Programación y Gerencia' : 'Corregir datos') +
+    '<div class="cuerpo">' +
+      (nueva
+        ? '<label class="campo"><span>Código</span><input id="m-cod" placeholder="#12, o la placa si es un camión" autocomplete="off"></label>'
+        : '<p class="nota">El código no se cambia, porque el historial de paradas y la programación están guardados con él.</p>') +
+      '<label class="campo"><span>Marca y modelo</span><input id="m-nom" value="' + esc(m.nombre) + '" placeholder="Kubota M9540" autocomplete="off"></label>' +
+      '<label class="campo"><span>Grupo</span><select id="m-gru">' +
+        opG('campo', 'Campo — cosecha, fertilización y mantenimiento') + opG('sanidad', 'Sanidad') + opG('transporte', 'Transporte (no se programa)') +
+      '</select></label>' +
+      '<label class="campo"><span>Tipo</span><select id="m-cla">' +
+        '<option value="maquina"' + (m.clase !== 'camion' ? ' selected' : '') + '>Tractor o máquina</option>' +
+        '<option value="camion"' + (m.clase === 'camion' ? ' selected' : '') + '>Camión</option>' +
+      '</select></label>' +
+      '<label class="campo"><span>Uso <i>— opcional</i></span><input id="m-uso" value="' + esc(m.uso || '') + '" placeholder="Transporte de fruta" autocomplete="off"></label>' +
+      '<button class="accion verde" id="m-ok">' + (nueva ? 'Agregar máquina' : 'Guardar cambios') + '</button>' +
+      (nueva ? '' : m.activa === false
+        ? '<button class="accion gris" id="m-alta">Volver a activarla</button>'
+        : '<button class="accion gris" id="m-baja"' + (ab ? ' disabled' : '') + '>Dar de baja</button>' +
+          (ab ? '<p class="nota">Está parada: dele el alta antes de darla de baja.</p>' : '<p class="nota">Dada de baja deja de aparecer en Taller y Programación; su historial se conserva.</p>')) +
+      '<button class="accion gris" id="m-volver">Volver</button>' +
+    '</div>',
+    function(){
+      $('#m-volver').onclick = maquinas;
+      $('#m-ok').onclick = async function(){
+        var nom = $('#m-nom').value.trim();
+        if (!nom){ aviso('Escriba la marca y el modelo.'); return; }
+        var datos = { nombre: nom, grupo: $('#m-gru').value, clase: $('#m-cla').value, uso: $('#m-uso').value.trim() };
+        if (!datos.uso) delete datos.uso;
+        if (nueva){
+          var c = $('#m-cod').value.trim().toUpperCase().replace(/^(\d+)$/, function(x){ return '#' + p2(+x); });
+          if (/^#\d$/.test(c)) c = '#0' + c.slice(1);
+          if (!c){ aviso('Escriba el código.'); return; }
+          if (todas.some(function(f){ return f.cod.toUpperCase() === c; })){ aviso('Ya existe una máquina con el código ' + c + '.'); return; }
+          datos.cod = c;
+          todas.push(datos);
+        } else {
+          todas.forEach(function(f){ if (f.cod === cod){ Object.keys(datos).forEach(function(k){ f[k] = datos[k]; }); if (!datos.uso) delete f.uso; } });
+        }
+        guardarFlota(todas);
+        await persistir(); pintar(); maquinas(); enviar();
+        aviso(nueva ? datos.cod + ' quedó agregada.' : 'Cambios guardados.');
+      };
+      var bj = $('#m-baja');
+      if (bj) bj.onclick = async function(){
+        if (!confirm('¿Dar de baja ' + cod + '? Deja de aparecer en Taller y Programación.')) return;
+        todas.forEach(function(f){ if (f.cod === cod) f.activa = false; });
+        guardarFlota(todas);
+        await persistir(); pintar(); maquinas(); enviar();
+        aviso(cod + ' quedó dada de baja.');
+      };
+      var al = $('#m-alta');
+      if (al) al.onclick = async function(){
+        todas.forEach(function(f){ if (f.cod === cod) delete f.activa; });
+        guardarFlota(todas);
+        await persistir(); pintar(); maquinas(); enviar();
+        aviso(cod + ' volvió a la lista.');
+      };
+    });
+}
+
+async function traerMaestros(){
+  if (!navigator.onLine) return;
+  var pend = {};
+  estado.cola.forEach(function(x){ if (String(x.id).indexOf('maestro:') === 0) pend[x.id.slice(8)] = true; });
+  try {
+    if (await Maestros.traer(pend)){ FLOTA = Maestros.flota(); if ($('#hoja').hidden) pintar(); }
+  } catch(e){}
+}
+
+/* =====================================================================
    Google Sheets
    ===================================================================== */
 /* Una fila PARADA con el mismo ID reemplaza la fecha de parada al leer la hoja
@@ -870,6 +978,7 @@ function montarPin(){
    Arranque
    ===================================================================== */
 $('#btn-reportar').onclick = function(){ reportar(null); };
+$('#btn-maquinas').onclick = maquinas;
 if (PERSONAS.length > 1) $('#btn-yo').onclick = function(){ elegirPersona(null); };
 else $('#btn-yo').style.cursor = 'default';
 
@@ -877,7 +986,7 @@ else $('#btn-yo').style.cursor = 'default';
   if (document.documentElement.className === 'pin-ok') $('#pin').hidden = true;
   montarPin();
   var fh = new Date().toLocaleDateString('es-CO', { weekday:'long', day:'numeric', month:'long' });
-  $('#fecha-hoy').textContent = fh.charAt(0).toUpperCase() + fh.slice(1);
+  $('#fecha-hoy').textContent = fh.charAt(0).toUpperCase() + fh.slice(1) + ' · ' + PERSONAS[0];
   var g = await DB.cargar();
   if (g && g.eventos) estado = g;
   if (!estado.eventos) estado.eventos = [];
@@ -893,9 +1002,10 @@ else $('#btn-yo').style.cursor = 'default';
   await enviar();
   await traer();
   traerFotos();
+  traerMaestros();
   window.addEventListener('online', async function(){ await enviar(); traer(); });
   setInterval(function(){ if (!estado.cola.length) traer(); else enviar(); }, 60000);
-  setInterval(traerFotos, 10 * 60000);
+  setInterval(function(){ traerFotos(); traerMaestros(); }, 10 * 60000);
 })();
 </script>
 </body>

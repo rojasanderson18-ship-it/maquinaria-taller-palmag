@@ -165,6 +165,7 @@
 
 <div id="print"></div>
 
+<script src="maestros.js"></script>
 <script>
 /* =====================================================================
    GERENCIA — Disponibilidad y fallas de maquinaria
@@ -180,26 +181,12 @@ var META = 90;
 
 var GRUPOS = [
   { id:'sanidad',    txt:'Grupo sanidad' },
-  { id:'cosecha',    txt:'Grupo cosecha, fertilización y mantenimiento' },
+  { id:'campo',      txt:'Grupo cosecha, fertilización y mantenimiento' },
   { id:'transporte', txt:'Transporte' }
 ];
-/* misma flota que el Taller */
-var FLOTA = [
-  {cod:'#01', nombre:'Kubota B2441',    grupo:'sanidad'},
-  {cod:'#02', nombre:'Kubota B2441',    grupo:'sanidad'},
-  {cod:'#06', nombre:'Kubota K5100',    grupo:'sanidad'},
-  {cod:'#03', nombre:'Kubota M9540',    grupo:'cosecha'},
-  {cod:'#04', nombre:'Kubota M9540',    grupo:'cosecha'},
-  {cod:'#05', nombre:'John Deere 2850', grupo:'cosecha'},
-  {cod:'#07', nombre:'Kubota M108S',    grupo:'cosecha'},
-  {cod:'#08', nombre:'Lovol TH754-H',   grupo:'cosecha'},
-  {cod:'#09', nombre:'Lovol TH754-H',   grupo:'cosecha'},
-  {cod:'#10', nombre:'Lovol TH904-X',   grupo:'cosecha'},
-  {cod:'#11', nombre:'Lovol TH904-X',   grupo:'cosecha'},
-  {cod:'FORD', nombre:'Ford 5000',      grupo:'cosecha'},
-  {cod:'EXX568', nombre:'VW Constellation', grupo:'transporte', uso:'Transporte de fruta'},
-  {cod:'SXY206', nombre:'Isuzu FVR',        grupo:'transporte', uso:'Personal y varios'}
-];
+/* La misma flota del Taller y Programación (hoja Maestros, ver maestros.js).
+   Las dadas de baja entran solo en los meses en que tuvieron paradas. */
+var FLOTA = Maestros.flotaTodas();
 var SISTEMAS = {motor:'Motor', hidraulico:'Hidráulico', electrico:'Eléctrico', transmision:'Transmisión',
   frenos:'Frenos', llantas:'Llantas', implemento:'Implemento', otro:'Otro'};
 
@@ -289,7 +276,9 @@ function calcular(eventos, anio, mes){
     return true;
   }).sort(function(a,b){ return a.inicio < b.inicio ? -1 : 1; });
 
-  var equipos = FLOTA.map(function(q){
+  var conParadas = {};
+  delMes.forEach(function(e){ conParadas[e.equipo] = true; });
+  var equipos = FLOTA.filter(function(q){ return q.activa !== false || conParadas[q.cod]; }).map(function(q){
     var perdido = {};   // fecha → 'falla' | 'mantenimiento' (la falla manda si se cruzan)
     var evs = delMes.filter(function(e){ return e.equipo === q.cod; });
     evs.forEach(function(e){
@@ -500,6 +489,8 @@ async function cargar(forzar){
   var mv = $('#mes').value.split('-');
   if (!EVENTOS || forzar){
     $('#app').innerHTML = '<div class="cargando">Consultando la hoja Taller…</div>';
+    try { await Maestros.traer(); } catch(e){}   // si falla se usa la copia guardada
+    FLOTA = Maestros.flotaTodas();
     try { EVENTOS = await traer(); }
     catch(e){
       $('#app').innerHTML = '<div class="err"><strong>No se pudo leer la hoja Taller.</strong> Revise la conexión e intente con "Actualizar". (' + esc(e.message) + ')</div>';

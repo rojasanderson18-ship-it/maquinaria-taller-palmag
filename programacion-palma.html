@@ -1,574 +1,1229 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>Programación Diaria — Flota Palma</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Programación de maquinaria — Palma Grande</title>
+<meta name="theme-color" content="#16211C">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
-:root{
-  --verde:#1a4731;--verde-m:#2d6a4f;--verde-s:#52b788;--verde-p:#d8f3dc;--verde-pp:#f0faf2;
-  --dorado:#b7791f;--dorado-p:#fef3c7;
-  --rojo:#991b1b;--rojo-m:#dc2626;--rojo-p:#fee2e2;
-  --azul:#1e40af;--azul-p:#dbeafe;
-  --gris:#64748b;--gris-p:#f1f5f9;
-  --bg:#f0f4f1;--surface:#fff;--border:#e2e8f0;--text:#1e293b;--muted:#64748b;
-}
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:60px}
-.top-bar{height:5px;background:var(--dorado)}
-header{background:var(--verde);padding:14px 18px;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.25)}
-.hdr-row{display:flex;align-items:center;justify-content:space-between}
-.hdr-left{display:flex;align-items:center;gap:12px}
-.logo{width:40px;height:40px;background:var(--dorado);border-radius:10px;display:grid;place-items:center;font-size:20px;flex-shrink:0}
-.hdr-title{font-family:'DM Serif Display',serif;font-size:18px;color:#fff}
-.hdr-sub{font-size:10px;color:rgba(255,255,255,.5);margin-top:1px}
-.hdr-right{text-align:right}
-.hdr-date{font-size:11px;color:rgba(255,255,255,.75);line-height:1.5}
-.live-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ade80;animation:pulse 2s infinite;margin-right:4px}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  :root{
+    --paper:#EDF0EE; --card:#fff; --ink:#16211C; --soft:#4A5B53; --steel:#7E8C86; --line:#D3DAD6;
+    --green:#1F5D3C; --green-s:#E2EDE6; --amber:#B0600D; --amber-s:#FBEEDC;
+    --red:#9E2B21; --red-s:#F9E3E1; --azul:#2A4C6B; --azul-s:#E7EDF3; --r:4px;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{background:var(--paper);color:var(--ink);font-family:'Barlow',system-ui,sans-serif;font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+  button{font-family:inherit;font-size:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select,textarea{font-family:inherit;font-size:16px;color:inherit}
+  :focus-visible{outline:3px solid var(--green);outline-offset:2px}
 
-main{max-width:600px;margin:0 auto;padding:16px 14px}
+  header{background:var(--ink);color:#EDF0EE;padding:12px 16px;position:sticky;top:0;z-index:20;border-bottom:3px solid var(--green)}
+  header .fila{display:flex;align-items:center;gap:12px;max-width:900px;margin:0 auto}
+  header .volver{color:#9CB3A7;font-size:24px;line-height:1;text-decoration:none;padding:2px 4px 4px 0}
+  header .marca{font-size:11px;letter-spacing:.14em;color:#8FA79A;font-weight:600;text-transform:uppercase;white-space:nowrap}
+  @media (max-width:420px){ header .marca{letter-spacing:.06em;font-size:10px} }
+  header h1{font-size:19px;margin:0;font-weight:700;line-height:1.15}
+  header .acc{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+  header .acc button{font-size:13px;color:#C9D8D0;background:#26352E;border:1px solid #34443C;border-radius:20px;padding:6px 12px;white-space:nowrap}
+  .sync{background:var(--red);color:#fff;font-size:13px;padding:8px 16px;text-align:center}
+  .sync.pend{background:var(--amber)}
+  .lista-maq{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:12px}
+  .lista-maq div{padding:9px 12px;border-bottom:1px solid #EDEFEE;font-size:14px}
+  .lista-maq div:last-child{border-bottom:none}
+  .sync[hidden]{display:none}
 
-/* PASO 1 - IDENTIFICACIÓN */
-.id-card{background:var(--surface);border-radius:14px;overflow:hidden;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.07)}
-.id-hdr{background:var(--verde);padding:13px 16px;border-left:4px solid var(--dorado);display:flex;align-items:center;gap:10px}
-.id-hdr-icon{font-size:18px}
-.id-hdr-title{font-family:'DM Serif Display',serif;font-size:14px;color:#fff}
-.id-body{padding:16px;display:flex;flex-direction:column;gap:10px}
-select,input[type=text],input[type=date]{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:#fff;outline:none;-webkit-appearance:none}
-select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px}
-select:focus,input:focus{border-color:var(--verde-s);box-shadow:0 0 0 3px rgba(82,183,136,.15)}
+  .wrap{max-width:900px;margin:0 auto;padding:14px 16px 120px}
 
-/* TABLERO DE TRACTORES */
-.board-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
-.board-title{font-family:'DM Serif Display',serif;font-size:16px;color:var(--verde)}
-.board-refresh{padding:6px 12px;border-radius:8px;border:1.5px solid var(--verde-s);background:var(--verde-pp);color:var(--verde-m);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;cursor:pointer}
+  .fechas{display:flex;gap:8px;align-items:center;margin-bottom:14px}
+  .fechas input{flex:1;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+  .fechas button{padding:12px 15px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);font-weight:700;font-size:16px}
+  .dia{font-size:14px;color:var(--soft);margin:-8px 0 14px}
 
-/* TRACTOR CARD */
-.tractor-card{background:var(--surface);border-radius:14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden;border-left:5px solid var(--border);transition:all .2s}
-.tractor-card.libre{border-left-color:var(--verde-s);cursor:pointer}
-.tractor-card.libre:active{transform:scale(.99)}
-.tractor-card.tomado{border-left-color:var(--dorado);opacity:.85}
-.tractor-card.mio{border-left-color:var(--azul)}
-.tc-header{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
-.tc-left{display:flex;align-items:center;gap:10px}
-.tc-num{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
-.libre .tc-num{background:var(--verde-m)}
-.tomado .tc-num{background:var(--dorado)}
-.mio .tc-num{background:var(--azul)}
-.tc-nombre{font-size:13px;font-weight:700}
-.tc-sub{font-size:11px;color:var(--muted);margin-top:2px}
-.pill{display:inline-block;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700}
-.pill-libre{background:var(--verde-p);color:var(--verde-m)}
-.pill-tomado{background:var(--dorado-p);color:var(--dorado)}
-.pill-mio{background:var(--azul-p);color:var(--azul)}
+  .resumen{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:9px;margin-bottom:14px}
+  .res{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:11px 13px}
+  .res .n{font-size:24px;font-weight:700;line-height:1.1}
+  .res .t{font-size:12.5px;color:var(--soft)}
+  .res.v{border-left:4px solid var(--green)} .res.v .n{color:var(--green)}
+  .res.a{border-left:4px solid var(--amber)} .res.a .n{color:var(--amber)}
+  .res.r{border-left:4px solid var(--red)} .res.r .n{color:var(--red)}
 
-/* FORM INLINE */
-.tc-form{display:none;padding:0 14px 14px;border-top:1px solid var(--border)}
-.tractor-card.expandido .tc-form{display:block;animation:fadeIn .2s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
-.form-grid.full{grid-template-columns:1fr}
-.fg{display:flex;flex-direction:column;gap:4px}
-.fg label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.fg select,.fg input{padding:9px 12px;font-size:13px;border-radius:8px}
+  .alerta{background:var(--red-s);border-left:4px solid var(--red);color:#7A211A;padding:11px 14px;border-radius:2px;margin-bottom:12px;font-size:14px}
+  .nota-a{background:var(--amber-s);border-left:4px solid var(--amber);color:#7A430A;padding:11px 14px;border-radius:2px;margin-bottom:12px;font-size:14px}
+  .nota-z{background:var(--azul-s);border-left:4px solid var(--azul);color:var(--azul);padding:11px 14px;border-radius:2px;margin-bottom:12px;font-size:14px}
+  .alerta b,.nota-a b,.nota-z b{font-weight:700}
+  .nota-z button{text-decoration:underline;font-weight:700;color:inherit}
 
-/* BOTONES */
-.btn{padding:10px 20px;border-radius:10px;border:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
-.btn-verde{background:var(--verde);color:#fff}
-.btn-verde:active{transform:scale(.98)}
-.btn-rojo{background:var(--rojo-p);color:var(--rojo)}
-.btn-gris{background:var(--gris-p);color:var(--gris)}
-.btn-row{display:flex;gap:8px;margin-top:12px}
-.btn-full{width:100%;padding:14px;border-radius:12px;border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;margin-top:8px}
-.btn-gold{background:var(--dorado);color:#fff;box-shadow:0 4px 16px rgba(183,121,31,.3)}
-.btn-wa{background:#25d366;color:#fff}
+  h2{font-size:13px;margin:20px 0 8px;font-weight:700;color:var(--soft);text-transform:uppercase;letter-spacing:.04em}
 
-/* RESUMEN */
-.resumen-card{background:var(--verde);border-radius:14px;padding:16px;margin-bottom:14px;display:none}
-.resumen-card.show{display:block}
-.res-title{font-family:'DM Serif Display',serif;font-size:16px;color:#fff;margin-bottom:12px}
-.res-item{display:flex;gap:10px;align-items:flex-start;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1)}
-.res-item:last-child{border-bottom:none}
-.res-num{font-size:12px;font-weight:700;color:var(--dorado);min-width:28px}
-.res-info{flex:1}
-.res-nombre{font-size:13px;font-weight:600;color:#fff}
-.res-det{font-size:11px;color:rgba(255,255,255,.6);margin-top:2px}
+  .maq{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:9px;overflow:hidden}
+  .maq.asignada{border-left:4px solid var(--green)}
+  .maq.varada{border-left:4px solid var(--red);background:#FFF9F8}
+  .maq .cab{display:flex;align-items:center;gap:12px;padding:13px 14px;width:100%;text-align:left}
+  .maq .cod{font-size:18px;font-weight:700;min-width:58px}
+  .maq .nom{font-size:14.5px}
+  .maq .sub{font-size:13px;color:var(--steel);margin-top:1px;display:block}
+  .maq .sub.asig{color:var(--green);font-weight:600}
+  .maq .sub.falta{color:var(--amber);font-weight:600}
+  .maq .ir{margin-left:auto;color:var(--steel);font-size:21px;flex:none}
+  .maq.varada .cod{color:var(--red)}
+  .maq.asignada .cod{color:var(--green)}
 
-/* WA PREVIEW */
-.wa-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;overflow-y:auto;padding:20px 14px}
-.wa-modal.show{display:block}
-.wa-inner{max-width:540px;margin:0 auto;background:var(--surface);border-radius:16px;overflow:hidden}
-.wa-hdr{background:var(--verde);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;border-left:4px solid var(--dorado)}
-.wa-hdr-title{font-family:'DM Serif Display',serif;font-size:14px;color:#fff}
-.wa-close{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:8px;padding:5px 12px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700}
-.wa-body{padding:16px}
-.wa-preview{background:#e8f5e9;border-radius:12px;padding:14px;margin-bottom:12px;font-family:monospace;font-size:12px;color:#1b5e20;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:50vh;overflow-y:auto}
+  .fab{position:fixed;left:0;right:0;bottom:0;background:linear-gradient(to top,var(--paper) 72%,rgba(237,240,238,0));
+       padding:13px 16px calc(13px + env(safe-area-inset-bottom));z-index:15;display:flex;gap:9px;justify-content:center}
+  .fab button{flex:1;max-width:300px;padding:16px;border-radius:var(--r);font-size:16px;font-weight:700}
+  .fab .pri{background:var(--green);color:#fff}
+  .fab .sec{background:var(--card);border:1px solid var(--line);color:var(--ink);font-weight:600}
 
-/* LOADING */
-.loading{text-align:center;padding:32px 14px;color:var(--muted)}
-.spinner{width:24px;height:24px;border:3px solid var(--border);border-top-color:var(--verde);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 10px}
-@keyframes spin{to{transform:rotate(360deg)}}
-.empty{text-align:center;padding:28px;color:var(--muted)}
+  .hoja{position:fixed;inset:0;background:rgba(14,22,18,.5);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+  .hoja[hidden]{display:none}
+  .panel{background:var(--paper);width:100%;max-width:760px;max-height:94vh;overflow:auto;
+         border-radius:14px 14px 0 0;padding:0 0 calc(18px + env(safe-area-inset-bottom))}
+  .panel .tope{position:sticky;top:0;background:var(--paper);padding:16px 16px 11px;border-bottom:1px solid var(--line);z-index:2}
+  .panel .tope .fila{display:flex;align-items:center;gap:10px}
+  .panel h3{margin:0;font-size:19px;font-weight:700}
+  .panel .sub{font-size:13px;color:var(--steel)}
+  .cerrar{margin-left:auto;font-size:26px;color:var(--steel);padding:0 6px;line-height:1}
+  .cuerpo{padding:16px}
 
-#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--verde);color:#fff;padding:12px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.2);opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1);z-index:999;border-left:4px solid var(--dorado);max-width:90vw;text-align:center}
-#toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-#toast.error{background:var(--rojo)}
+  .paso{font-size:14px;font-weight:600;color:var(--soft);margin:0 0 9px}
+  .paso i{font-weight:400;font-style:normal;color:var(--steel)}
+  .rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:9px;margin-bottom:20px}
+  /* los nombres de las labores son largos: dos columnas y texto a la izquierda */
+  #g-lab{grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}
+  #g-lab .op{text-align:left;padding:13px 12px}
+  .op{background:var(--card);border:2px solid var(--line);border-radius:var(--r);padding:13px 8px;text-align:center;font-weight:600;font-size:14.5px;line-height:1.2}
+  .op small{display:block;font-weight:400;font-size:12px;color:var(--steel);margin-top:3px}
+  .op[aria-pressed=true]{border-color:var(--green);background:var(--green-s);color:var(--green)}
+  .op[disabled]{opacity:.42}
+  .op.ancho{grid-column:1/-1;text-align:left;padding:14px}
+  .op .ocupado{display:block;font-size:12px;color:var(--red);font-weight:600;margin-top:3px}
+
+  /* lotes */
+  .buscar{width:100%;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);margin-bottom:10px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:12px;max-height:214px;overflow:auto;padding:2px}
+  .chip{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:8px 14px;font-weight:600;font-size:14.5px}
+  .chip[aria-pressed=true]{border-color:var(--green);background:var(--green-s);color:var(--green)}
+  .gfinca{flex-basis:100%;font-size:12px;font-weight:700;color:var(--steel);text-transform:uppercase;
+          letter-spacing:.04em;margin:8px 2px 2px;padding-top:6px;border-top:1px solid var(--line)}
+  .gfinca:first-child{margin-top:0;padding-top:0;border-top:none}
+  .fila-asig{display:flex;gap:7px;margin-bottom:6px;flex-wrap:wrap}
+  .fila-asig input{flex:2;min-width:120px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+  .fila-asig select{flex:1;min-width:110px;padding:11px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+  .fila-asig button{padding:11px 16px;border:1px solid var(--green);background:var(--green);color:#fff;border-radius:var(--r);font-weight:700}
+  .tabla-cfg select{width:100%;padding:7px;border:1px solid var(--line);border-radius:3px;background:#FAFBFA;font-size:14px}
+  .elegidos{font-size:14px;color:var(--soft);margin:-4px 0 14px}
+  .elegidos b{color:var(--ink)}
+
+  .campo{display:block;margin-bottom:18px}
+  .campo span{display:block;font-size:14px;font-weight:600;color:var(--soft);margin-bottom:6px}
+  .campo span i{font-weight:400;font-style:normal;color:var(--steel)}
+  .campo input,.campo textarea{width:100%;padding:13px;border:1px solid var(--line);border-radius:var(--r);background:var(--card)}
+  .campo textarea{min-height:62px;resize:vertical}
+
+  .accion{display:block;width:100%;padding:16px;border-radius:var(--r);font-size:16px;font-weight:700;margin-bottom:9px}
+  .accion.verde{background:var(--green);color:#fff}
+  .accion.gris{background:var(--card);border:1px solid var(--line);color:var(--ink);font-weight:600}
+  .accion.roja{background:var(--card);border:1px solid var(--red-s);color:var(--red);font-weight:600}
+  .accion[disabled]{opacity:.45}
+
+  .tarj{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:13px;margin-bottom:13px}
+  .tarj.alerta{border-left:4px solid var(--red);background:#FFF9F8}
+  .tarj .et{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--steel);font-weight:600}
+  .tarj .vl{font-size:15.5px;margin-top:2px}
+  .vacio{background:var(--card);border:1px dashed var(--line);border-radius:var(--r);padding:24px 16px;text-align:center;color:var(--steel)}
+  .aviso{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;background:var(--ink);color:#EDF0EE;
+         padding:12px 20px;border-radius:var(--r);z-index:60;font-size:15px;max-width:90%;text-align:center}
+  .aviso[hidden]{display:none}
+  .nota{font-size:13px;color:var(--steel);margin:0 0 14px}
+  .tabla-cfg{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:var(--r);font-size:14px;margin-bottom:12px}
+  .tabla-cfg th{background:#E8EBEA;padding:8px;text-align:left;font-size:12px;text-transform:uppercase;color:var(--soft);border-bottom:1px solid var(--line)}
+  .tabla-cfg td{padding:7px 8px;border-bottom:1px solid #EDEFEE}
+  .tabla-cfg input{width:100%;padding:7px;border:1px solid var(--line);border-radius:3px;background:#FAFBFA;font-size:14px}
+  .tabla-cfg .x{color:var(--red);font-weight:700;padding:4px 8px}
+
+  #print{display:none}
+  @media print{
+    header,.wrap,.fab,.hoja,.aviso,.sync{display:none !important}
+    #print{display:block}
+    body{background:#fff;font-size:11px}
+    @page{margin:11mm}
+    .p-cab{border-bottom:2px solid #16211C;padding-bottom:9px;margin-bottom:11px}
+    .p-emp{font-size:10px;color:#555;letter-spacing:.04em}
+    .p-tit{font-size:18px;font-weight:700;line-height:1.2}
+    .p-sub{font-size:11px;color:#555}
+    #print table{width:100%;border-collapse:collapse;border:1px solid #999;margin-bottom:9px;font-size:10.5px}
+    #print th{background:#EEE;padding:5px;border-bottom:1px solid #999;text-align:left;font-size:9px;text-transform:uppercase}
+    #print td{padding:6px 5px;border-bottom:1px solid #DDD;vertical-align:top}
+    #print tr{page-break-inside:avoid}
+    #print h4{font-size:12px;margin:11px 0 4px;border-bottom:1px solid #CCC;padding-bottom:3px}
+    .p-firma{margin-top:24px;display:flex;gap:34px;font-size:10px}
+    .p-firma div{flex:1;border-top:1px solid #333;padding-top:4px}
+    .p-pie{margin-top:13px;font-size:9px;color:#666;border-top:1px solid #CCC;padding-top:5px}
+  }
 </style>
 </head>
 <body>
-<div class="top-bar"></div>
-<header>
-  <div class="hdr-row">
-    <div class="hdr-left">
-      <div class="logo">📋</div>
-      <div><div class="hdr-title">Programación</div><div class="hdr-sub">Flota Palma — Supervisores</div></div>
-    </div>
-    <div class="hdr-right">
-      <div class="hdr-date" id="hdr-date">—</div>
-      <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:3px"><span class="live-dot"></span>En vivo</div>
-    </div>
+
+<header><div class="fila">
+  <a class="volver" href="https://rojasanderson18-ship-it.github.io/maquinaria-taller-palmag/" aria-label="Volver a la página principal">‹</a>
+  <div><div class="marca">Palma Grande S.A.S.</div><h1>Programación</h1></div>
+  <div class="acc">
+    <button id="btn-ajustes">Máquinas y lotes</button>
+    <button id="btn-yo">—</button>
   </div>
-</header>
+</div></header>
+<div class="sync" id="sync" hidden></div>
 
-<main>
+<div class="wrap" id="app"></div>
 
-  <!-- IDENTIFICACIÓN -->
-  <div class="id-card">
-    <div class="id-hdr"><span class="id-hdr-icon">👷</span><div class="id-hdr-title">¿Quién programa?</div></div>
-    <div class="id-body">
-      <select id="sel-supervisor" onchange="onCambioFiltro()">
-        <option value="">— Seleccionar supervisor —</option>
-        <option>Juan Carlos Oviedo — Cosecha</option>
-        <option>Brayan Farid Perez — Cosecha</option>
-        <option>Ing. Luis Fernando — Mantenimiento</option>
-      </select>
-      <input type="date" id="sel-fecha" onchange="onCambioFiltro()">
-    </div>
-  </div>
-
-  <!-- TABLERO -->
-  <div id="board" style="display:none">
-    <div class="board-header">
-      <div>
-        <div class="board-title" id="board-title">Tractores disponibles</div>
-        <div style="font-size:10px;color:var(--muted);margin-top:2px" id="sync-time">Toca Actualizar para ver cambios de otros</div>
-      </div>
-      <button class="board-refresh" onclick="cargar()">🔄 Actualizar</button>
-    </div>
-    <div id="tractores-list"><div class="loading"><div class="spinner"></div><div>Cargando...</div></div></div>
-
-    <!-- RESUMEN MIS ASIGNACIONES -->
-    <div class="resumen-card" id="resumen-card">
-      <div class="res-title">✅ Mis asignaciones de hoy</div>
-      <div id="resumen-list"></div>
-    </div>
-
-    <!-- BOTONES FINALES -->
-    <div id="btns-finales" style="display:none">
-      <button class="btn-full btn-gold" onclick="abrirWA()">📱 Generar mensaje WhatsApp</button>
-    </div>
-  </div>
-
-</main>
-
-<!-- MODAL WHATSAPP -->
-<div class="wa-modal" id="wa-modal">
-  <div class="wa-inner">
-    <div class="wa-hdr">
-      <div class="wa-hdr-title">📱 Mensaje para WhatsApp</div>
-      <button class="wa-close" onclick="cerrarWA()">✕</button>
-    </div>
-    <div class="wa-body">
-      <div class="wa-preview" id="wa-text"></div>
-      <button class="btn-full btn-gold" onclick="copiarWA()">📋 Copiar mensaje</button>
-      <button class="btn-full btn-wa" style="margin-top:8px;border:none;border-radius:12px;padding:14px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:700;cursor:pointer" onclick="enviarWA()">💬 Abrir WhatsApp</button>
-    </div>
-  </div>
+<div class="fab">
+  <button class="sec" id="btn-copiar">Copiar día anterior</button>
+  <button class="pri" id="btn-imprimir">Imprimir programación</button>
 </div>
 
-<div id="toast"></div>
+<div class="hoja" id="hoja" hidden><div class="panel" id="panel"></div></div>
+<div class="aviso" id="aviso" hidden></div>
+<div id="print"></div>
 
+<script src="maestros.js"></script>
 <script>
-const GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
+/* =====================================================================
+   PROGRAMACIÓN DE MAQUINARIA — Palma Grande S.A.S.
+   Se programa el día siguiente: a cada máquina se le asigna labor, lote(s),
+   implemento y operario. Tres recursos escasos se controlan a la vez:
+   las máquinas, los 7 operarios y los implementos (7 tijeras de volteo
+   y 1 quinta rueda). Las varadas se leen de la hoja Taller.
 
-const TRACTORES = [
-  {num:'01',nombre:'KUBOTA B2441'},
-  {num:'02',nombre:'KUBOTA B2441'},
-  {num:'03',nombre:'KUBOTA M9540'},
-  {num:'04',nombre:'KUBOTA M9540'},
-  {num:'05',nombre:'JOHN DEERE 2850'},
-  {num:'06',nombre:'KUBOTA 5100'},
-  {num:'07',nombre:'KUBOTA M108S'},
-  {num:'08',nombre:'LOVOL TH754-H'},
-  {num:'09',nombre:'LOVOL TH754-H'},
-  {num:'10',nombre:'LOVOL TH904-X'},
-  {num:'11',nombre:'LOVOL TH904-X'},
+   Guardado en Google Sheets (mismo Apps Script del Taller):
+   - Hoja "ProgMaquinaria": una fila por cambio (ASIGNAR o QUITAR) con un ID
+     único en la columna 4, así el Apps Script siempre agrega. Al leerla,
+     la última fila de cada fecha + máquina es la que vale.
+   - Hoja "Programacion": la de siempre (action=write/delete), para que el
+     Preoperativo le siga mostrando al operario su labor del día.
+   - Máquinas, lotes, fincas e implementos: hoja "Maestros" (maestros.js).
+     Las máquinas se agregan o se dan de baja desde el Taller.
+   ===================================================================== */
+
+var GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
+var HOJA_PROG = 'ProgMaquinaria';
+var ENC_PROG = ['Registrado','Hora','Acción','ID','Fecha','Equipo','Labor','Lotes','Implemento','Operario','Observación','Programó'];
+
+/* La flota sale de la hoja Maestros (maestros.js); el transporte no se programa. */
+
+/* Las labores reales que se hacen con maquinaria. 'req' es el implemento que
+   necesita: si la labor lo pide, la programación no deja repetirlo el mismo día. */
+var LABORES = [
+  {id:'alceTijera', txt:'Alce de racimos con tijera',  req:'tijera',      pri:1},
+  {id:'alceQuinta', txt:'Alce de racimos con quinta rueda', req:'quintarueda', pri:1},
+  {id:'rotospeed',  txt:'Rotospeed',                   req:'rotospeed',   pri:2},
+  {id:'rolo',       txt:'Rolo cuchilla',               req:'rolocuchilla',pri:2},
+  {id:'fertMezcla', txt:'Fertilización con mezcla',    req:null,          pri:2},
+  {id:'fertBorax',  txt:'Fertilización en bórax',      req:null,          pri:2},
+  {id:'sanidad',    txt:'Sanidad',                     req:null,          pri:2},
+  {id:'varias',     txt:'Labores varias',              req:null,          pri:3}
 ];
-const LABORES = ['Cosecha – Recolección de fruto','Sanidad – Fumigación','Mantenimiento – Rolocuchilla','Mantenimiento – Rotospeed','Transporte de agua','Transporte de personal','Fertilización','Rastra','Caballoneador','Cincel'];
-const IMPLEMENTOS = ['Ninguno','Tijeras hidráulicas','Remolque quinta rueda','Remolque zorrillo','Rotospeed','Rolocuchilla','Rastra 20 discos','Bomba Jacto','Voladoras JAC 1500','Caballoneador','Cincel'];
 
-// Estado local
-let PROG = {};     // {num: {supervisor, labor, lote, impl, hora}} - cargado desde Sheets
-let expandido = null;
+var TIPOS_IMPL = {
+  tijera:'Tijera de volteo', quintarueda:'Quinta rueda',
+  rotospeed:'Rotospeed', rolocuchilla:'Rolo cuchilla'
+};
 
-// ════════════════════════════════
-//  INIT
-// ════════════════════════════════
-function init(){
-  const now = new Date();
-  document.getElementById('hdr-date').innerHTML =
-    now.toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'}).replace('.','')+
-    '<br>'+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
-  // Fecha por defecto: mañana
-  const manana = new Date(); manana.setDate(manana.getDate()+1);
-  document.getElementById('sel-fecha').value = manana.toISOString().split('T')[0];
-  // Sin auto-refresh — usar botón Actualizar
+/* Del inventario tengo confirmadas las 7 tijeras de volteo (5 viejas, 2 nuevas)
+   y la quinta rueda. Las cantidades de rotospeed y rolo cuchilla hay que
+   ajustarlas en Lotes e implementos. */
+var IMPL_DEF = [
+  {cod:'TV-1', tipo:'tijera', nota:'vieja'},
+  {cod:'TV-2', tipo:'tijera', nota:'vieja'},
+  {cod:'TV-3', tipo:'tijera', nota:'vieja'},
+  {cod:'TV-4', tipo:'tijera', nota:'vieja'},
+  {cod:'TV-5', tipo:'tijera', nota:'vieja'},
+  {cod:'TV-6', tipo:'tijera', nota:'nueva'},
+  {cod:'TV-7', tipo:'tijera', nota:'nueva'},
+  {cod:'QR-1', tipo:'quintarueda', nota:''},
+  {cod:'RS-1', tipo:'rotospeed', nota:'por confirmar'},
+  {cod:'RC-1', tipo:'rolocuchilla', nota:'por confirmar'}
+];
+
+/* Maestro real de lotes, tomado de cosecha.html (62 lotes, 3 fincas). */
+var FINCAS_DEF = ["FINCA 1","FINCA 2","FINCA 3"];
+var LOTES_DEF = {
+  "FINCA 1": ["1A","2A","3A","4A","5","6","7","8","9","10","11","11A","12","13","14","15","16","17","18","18A"],
+  "FINCA 2": ["19","20","21","22","23","24","25","26","27","28","29","30","31","32A","33A","34A","35A","36","37","38","39","40","41"],
+  "FINCA 3": ["42","43A","43B","44A","45A","45B","46","47","48","49","50","51","52","53","54","55","56","57","58"]
+};
+function lotesDefecto(){
+  var out = [];
+  FINCAS_DEF.forEach(function(f){
+    (LOTES_DEF[f]||[]).forEach(function(c){ out.push({cod:c, finca:f}); });
+  });
+  return out;
 }
 
-function getSupervisor(){ return document.getElementById('sel-supervisor').value; }
-function getFecha(){ return document.getElementById('sel-fecha').value; }
+var OPERARIOS = ['Jhon Garnica','Oswaldo Sanches','Cesar Verona','Julio Vacca',
+                 'Fernando Leon','Sandro Bonilla','Ever Clevez'];
+var QUIEN = ['Ing. Luis Fernando','Juan Carlos Oviedo','Brayan Pérez','Anderson Rojas'];
 
-function onCambioFiltro(){
-  if(getSupervisor() && getFecha()){
-    document.getElementById('board').style.display='block';
-    PROG = {};  // Reset solo cuando cambia supervisor/fecha
-    cargar();
+var KEY = 'programacion-palma-v3';
+var KEY_VARADAS = 'programacion-varadas-v1';
+
+var estado = { dias:{}, yo:'', cola:[], config:{ lotes:null, implementos:null, fincas:null, lotesConfirmados:false } };
+var varadas = {};
+var fechaSel = null;
+
+/* ---------- almacenamiento ---------- */
+/* copia en el celular; lo compartido está en Google Sheets */
+var DB = {
+  cargar: async function(){
+    try { var v = localStorage.getItem(KEY); return v ? JSON.parse(v) : null; }
+    catch(e){ return null; }
+  },
+  guardar: async function(d){
+    try { localStorage.setItem(KEY, JSON.stringify(d)); return true; }
+    catch(e){ return false; }
   }
+};
+var sinGuardar = false;
+async function persistir(){
+  var ok = await DB.guardar(estado);
+  if (sinGuardar !== !ok){ sinGuardar = !ok; pintarSync(); }
+  return ok;
+}
+function pintarSync(){
+  var s = $('#sync');
+  s.classList.remove('pend');
+  if (sinGuardar){ s.hidden = false; s.textContent = 'La programación no se está guardando en este dispositivo.'; return; }
+  if (estado.cola && estado.cola.length){
+    s.hidden = false; s.classList.add('pend');
+    s.textContent = 'Hay cambios esperando señal para enviarse. Puede seguir programando.'; return;
+  }
+  s.hidden = true;
 }
 
-// ════════════════════════════════
-//  CARGAR DESDE SHEETS
-// ════════════════════════════════
-async function cargar(silencioso=false){
-  if(!silencioso){
-    document.getElementById('tractores-list').innerHTML =
-      '<div class="loading"><div class="spinner"></div><div style="font-size:12px">Sincronizando con Sheets...</div></div>';
-  }
-  try{
-    const r = await fetch(GS_URL+'?hoja=Programacion&t='+Date.now()); // cache bust
-    const d = await r.json();
-    console.log('Programacion data:', d);
-    if(d.ok){
-      const fecha = getFecha();
-      const fechaObj = new Date(fecha+'T12:00:00');
-      const fechaES = fechaObj.toLocaleDateString('es-CO');
-      // Solo actualizar tractores que NO son míos (para no pisarme)
-      const sup = getSupervisor();
-      const nuevosProg = {};
-      d.datos.forEach(row=>{
-        let f = row[0]||'';
-        if(typeof f==='object') f=f.toLocaleDateString('es-CO');
-        if(f===fechaES || f===fecha){
-          const tractorStr = String(row[2]||'');
-          const m = tractorStr.match(/[#\s]*0*(\d+)/);
-          if(m && row[3]){
-            const num = m[1].padStart(2,'0');
-            nuevosProg[num] = {
-              supervisor: row[1]||'',
-              labor: row[3]||'',
-              lote:  row[4]||'',
-              impl:  row[5]||'',
-              hora:  row[6]||'',
-            };
-          }
-        }
-      });
-      // Merge: conservar mis asignaciones locales, actualizar las de otros
-      Object.keys(PROG).forEach(num=>{
-        if(PROG[num].supervisor===sup) nuevosProg[num]=PROG[num];
-      });
-      PROG = nuevosProg;
-    }
-  }catch(e){
-    // Sin conexión — mantener estado actual
-  }
-  renderBoard();
+/* ---------- utilidades ---------- */
+function $(s){ return document.querySelector(s); }
+function $$(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function p2(n){ return ('0'+n).slice(-2); }
+function isoLocal(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
+function hoy(){ return isoLocal(new Date()); }
+function manana(){ var d = new Date(); d.setDate(d.getDate()+1); return isoLocal(d); }
+function sumarDias(iso, n){ var p = iso.split('-'); return isoLocal(new Date(+p[0], +p[1]-1, +p[2]+n)); }
+var DIAS_SEM = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function fechaLarga(iso){
+  var p = iso.split('-'), d = new Date(+p[0], +p[1]-1, +p[2]);
+  return DIAS_SEM[d.getDay()] + ' ' + (+p[2]) + ' de ' + MESES[+p[1]-1];
+}
+function esDomingo(iso){ var p = iso.split('-'); return new Date(+p[0], +p[1]-1, +p[2]).getDay() === 0; }
+function aviso(m){ var a=$('#aviso'); a.textContent=m; a.hidden=false;
+  clearTimeout(a._t); a._t=setTimeout(function(){ a.hidden=true; }, 3600); }
+
+function cfgFlota(){ return Maestros.flota().filter(function(m){ return m.grupo !== 'transporte'; }); }
+function cfgLotes(){ if (!estado.config.lotes) estado.config.lotes = lotesDefecto(); return estado.config.lotes; }
+function cfgFincas(){ if (!estado.config.fincas) estado.config.fincas = FINCAS_DEF.slice(); return estado.config.fincas; }
+/* Agrupa el maestro por finca, dejando al final los que no tienen */
+function lotesPorFinca(lista){
+  var orden = cfgFincas().slice(), grupos = {}, otros = [];
+  lista.forEach(function(x){
+    if (x.finca && orden.indexOf(x.finca) >= 0){ (grupos[x.finca] = grupos[x.finca] || []).push(x); }
+    else if (x.finca){ orden.push(x.finca); (grupos[x.finca] = grupos[x.finca] || []).push(x); }
+    else otros.push(x);
+  });
+  var out = orden.filter(function(f){ return grupos[f] && grupos[f].length; })
+                 .map(function(f){ return { finca:f, lotes:grupos[f] }; });
+  if (otros.length) out.push({ finca:'Sin finca asignada', lotes:otros });
+  return out;
+}
+function cfgImpl(){ if (!estado.config.implementos) estado.config.implementos = IMPL_DEF.slice(); return estado.config.implementos; }
+function implDe(cod){ return cfgImpl().filter(function(i){ return i.cod===cod; })[0] || null; }
+function implPorTipo(tipo){ return cfgImpl().filter(function(i){ return i.tipo===tipo; }); }
+function nombreDe(cod){ var e = Maestros.flotaTodas().filter(function(f){ return f.cod===cod; })[0]; return e ? e.nombre : ''; }
+function grupoDe(cod){ var e = cfgFlota().filter(function(f){ return f.cod===cod; })[0]; return e ? e.grupo : 'campo'; }
+function labor(id){ return LABORES.filter(function(x){ return x.id===id; })[0] || null; }
+function txtLabor(id){ var l = labor(id); return l ? l.txt : id; }
+function ordenLabor(id){ for (var i=0;i<LABORES.length;i++) if (LABORES[i].id===id) return i; return 99; }
+function txtLotes(a){
+  if (!a.lotes || !a.lotes.length) return '';
+  if (a.lotes.length <= 3) return 'lote ' + a.lotes.join(', ');
+  return a.lotes.length + ' lotes';
 }
 
-// ════════════════════════════════
-//  RENDER TABLERO
-// ════════════════════════════════
-function renderBoard(){
-  const sup = getSupervisor();
-  const lista = document.getElementById('tractores-list');
-  const misAsig = TRACTORES.filter(t=>PROG[t.num]?.supervisor===sup);
-  const libres   = TRACTORES.filter(t=>!PROG[t.num]);
-  const deOtros  = TRACTORES.filter(t=>PROG[t.num] && PROG[t.num].supervisor!==sup);
-
-  // Board title
-  document.getElementById('board-title').textContent =
-    `${libres.length} libre${libres.length!==1?'s':''} · ${misAsig.length} asignado${misAsig.length!==1?'s':''} por mí`;
-
-  // Resumen mis asignaciones
-  const resCard = document.getElementById('resumen-card');
-  const resList = document.getElementById('resumen-list');
-  if(misAsig.length){
-    resCard.style.display='block';
-    resList.innerHTML = misAsig.map(t=>`
-      <div class="res-item">
-        <div class="res-num">#${t.num}</div>
-        <div class="res-info">
-          <div class="res-nombre">${t.nombre}</div>
-          <div class="res-det">${PROG[t.num].labor}${PROG[t.num].lote?' · '+PROG[t.num].lote:''}${PROG[t.num].hora?' · ⏰ '+PROG[t.num].hora:''}</div>
-        </div>
-        <button class="btn btn-rojo" style="padding:5px 10px;font-size:11px" onclick="liberarTractor('${t.num}')">Quitar</button>
-      </div>`).join('');
-    document.getElementById('btns-finales').style.display='block';
-  } else {
-    resCard.style.display='none';
-    document.getElementById('btns-finales').style.display='none';
-  }
-
-  // Renderizar tractores
-  let html = '';
-
-  // Libres primero
-  if(libres.length){
-    html += `<div style="font-size:10px;font-weight:700;color:var(--verde);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;margin-top:4px">✅ Disponibles (${libres.length})</div>`;
-    html += libres.map(t=>renderTractorCard(t,'libre')).join('');
-  }
-
-  // Mis asignaciones
-  if(misAsig.length){
-    html += `<div style="font-size:10px;font-weight:700;color:var(--azul);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px">📌 Mis asignaciones (${misAsig.length})</div>`;
-    html += misAsig.map(t=>renderTractorCard(t,'mio')).join('');
-  }
-
-  // De otros supervisores
-  if(deOtros.length){
-    html += `<div style="font-size:10px;font-weight:700;color:var(--dorado);text-transform:uppercase;letter-spacing:.05em;margin:14px 0 8px">🔒 Asignados por otro supervisor (${deOtros.length})</div>`;
-    html += deOtros.map(t=>renderTractorCard(t,'tomado')).join('');
-  }
-
-  if(!html) html = '<div class="empty"><div style="font-size:36px;margin-bottom:8px">✅</div><div style="font-weight:700">Todos los tractores están programados</div></div>';
-
-  lista.innerHTML = html;
-  const now = new Date();
-  const syncEl = document.getElementById('sync-time');
-  if(syncEl) syncEl.textContent = 'Actualizado: '+now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+function dia(f){ if (!estado.dias[f]) estado.dias[f] = {}; return estado.dias[f]; }
+function asignacion(f, cod){ return (estado.dias[f] || {})[cod] || null; }
+function asignados(f){
+  var d = estado.dias[f] || {}, out = [];
+  cfgFlota().forEach(function(m){ if (d[m.cod]) out.push({ maq:m, a:d[m.cod] }); });
+  return out;
+}
+function ocupados(f, exceptoCod){
+  var d = estado.dias[f] || {}, mapa = {};
+  Object.keys(d).forEach(function(cod){
+    if (cod === exceptoCod) return;
+    if (d[cod] && d[cod].operario) mapa[d[cod].operario] = cod;
+  });
+  return mapa;
+}
+/* Implementos ya tomados ese día, y por cuál máquina */
+function implOcupados(f, exceptoCod){
+  var d = estado.dias[f] || {}, mapa = {};
+  Object.keys(d).forEach(function(cod){
+    if (cod === exceptoCod) return;
+    if (d[cod] && d[cod].implemento) mapa[d[cod].implemento] = cod;
+  });
+  return mapa;
+}
+function diaAnterior(f){
+  var fechas = Object.keys(estado.dias).filter(function(x){
+    return x < f && Object.keys(estado.dias[x]).length; }).sort();
+  return fechas.length ? fechas[fechas.length-1] : null;
 }
 
-function renderTractorCard(t, tipo){
-  const prog = PROG[t.num];
-  const esExpandido = expandido===t.num;
-  const onclick = tipo==='libre' ? `onclick="expandir('${t.num}')"` : tipo==='mio' ? `onclick="expandir('${t.num}')"` : '';
+/* =====================================================================
+   Pantalla principal
+   ===================================================================== */
+function pintar(){
+  if (!fechaSel) fechaSel = manana();
+  var d = estado.dias[fechaSel] || {};
+  var libres = [], conAsig = [], varadasL = [];
 
-  return `
-  <div class="tractor-card ${tipo} ${esExpandido?'expandido':''}" id="tc-${t.num}">
-    <div class="tc-header" ${onclick}>
-      <div class="tc-left">
-        <div class="tc-num">${t.num}</div>
-        <div>
-          <div class="tc-nombre">#${t.num} ${t.nombre}</div>
-          <div class="tc-sub">${
-            tipo==='libre' ? 'Toca para asignar' :
-            tipo==='mio'   ? prog.labor+(prog.lote?' · '+prog.lote:'') :
-            '🔒 '+prog.supervisor
-          }</div>
-        </div>
-      </div>
-      <span class="pill pill-${tipo==='libre'?'libre':tipo==='mio'?'mio':'tomado'}">
-        ${tipo==='libre'?'Libre':tipo==='mio'?'✅ Mío':'Tomado'}
-      </span>
-    </div>
-    ${tipo!=='tomado' ? `
-    <div class="tc-form" id="form-${t.num}">
-      <div class="form-grid">
-        <div class="fg" style="grid-column:1/-1">
-          <label>Labor *</label>
-          <select id="labor-${t.num}">
-            <option value="">— Seleccionar —</option>
-            ${LABORES.map(l=>`<option ${prog?.labor===l?'selected':''}>${l}</option>`).join('')}
-          </select>
-        </div>
-        <div class="fg">
-          <label>Lote / Área</label>
-          <input type="text" id="lote-${t.num}" value="${prog?.lote||''}" placeholder="Ej: Lote A">
-        </div>
-        <div class="fg">
-          <label>Hora inicio</label>
-          <input type="text" id="hora-${t.num}" value="${prog?.hora||'6:10 a.m.'}" placeholder="6:10 a.m.">
-        </div>
-        <div class="fg" style="grid-column:1/-1">
-          <label>Implemento</label>
-          <select id="impl-${t.num}">
-            ${IMPLEMENTOS.map(im=>`<option ${prog?.impl===im?'selected':''}>${im}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="btn-row">
-        <button class="btn btn-gris" onclick="colapsar()">Cancelar</button>
-        <button class="btn btn-verde" onclick="asignarTractor('${t.num}')">
-          ${tipo==='mio'?'💾 Actualizar':'✅ Asignar tractor'}
-        </button>
-      </div>
-    </div>` : ''}
-  </div>`;
-}
-
-// ════════════════════════════════
-//  ACCIONES
-// ════════════════════════════════
-function expandir(num){
-  if(expandido===num){ colapsar(); return; }
-  expandido=num;
-  renderBoard();
-  // Scroll al card
-  setTimeout(()=>{
-    const el=document.getElementById('tc-'+num);
-    if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
-  },100);
-}
-
-function colapsar(){ expandido=null; renderBoard(); }
-
-async function asignarTractor(num){
-  const sup    = getSupervisor();
-  const fecha  = getFecha();
-  const labor  = document.getElementById('labor-'+num)?.value;
-  const lote   = document.getElementById('lote-'+num)?.value.trim()||'';
-  const hora   = document.getElementById('hora-'+num)?.value.trim()||'';
-  const impl   = document.getElementById('impl-'+num)?.value||'';
-
-  if(!labor){ toast('⚠️ Selecciona la labor','error'); return; }
-
-  // Verificar que sigue libre (si no era mío antes)
-  if(!PROG[num] || PROG[num].supervisor!==sup){
-    // Re-consultar
-    try{
-      const r = await fetch(GS_URL+'?hoja=Programacion');
-      const d = await r.json();
-      if(d.ok){
-        const fechaObj = new Date(fecha+'T12:00:00');
-        const fechaES = fechaObj.toLocaleDateString('es-CO');
-        const yaOcupado = d.datos.find(row=>{
-          let f=row[0]||'';
-          if(typeof f==='object') f=f.toLocaleDateString('es-CO');
-          if(typeof f==='string'&&f.includes('T')){const d2=new Date(f);if(!isNaN(d2))f=d2.toLocaleDateString('es-CO');}
-          const m=(String(row[2]||'')).match(/#\s*0*(\d+)/);
-          return (f===fechaES||f===fecha) && m && m[1].padStart(2,'0')===num && row[1]!==sup && (row[3]||'').trim();
-        });
-        if(yaOcupado){
-          toast(`🚫 ${yaOcupado[1]} acaba de asignar este tractor`,'error');
-          await cargar(); return;
-        }
-      }
-    }catch(e){}
-  }
-
-  // Asignar localmente y en Sheets
-  const tractorStr = `#${num} - ${TRACTORES.find(t=>t.num===num)?.nombre||''}`;
-  const fechaObj2 = new Date(fecha+'T12:00:00');
-  const fechaES2 = fechaObj2.toLocaleDateString('es-CO');
-
-  PROG[num] = {supervisor:sup, labor, lote, impl, hora};
-  expandido = null;
-  renderBoard();
-
-  try{
-    const params = new URLSearchParams({
-      action: 'write',
-      hoja: 'Programacion',
-      fecha: fechaES2,
-      supervisor: sup,
-      tractor: tractorStr,
-      labor, lote, impl, hora
-    });
-    const r = await fetch(GS_URL+'?'+params.toString());
-    const d = await r.json();
-    console.log('Save:', d);
-    toast('✅ Tractor asignado — guardado en Sheets');
-    // No recargar para no borrar lo que está trabajando
-  }catch(e){
-    console.error(e);
-    toast('✅ Asignado');
-  }
-}
-
-async function liberarTractor(num){
-  if(!confirm(`¿Quitar la asignación del tractor #${num}?`)) return;
-  delete PROG[num];
-  renderBoard();
-  // Marcar como liberado en Sheets enviando labor vacía
-  const sup = getSupervisor();
-  const fecha = getFecha();
-  const fechaObj = new Date(fecha+'T12:00:00');
-  const fechaES = fechaObj.toLocaleDateString('es-CO');
-  const tractorStr = `#${num} - ${TRACTORES.find(t=>t.num===num)?.nombre||''}`;
-  try{
-    const params = new URLSearchParams({
-      action: 'delete',
-      hoja: 'Programacion',
-      fecha: fechaES,
-      tractor: tractorStr
-    });
-    await fetch(GS_URL+'?'+params.toString());
-    // Sheets actualizado
-  }catch(e){}
-  toast('Tractor liberado');
-}
-
-// ════════════════════════════════
-//  WHATSAPP
-// ════════════════════════════════
-function abrirWA(){
-  const sup = getSupervisor();
-  const fecha = getFecha();
-  const fechaObj = new Date(fecha+'T12:00:00');
-  const fechaStr = fechaObj.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  const fechaCap = fechaStr.charAt(0).toUpperCase()+fechaStr.slice(1);
-  const sep = '━━━━━━━━━━━━━━━━━━━━━━';
-
-  const misAsig = TRACTORES.filter(t=>PROG[t.num]?.supervisor===sup);
-  if(!misAsig.length){ toast('No tienes tractores asignados aún','error'); return; }
-
-  const total = misAsig.length;
-  const semaforo = '🌴';
-
-  let msg = '';
-  msg += `${semaforo} *PROGRAMACIÓN DIARIA — FLOTA PALMA*\n`;
-  msg += `${sep}\n`;
-  msg += `📅 *${fechaCap}*\n`;
-  msg += `👷 Supervisor: *${sup}*\n`;
-  msg += `🚜 Tractores asignados: *${total}*\n`;
-  msg += `${sep}\n\n`;
-
-  misAsig.forEach((t,i)=>{
-    const p = PROG[t.num];
-    msg += `*${i+1}. Tractor #${t.num} — ${t.nombre}*\n`;
-    msg += `   ⚒️ *Labor:* ${p.labor}\n`;
-    msg += `   📍 *Lote:* ${p.lote||'Sin especificar'}\n`;
-    msg += `   🔧 *Implemento:* ${p.impl&&p.impl!=='Ninguno'?p.impl:'Ninguno'}\n`;
-    msg += `   ⏰ *Hora de inicio:* ${p.hora||'6:10 a.m.'}\n`;
-    if(i < misAsig.length-1) msg += `\n`;
+  cfgFlota().forEach(function(m){
+    if (varadas[m.cod]) { varadasL.push(m); return; }
+    if (d[m.cod]) conAsig.push(m); else libres.push(m);
   });
 
-  msg += `\n${sep}\n`;
-  msg += `📌 *Instrucciones:*\n`;
-  msg += `• Llegar puntual a la hora asignada\n`;
-  msg += `• Completar el preoperativo antes de arrancar\n`;
-  msg += `• Reportar novedades al mecánico\n`;
-  msg += `${sep}\n`;
-  msg += `_Flota Palma · ${new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})} · Sistema Automático_`;
+  var opsUsados = {}, cuenta = {}, implCuenta = {};
+  Object.keys(d).forEach(function(cod){
+    var a = d[cod]; if (!a) return;
+    if (a.operario){ opsUsados[a.operario] = true; cuenta[a.operario] = (cuenta[a.operario]||[]).concat([cod]); }
+    if (a.implemento){ implCuenta[a.implemento] = (implCuenta[a.implemento]||[]).concat([cod]); }
+  });
+  var opsLibres = OPERARIOS.filter(function(o){ return !opsUsados[o]; });
+  var dobles = Object.keys(cuenta).filter(function(o){ return cuenta[o].length > 1; });
+  var implDobles = Object.keys(implCuenta).filter(function(i){ return implCuenta[i].length > 1; });
+  var tijUsadas = Object.keys(implCuenta).filter(function(c){
+    var i = implDe(c); return i && i.tipo === 'tijera'; }).length;
+  var tijTotal = implPorTipo('tijera').length;
 
-  document.getElementById('wa-text').textContent = msg;
-  document.getElementById('wa-modal').classList.add('show');
-  document.body.style.overflow='hidden';
+  var h = '<div class="fechas">' +
+    '<button id="ant">‹</button>' +
+    '<input type="date" id="fecha" value="' + fechaSel + '">' +
+    '<button id="sig">›</button></div>' +
+    '<p class="dia">' + fechaLarga(fechaSel) +
+      (fechaSel === manana() ? ' · mañana' : (fechaSel === hoy() ? ' · hoy' : '')) + '</p>';
+
+  if (esDomingo(fechaSel)){
+    h += '<div class="nota-z">Es domingo. Normalmente no se programa, pero si hay labor puede asignarla igual.</div>';
+  }
+
+  var plural = function(n, uno, varios){ return n === 1 ? uno : varios; };
+  h += '<div class="resumen">' +
+    '<div class="res v"><div class="n">' + conAsig.length + '</div><div class="t">' +
+      plural(conAsig.length, 'máquina programada', 'máquinas programadas') + '</div></div>' +
+    '<div class="res ' + (libres.length ? 'a' : '') + '"><div class="n">' + libres.length +
+      '</div><div class="t">sin programar</div></div>' +
+    '<div class="res ' + (varadasL.length ? 'r' : '') + '"><div class="n">' + varadasL.length +
+      '</div><div class="t">en taller</div></div>' +
+    '<div class="res"><div class="n">' + opsLibres.length + '</div><div class="t">' +
+      plural(opsLibres.length, 'operario libre', 'operarios libres') + '</div></div>' +
+    '<div class="res ' + (tijTotal && tijUsadas >= tijTotal ? 'a' : '') + '"><div class="n">' +
+      tijUsadas + '/' + tijTotal + '</div><div class="t">' +
+      plural(tijTotal, 'tijera en uso', 'tijeras en uso') + '</div></div>' +
+    '</div>';
+
+  if (dobles.length){
+    h += '<div class="alerta"><b>Un operario no puede estar en dos máquinas.</b> ' +
+      dobles.map(function(o){ return esc(o) + ' está en ' + cuenta[o].join(' y '); }).join('; ') + '.</div>';
+  }
+  if (implDobles.length){
+    h += '<div class="alerta"><b>Un implemento no puede estar en dos máquinas.</b> ' +
+      implDobles.map(function(i){ return esc(i) + ' está en ' + implCuenta[i].join(' y '); }).join('; ') + '.</div>';
+  }
+
+  var sinOperario = conAsig.filter(function(m){ return !d[m.cod].operario; });
+  if (sinOperario.length){
+    h += '<div class="nota-a"><b>' + sinOperario.length +
+      (sinOperario.length === 1 ? ' máquina programada sin operario' : ' máquinas programadas sin operario') +
+      ':</b> ' + sinOperario.map(function(m){ return m.cod; }).join(', ') +
+      '. ' + (opsLibres.length ? 'Quedan libres: ' + opsLibres.map(esc).join(', ') + '.'
+            : 'No quedan operarios libres; hay ' + OPERARIOS.length + ' operarios para ' + cfgFlota().length + ' máquinas.') + '</div>';
+  }
+  var sinImpl = conAsig.filter(function(m){
+    var l = labor(d[m.cod].labor); return l && l.req && !d[m.cod].implemento; });
+  if (sinImpl.length){
+    h += '<div class="nota-a"><b>' + sinImpl.length + (sinImpl.length === 1 ? ' máquina sin implemento' : ' máquinas sin implemento') +
+      ':</b> ' + sinImpl.map(function(m){
+        return m.cod + ' (falta ' + (TIPOS_IMPL[labor(d[m.cod].labor).req] || '').toLowerCase() + ')'; }).join(', ') + '.</div>';
+  }
+
+  function tarjeta(m){
+    var a = d[m.cod], vr = varadas[m.cod];
+    var cls = vr ? 'varada' : (a ? 'asignada' : '');
+    var sub, clsSub = '';
+    if (vr){ sub = 'En taller: ' + vr; }
+    else if (a){
+      var l = labor(a.labor);
+      var partes = [txtLabor(a.labor)];
+      var tl = txtLotes(a); if (tl) partes.push(tl);
+      if (a.implemento) partes.push(a.implemento);
+      else if (l && l.req) partes.push('FALTA ' + (TIPOS_IMPL[l.req]||'').toUpperCase());
+      partes.push(a.operario ? a.operario : 'SIN OPERARIO');
+      sub = partes.join(' · ');
+      clsSub = (a.operario && (!l || !l.req || a.implemento)) ? 'asig' : 'falta';
+    } else { sub = 'Sin programar'; }
+    return '<div class="maq ' + cls + '"><button class="cab" data-cod="' + esc(m.cod) + '"' +
+      (vr ? ' data-varada="1"' : '') + '>' +
+      '<span class="cod mono">' + esc(m.cod) + '</span>' +
+      '<span><span class="nom">' + esc(m.nombre) + '</span>' +
+      '<span class="sub ' + clsSub + '">' + esc(sub) + '</span></span>' +
+      '<span class="ir">' + (vr ? '' : '›') + '</span></button></div>';
+  }
+
+  h += '<h2>Cosecha, fertilización y mantenimiento</h2>' +
+       cfgFlota().filter(function(m){ return m.grupo === 'campo'; }).map(tarjeta).join('');
+  h += '<h2>Sanidad</h2>' +
+       cfgFlota().filter(function(m){ return m.grupo === 'sanidad'; }).map(tarjeta).join('');
+
+  if (!conAsig.length){
+    var ant = diaAnterior(fechaSel);
+    h += '<div class="vacio" style="margin-top:14px">Todavía no hay nada programado para este día.' +
+      (ant ? '<br>Puede copiar la programación del ' + fechaLarga(ant) + ' con el botón de abajo.' : '') + '</div>';
+  }
+
+  $('#app').innerHTML = h;
+  $('#fecha').onchange = function(e){ fechaSel = e.target.value || manana(); pintar(); };
+  $('#ant').onclick = function(){ fechaSel = sumarDias(fechaSel, -1); pintar(); };
+  $('#sig').onclick = function(){ fechaSel = sumarDias(fechaSel, 1); pintar(); };
+  $$('#app .cab').forEach(function(b){
+    b.onclick = function(){
+      if (b.dataset.varada){ aviso(b.dataset.cod + ' está en el taller. Dele de alta primero.'); return; }
+      asignar(b.dataset.cod);
+    };
+  });
+  $('#btn-yo').textContent = estado.yo || '¿Quién programa?';
 }
 
-function cerrarWA(){ document.getElementById('wa-modal').classList.remove('show'); document.body.style.overflow=''; }
-function copiarWA(){ navigator.clipboard.writeText(document.getElementById('wa-text').textContent).then(()=>toast('✅ Copiado')); }
-function enviarWA(){ window.open('https://wa.me/?text='+encodeURIComponent(document.getElementById('wa-text').textContent),'_blank'); }
-
-function toast(msg,type=''){
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.className='show'+(type?' '+type:'');
-  setTimeout(()=>t.className='',3000);
+/* =====================================================================
+   Hoja deslizable
+   ===================================================================== */
+function abrir(html, alMontar){
+  $('#panel').innerHTML = html;
+  $('#hoja').hidden = false;
+  document.body.style.overflow = 'hidden';
+  $$('#panel [data-cerrar]').forEach(function(b){ b.onclick = cerrar; });
+  if (alMontar) alMontar();
+}
+function cerrar(){
+  $('#hoja').hidden = true; $('#panel').innerHTML = ''; document.body.style.overflow = '';
+  if (cfgAbierta){ cfgAbierta = false; if (guardarConfig()){ persistir(); enviar(); } }
+}
+$('#hoja').addEventListener('click', function(e){ if (e.target.id === 'hoja') cerrar(); });
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('#hoja').hidden) cerrar(); });
+function tope(titulo, sub){
+  return '<div class="tope"><div class="fila"><div><h3>' + esc(titulo) + '</h3>' +
+    (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') +
+    '</div><button class="cerrar" data-cerrar>×</button></div></div>';
 }
 
-init();
+function elegirQuien(despues){
+  abrir(tope('¿Quién está programando?', 'Queda guardado en la programación del día') +
+    '<div class="cuerpo"><div class="rejilla">' +
+    QUIEN.map(function(p){
+      return '<button class="op ancho" data-p="' + esc(p) + '" aria-pressed="' + (estado.yo===p) + '">' + esc(p) + '</button>';
+    }).join('') + '</div></div>',
+    function(){
+      $$('#panel [data-p]').forEach(function(b){
+        b.onclick = async function(){
+          estado.yo = b.dataset.p;
+          await persistir(); cerrar(); pintar();
+          if (despues) despues();
+        };
+      });
+    });
+}
+
+/* =====================================================================
+   Asignar una máquina
+   ===================================================================== */
+function asignar(cod){
+  if (!estado.yo){ elegirQuien(function(){ asignar(cod); }); return; }
+
+  var prev = asignacion(fechaSel, cod);
+  var ant = diaAnterior(fechaSel);
+  var antA = ant ? asignacion(ant, cod) : null;
+  var grupo = grupoDe(cod);
+  var labores = LABORES.slice();
+  if (grupo === 'sanidad'){
+    labores.sort(function(a,b){ return (a.id==='sanidad'?0:1) - (b.id==='sanidad'?0:1); });
+  }
+  var ocup = ocupados(fechaSel, cod);
+  var ocupI = implOcupados(fechaSel, cod);
+  var LOTES = cfgLotes();
+
+  var sel = {
+    labor: prev ? prev.labor : null,
+    lotes: prev && prev.lotes ? prev.lotes.slice() : [],
+    implemento: prev ? prev.implemento : null,
+    operario: prev ? prev.operario : null,
+    busca: ''
+  };
+
+  var h = tope(cod + ' · ' + nombreDe(cod), fechaLarga(fechaSel)) + '<div class="cuerpo">';
+
+  if (antA){
+    h += '<div class="tarj"><div class="et">El día anterior hizo</div><div class="vl">' +
+      esc(txtLabor(antA.labor)) + (txtLotes(antA) ? ' · ' + esc(txtLotes(antA)) : '') +
+      (antA.implemento ? ' · ' + esc(antA.implemento) : '') +
+      (antA.operario ? ' · ' + esc(antA.operario) : '') + '</div>' +
+      '<button class="accion gris" id="igual" style="margin:10px 0 0">Dejar igual que ese día</button></div>';
+  }
+
+  h += '<p class="paso">1. Labor</p><div class="rejilla" id="g-lab">' +
+    labores.map(function(l){
+      return '<button class="op" data-lab="' + esc(l.id) + '" aria-pressed="' + (sel.labor===l.id) + '">' +
+        esc(l.txt) + (l.req ? '<small>' + esc(TIPOS_IMPL[l.req]) + '</small>' :
+                              (l.pri === 1 ? '<small>prioridad</small>' : '')) + '</button>';
+    }).join('') + '</div>';
+
+  h += '<div id="zona-lotes"></div>';
+  h += '<div id="zona-impl"></div>';
+
+  h += '<p class="paso">Operario</p><div class="rejilla" id="g-op">' +
+    OPERARIOS.map(function(o){
+      var en = ocup[o];
+      return '<button class="op ancho" data-op="' + esc(o) + '" aria-pressed="' + (sel.operario===o) + '"' +
+        (en ? ' disabled' : '') + '>' + esc(o) +
+        (en ? '<span class="ocupado">ya está en ' + esc(en) + '</span>' : '') + '</button>';
+    }).join('') + '</div>';
+
+  h += '<label class="campo"><span>Observación <i>— opcional</i></span>' +
+    '<textarea id="obs" placeholder="Llevar la tijera nueva, entrar por el carreteable…">' +
+    esc(prev ? (prev.obs || '') : '') + '</textarea></label>';
+
+  h += '<button class="accion verde" id="guardar" disabled>Guardar</button>';
+  if (prev) h += '<button class="accion roja" id="quitar">Quitar de la programación</button>';
+  h += '<button class="accion gris" data-cerrar>Cancelar</button>';
+  h += '<p class="nota">Puede guardar sin operario o sin implemento si todavía no sabe; queda marcada en amarillo para que no se le pase.</p>';
+  h += '</div>';
+
+  abrir(h, function(){
+    /* ---- lotes: buscador y chips de selección múltiple ---- */
+    function pintarLotes(){
+      var l = labor(sel.labor);
+      var z = $('#zona-lotes');
+      if (!l){ z.innerHTML = ''; sel.lotes = []; return; }
+      var q = sel.busca.trim().toLowerCase();
+      var vis = LOTES.filter(function(x){
+        if (!q) return true;
+        return (x.cod + ' ' + (x.finca||'')).toLowerCase().indexOf(q) >= 0;
+      });
+      var grupos = lotesPorFinca(vis);
+      z.innerHTML = '<p class="paso">2. Lotes <i>— puede marcar varios</i></p>' +
+        '<input class="buscar" id="busca" placeholder="Buscar lote o finca" value="' + esc(sel.busca) + '" autocomplete="off">' +
+        '<div class="chips" id="chips">' +
+          (grupos.length ? grupos.map(function(g){
+            return '<div class="gfinca">' + esc(g.finca) + '</div>' +
+              g.lotes.map(function(x){
+                return '<button class="chip" data-lote="' + esc(x.cod) + '" aria-pressed="' +
+                  (sel.lotes.indexOf(x.cod) >= 0) + '">' + esc(x.cod) + '</button>';
+              }).join('');
+          }).join('') : '<span class="nota">Ningún lote coincide.</span>') +
+        '</div>' +
+        '<p class="elegidos">' + (sel.lotes.length
+          ? 'Marcados: <b>' + sel.lotes.map(esc).join(', ') + '</b>'
+          : 'Sin lote marcado todavía') + '</p>';
+      var bq = $('#busca');
+      bq.oninput = function(e){ sel.busca = e.target.value; pintarLotes(); bq_focus(); };
+      function bq_focus(){ var n = $('#busca'); if (n){ n.focus(); n.setSelectionRange(n.value.length, n.value.length); } }
+      $$('#chips [data-lote]').forEach(function(b){
+        b.onclick = function(){
+          var c = b.dataset.lote, i = sel.lotes.indexOf(c);
+          if (i >= 0) sel.lotes.splice(i, 1); else sel.lotes.push(c);
+          pintarLotes();
+        };
+      });
+    }
+    /* ---- implemento según lo que pida la labor ---- */
+    function pintarImpl(){
+      var l = labor(sel.labor);
+      var z = $('#zona-impl');
+      if (!l || !l.req){ z.innerHTML = ''; sel.implemento = null; return; }
+      var lista = implPorTipo(l.req);
+      if (!lista.length){
+        z.innerHTML = '<div class="nota-a">En el inventario no hay <b>' + esc(TIPOS_IMPL[l.req]) +
+          '</b>. Agréguela en Máquinas y lotes, o guarde así y complete después.</div>';
+        sel.implemento = null; return;
+      }
+      z.innerHTML = '<p class="paso">3. ' + esc(TIPOS_IMPL[l.req]) + '</p><div class="rejilla" id="g-impl">' +
+        lista.map(function(i){
+          var en = ocupI[i.cod];
+          return '<button class="op" data-impl="' + esc(i.cod) + '" aria-pressed="' + (sel.implemento===i.cod) + '"' +
+            (en ? ' disabled' : '') + '>' + esc(i.cod) +
+            (en ? '<span class="ocupado">en ' + esc(en) + '</span>' : (i.nota ? '<small>' + esc(i.nota) + '</small>' : '')) +
+            '</button>';
+        }).join('') + '</div>';
+      $$('#g-impl [data-impl]').forEach(function(b){
+        b.onclick = function(){
+          sel.implemento = (sel.implemento === b.dataset.impl) ? null : b.dataset.impl;
+          pintarImpl();
+        };
+      });
+    }
+
+    function refrescar(){
+      $$('#panel [data-lab]').forEach(function(b){
+        b.setAttribute('aria-pressed', String(b.dataset.lab === sel.labor)); });
+      $$('#panel [data-op]').forEach(function(b){
+        b.setAttribute('aria-pressed', String(b.dataset.op === sel.operario)); });
+      $('#guardar').disabled = !sel.labor;
+    }
+
+    $$('#panel [data-lab]').forEach(function(b){
+      b.onclick = function(){
+        var cambio = sel.labor !== b.dataset.lab;
+        sel.labor = b.dataset.lab;
+        if (cambio) sel.implemento = null;
+        refrescar(); pintarLotes(); pintarImpl();
+      };
+    });
+    $$('#panel [data-op]').forEach(function(b){
+      b.onclick = function(){
+        sel.operario = (sel.operario === b.dataset.op) ? null : b.dataset.op;
+        refrescar();
+      };
+    });
+    var ig = $('#igual');
+    if (ig) ig.onclick = function(){
+      sel.labor = antA.labor;
+      sel.lotes = (antA.lotes || []).slice();
+      sel.implemento = ocupI[antA.implemento] ? null : (antA.implemento || null);
+      sel.operario = ocup[antA.operario] ? null : (antA.operario || null);
+      var pega = [];
+      if (antA.operario && ocup[antA.operario]) pega.push(antA.operario + ' ya está en ' + ocup[antA.operario]);
+      if (antA.implemento && ocupI[antA.implemento]) pega.push(antA.implemento + ' ya está en ' + ocupI[antA.implemento]);
+      if (pega.length) aviso(pega.join('. ') + '.');
+      refrescar(); pintarLotes(); pintarImpl();
+    };
+
+    refrescar(); pintarLotes(); pintarImpl();
+
+    $('#guardar').onclick = async function(){
+      if (!sel.labor) return;
+      dia(fechaSel)[cod] = {
+        labor: sel.labor,
+        lotes: sel.lotes.slice(),
+        implemento: sel.implemento || null,
+        operario: sel.operario || null,
+        obs: $('#obs').value.trim(),
+        programadoPor: estado.yo,
+        registradoEn: new Date().toISOString()
+      };
+      registrar(fechaSel, cod, dia(fechaSel)[cod]);
+      await persistir(); cerrar(); pintar();
+      aviso(cod + ' quedó programada.');
+      enviar();
+    };
+    var q = $('#quitar');
+    if (q) q.onclick = async function(){
+      delete estado.dias[fechaSel][cod];
+      registrar(fechaSel, cod, null);
+      await persistir(); cerrar(); pintar();
+      aviso(cod + ' salió de la programación.');
+      enviar();
+    };
+  });
+}
+
+/* =====================================================================
+   Lotes e implementos
+   ===================================================================== */
+var cfgAbierta = false;
+function ajustes(){
+  var vista = 'maquinas';
+  cfgAbierta = true;
+  function pintarCfg(){
+    var L = cfgLotes(), I = cfgImpl(), M = cfgFlota();
+    var h = tope('Máquinas y lotes', 'Lo que corrija aquí queda guardado y se usa en toda la programación') +
+      '<div class="cuerpo">' +
+      '<div class="rejilla" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">' +
+        '<button class="op" data-v="maquinas" aria-pressed="' + (vista==='maquinas') + '">Máquinas<small>' + M.length + '</small></button>' +
+        '<button class="op" data-v="lotes" aria-pressed="' + (vista==='lotes') + '">Lotes<small>' + L.length + '</small></button>' +
+        '<button class="op" data-v="impl" aria-pressed="' + (vista==='impl') + '">Implementos<small>' + I.length + '</small></button>' +
+      '</div>';
+
+    if (vista === 'maquinas'){
+      h += '<div class="nota-z">Las máquinas se agregan, se corrigen o se dan de baja en el <b>Taller</b> ' +
+        '(botón Máquinas). Aparecen aquí solas. Los camiones de transporte no se programan.</div>' +
+        '<div class="lista-maq">' + M.map(function(x){
+          return '<div><b class="mono">' + esc(x.cod) + '</b> ' + esc(x.nombre) +
+            ' <span class="nota" style="margin:0">· ' + (x.grupo === 'sanidad' ? 'Sanidad' : 'Campo') + '</span></div>';
+        }).join('') + '</div>';
+    } else if (vista === 'lotes'){
+      var F = cfgFincas();
+      var sinF = L.filter(function(x){ return !x.finca; }).length;
+      h += '<p class="paso">Nombres de las fincas</p>' +
+        '<table class="tabla-cfg"><tbody>' +
+        F.map(function(f, i){
+          return '<tr><td><input data-fn="' + i + '" value="' + esc(f) + '"></td>' +
+            '<td style="width:34px"><button class="x" data-del-fn="' + i + '">×</button></td></tr>';
+        }).join('') + '</tbody></table>' +
+        '<button class="accion gris" id="add-fn">+ Agregar finca</button>';
+
+      h += '<p class="paso" style="margin-top:20px">Asignar varios lotes de una vez</p>' +
+        '<div class="fila-asig">' +
+        '<input id="rango" placeholder="1-18, 1A, 45B" autocomplete="off">' +
+        '<select id="rango-finca">' + F.map(function(f){ return '<option>' + esc(f) + '</option>'; }).join('') + '</select>' +
+        '<button id="rango-ok">Asignar</button></div>' +
+        '<p class="nota">Escriba los lotes separados por comas; puede usar rangos como 1-18.</p>';
+
+      h += '<p class="paso" style="margin-top:18px">Lotes <i>— ' + L.length + ' en total' +
+        (sinF ? ', ' + sinF + ' sin finca' : '') + '</i></p>' +
+        '<table class="tabla-cfg"><thead><tr><th style="width:84px">Lote</th><th>Finca</th>' +
+        '<th style="width:34px"></th></tr></thead><tbody>' +
+        L.map(function(x, i){
+          return '<tr><td><input data-l="' + i + '" data-f="cod" value="' + esc(x.cod) + '"></td>' +
+            '<td><select data-l="' + i + '" data-f="finca">' +
+              '<option value=""' + (!x.finca?' selected':'') + '>— sin finca —</option>' +
+              F.map(function(f){ return '<option value="' + esc(f) + '"' + (x.finca===f?' selected':'') + '>' + esc(f) + '</option>'; }).join('') +
+            '</select></td>' +
+            '<td><button class="x" data-del-l="' + i + '">×</button></td></tr>';
+        }).join('') + '</tbody></table>' +
+        '<button class="accion gris" id="add-l">+ Agregar lote</button>' +
+        '<label class="campo" style="margin-top:16px"><span>O pegar el maestro completo <i>— reemplaza la lista</i></span>' +
+        '<textarea id="pegar" rows="4" placeholder="Un lote por línea: codigo, finca&#10;12, Finca 1&#10;13, Finca 1&#10;1A, Finca 2"></textarea></label>' +
+        '<button class="accion gris" id="imp-l">Reemplazar la lista con lo pegado</button>';
+    } else {
+      h += '<p class="nota">Las 7 tijeras de volteo y la quinta rueda ya están. Agregue las abonadoras, ' +
+        'aspersoras, rotativas y tanques que tengan, para que la programación no deje asignar dos máquinas al mismo implemento.</p>' +
+        '<table class="tabla-cfg"><thead><tr><th style="width:92px">Código</th><th>Tipo</th>' +
+        '<th style="width:96px">Nota</th><th style="width:34px"></th></tr></thead><tbody>' +
+        I.map(function(x, i){
+          return '<tr><td><input data-i="' + i + '" data-f="cod" value="' + esc(x.cod) + '"></td>' +
+            '<td><select data-i="' + i + '" data-f="tipo">' +
+              Object.keys(TIPOS_IMPL).map(function(t){
+                return '<option value="' + t + '"' + (x.tipo===t?' selected':'') + '>' + esc(TIPOS_IMPL[t]) + '</option>';
+              }).join('') + '</select></td>' +
+            '<td><input data-i="' + i + '" data-f="nota" value="' + esc(x.nota||'') + '"></td>' +
+            '<td><button class="x" data-del-i="' + i + '">×</button></td></tr>';
+        }).join('') + '</tbody></table>' +
+        '<button class="accion gris" id="add-i">+ Agregar implemento</button>';
+    }
+
+    h += '<button class="accion verde" id="cfg-ok" style="margin-top:16px">Listo</button></div>';
+
+    abrir(h, function(){
+      $$('#panel [data-v]').forEach(function(b){
+        b.onclick = function(){ vista = b.dataset.v; pintarCfg(); }; });
+
+      $$('#panel [data-l]').forEach(function(inp){
+        inp.onchange = async function(){
+          var i = +inp.dataset.l;
+          cfgLotes()[i][inp.dataset.f] = inp.value.trim();
+          estado.config.lotesConfirmados = true;
+          await persistir();
+          if (inp.dataset.f === 'finca') pintarCfg();
+        };
+      });
+      /* nombres de fincas */
+      $$('#panel [data-fn]').forEach(function(inp){
+        inp.onchange = async function(){
+          var i = +inp.dataset.fn, viejo = cfgFincas()[i], nuevo = inp.value.trim();
+          if (!nuevo){ aviso('El nombre no puede quedar vacío.'); inp.value = viejo; return; }
+          cfgFincas()[i] = nuevo;
+          cfgLotes().forEach(function(x){ if (x.finca === viejo) x.finca = nuevo; });
+          await persistir(); pintarCfg();
+        };
+      });
+      $$('#panel [data-del-fn]').forEach(function(b){
+        b.onclick = async function(){
+          var f = cfgFincas()[+b.dataset.delFn];
+          cfgFincas().splice(+b.dataset.delFn, 1);
+          cfgLotes().forEach(function(x){ if (x.finca === f) x.finca = ''; });
+          await persistir(); pintarCfg();
+        };
+      });
+      var afn = $('#add-fn');
+      if (afn) afn.onclick = async function(){
+        cfgFincas().push('Finca ' + (cfgFincas().length + 1));
+        await persistir(); pintarCfg();
+      };
+      /* asignar un rango de lotes a una finca */
+      var rok = $('#rango-ok');
+      if (rok) rok.onclick = async function(){
+        var txt = $('#rango').value.trim();
+        var fin = $('#rango-finca').value;
+        if (!txt){ aviso('Escriba los lotes que quiere asignar.'); return; }
+        var pedidos = [];
+        txt.split(',').forEach(function(t){
+          t = t.trim(); if (!t) return;
+          var m = t.match(/^(\d+)\s*-\s*(\d+)$/);
+          if (m){ for (var i = +m[1]; i <= +m[2]; i++) pedidos.push(String(i)); }
+          else pedidos.push(t.toUpperCase());
+        });
+        var L2 = cfgLotes(), tocados = 0, noHay = [];
+        pedidos.forEach(function(c){
+          var x = L2.filter(function(y){ return String(y.cod).toUpperCase() === c; })[0];
+          if (x){ x.finca = fin; tocados++; } else noHay.push(c);
+        });
+        estado.config.lotesConfirmados = true;
+        await persistir(); pintarCfg();
+        aviso(tocados + ' lote(s) quedaron en ' + fin +
+          (noHay.length ? '. No existen en la lista: ' + noHay.join(', ') : '.'));
+      };
+      $$('#panel [data-del-l]').forEach(function(b){
+        b.onclick = async function(){
+          cfgLotes().splice(+b.dataset.delL, 1);
+          estado.config.lotesConfirmados = true;
+          await persistir(); pintarCfg();
+        };
+      });
+      var al = $('#add-l');
+      if (al) al.onclick = async function(){
+        cfgLotes().push({cod:'', finca:''});
+        estado.config.lotesConfirmados = true;
+        await persistir(); pintarCfg();
+      };
+      var il = $('#imp-l');
+      if (il) il.onclick = async function(){
+        var txt = $('#pegar').value.trim();
+        if (!txt){ aviso('No hay nada pegado.'); return; }
+        var filas = txt.split(/[\r\n]+/).map(function(ln){
+          var p = ln.split(/[;,\t]/).map(function(x){ return x.trim(); });
+          if (!p[0]) return null;
+          return { cod:p[0], finca:p[1]||'' };
+        }).filter(Boolean);
+        if (!filas.length){ aviso('No se reconoció ninguna línea.'); return; }
+        estado.config.lotes = filas;
+        /* las fincas que vengan en lo pegado se agregan a la lista */
+        filas.forEach(function(x){
+          if (x.finca && cfgFincas().indexOf(x.finca) < 0) cfgFincas().push(x.finca);
+        });
+        estado.config.lotesConfirmados = true;
+        await persistir(); pintarCfg();
+        aviso('Quedaron ' + filas.length + ' lotes en ' + cfgFincas().length + ' finca(s).');
+      };
+
+      $$('#panel [data-i]').forEach(function(inp){
+        inp.onchange = async function(){
+          var i = +inp.dataset.i;
+          cfgImpl()[i][inp.dataset.f] = inp.value.trim();
+          await persistir();
+        };
+      });
+      $$('#panel [data-del-i]').forEach(function(b){
+        b.onclick = async function(){
+          cfgImpl().splice(+b.dataset.delI, 1);
+          await persistir(); pintarCfg();
+        };
+      });
+      var ai = $('#add-i');
+      if (ai) ai.onclick = async function(){
+        cfgImpl().push({cod:'', tipo:Object.keys(TIPOS_IMPL)[0], nota:''});
+        await persistir(); pintarCfg();
+      };
+
+      $('#cfg-ok').onclick = async function(){
+        await persistir(); cerrar(); pintar();
+      };
+    });
+  }
+  pintarCfg();
+}
+
+/* =====================================================================
+   Copiar del día anterior
+   ===================================================================== */
+async function copiarAnterior(){
+  if (!estado.yo){ elegirQuien(copiarAnterior); return; }
+  var ant = diaAnterior(fechaSel);
+  if (!ant){ aviso('No hay ningún día programado antes de esta fecha.'); return; }
+  var origen = estado.dias[ant], destino = dia(fechaSel);
+  var copiadas = 0, saltadas = [], choques = [];
+  var opsTomados = {}, implTomados = {};
+  Object.keys(destino).forEach(function(c){
+    if (destino[c].operario) opsTomados[destino[c].operario] = c;
+    if (destino[c].implemento) implTomados[destino[c].implemento] = c;
+  });
+  cfgFlota().forEach(function(m){
+    var a = origen[m.cod];
+    if (!a) return;
+    if (varadas[m.cod]){ saltadas.push(m.cod); return; }
+    if (destino[m.cod]) return;
+    var op = a.operario || null, im = a.implemento || null;
+    if (op && opsTomados[op]){ choques.push(op + ' (' + m.cod + ')'); op = null; }
+    if (im && implTomados[im]){ choques.push(im + ' (' + m.cod + ')'); im = null; }
+    destino[m.cod] = { labor:a.labor, lotes:(a.lotes||[]).slice(), implemento:im, operario:op, obs:a.obs,
+                       programadoPor: estado.yo, registradoEn: new Date().toISOString() };
+    registrar(fechaSel, m.cod, destino[m.cod]);
+    if (op) opsTomados[op] = m.cod;
+    if (im) implTomados[im] = m.cod;
+    copiadas++;
+  });
+  if (!copiadas){
+    aviso(saltadas.length
+      ? 'Ya estaba todo copiado. ' + saltadas.join(', ') + ' no entra porque está en el taller.'
+      : 'Ya estaba todo copiado de ese día.');
+    return;
+  }
+  await persistir(); pintar(); enviar();
+  aviso('Se ' + (copiadas === 1 ? 'copió 1 asignación' : 'copiaron ' + copiadas + ' asignaciones') +
+    ' del ' + fechaLarga(ant) +
+    (saltadas.length ? '. ' + saltadas.join(', ') + ' está en el taller.' : '') +
+    (choques.length ? '. Quedó sin asignar: ' + choques.join(', ') + ' por estar ya ocupado.' : '.'));
+}
+
+/* =====================================================================
+   Imprimir la programación para el campo
+   ===================================================================== */
+/* Las fincas que toca una asignación, para que el supervisor sepa a dónde va */
+function fincasDe(cods){
+  var L = cfgLotes(), set = [];
+  (cods||[]).forEach(function(c){
+    var x = L.filter(function(y){ return y.cod===c; })[0];
+    if (x && x.finca && set.indexOf(x.finca) < 0) set.push(x.finca);
+  });
+  return set.join(' / ');
+}
+
+function imprimir(){
+  var lista = asignados(fechaSel);
+  if (!lista.length){ aviso('No hay nada programado para imprimir.'); return; }
+  var LOTES = cfgLotes();
+  var orden = lista.slice().sort(function(a,b){
+    return ordenLabor(a.a.labor) - ordenLabor(b.a.labor) || a.maq.cod.localeCompare(b.maq.cod);
+  });
+  var varadasL = cfgFlota().filter(function(m){ return varadas[m.cod]; });
+  var sinProg = cfgFlota().filter(function(m){ return !varadas[m.cod] && !asignacion(fechaSel, m.cod); });
+  var h = '<div class="p-cab">' +
+    '<div class="p-emp">PALMA GRANDE S.A.S. · PUERTO CONCORDIA, META</div>' +
+    '<div class="p-tit">Programación de maquinaria</div>' +
+    '<div class="p-sub">' + fechaLarga(fechaSel) + ' de ' + fechaSel.slice(0,4) +
+    ' · ' + orden.length + (orden.length === 1 ? ' máquina' : ' máquinas') +
+    (estado.yo ? ' · programó ' + esc(estado.yo) : '') + '</div></div>' +
+    '<table><thead><tr><th>Máquina</th><th>Labor</th><th>Lotes</th><th>Implemento</th>' +
+    '<th>Operario</th><th>Observación</th><th style="width:72px">Recibido</th></tr></thead><tbody>' +
+    orden.map(function(x){
+      var fincas = fincasDe(x.a.lotes);
+      return '<tr><td><strong>' + esc(x.maq.cod) + '</strong><br>' + esc(x.maq.nombre) + '</td>' +
+        '<td>' + esc(txtLabor(x.a.labor)) + '</td>' +
+        '<td>' + ((x.a.lotes && x.a.lotes.length) ? esc(x.a.lotes.join(', ')) +
+            (fincas ? '<br><span style="color:#666">' + esc(fincas) + '</span>' : '') : '—') + '</td>' +
+        '<td>' + (esc(x.a.implemento) || '—') + '</td>' +
+        '<td>' + (esc(x.a.operario) || '____________') + '</td>' +
+        '<td>' + esc(x.a.obs || '') + '</td><td></td></tr>';
+    }).join('') + '</tbody></table>';
+
+  if (varadasL.length){
+    h += '<h4>En el taller</h4><table><thead><tr><th>Máquina</th><th>Novedad</th></tr></thead><tbody>' +
+      varadasL.map(function(m){ return '<tr><td><strong>' + esc(m.cod) + '</strong> ' + esc(m.nombre) +
+        '</td><td>' + esc(varadas[m.cod]) + '</td></tr>'; }).join('') + '</tbody></table>';
+  }
+  if (sinProg.length){
+    h += '<h4>Sin programar</h4><p style="font-size:11px">' +
+      sinProg.map(function(m){ return esc(m.cod) + ' ' + esc(m.nombre); }).join(' · ') + '</p>';
+  }
+
+  h += '<div class="p-firma"><div>Coordinador de Campo</div><div>Supervisor</div><div>Fecha y hora de entrega</div></div>' +
+    '<div class="p-pie">La columna "Recibido" la firma el operario al recibir la máquina con su implemento. ' +
+    'Las máquinas en taller no se programan hasta que tengan el alta. Impreso el ' + hoy() + '.</div>';
+
+  $('#print').innerHTML = h;
+  setTimeout(function(){ window.print(); }, 150);
+}
+
+/* =====================================================================
+   Google Sheets
+   ===================================================================== */
+function nid(){ return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function horaAhora(){ var d = new Date(); return p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+function fechaCO(iso){ return new Date(iso + 'T12:00:00').toLocaleDateString('es-CO'); }
+function dcorta(iso){ var p = String(iso).split('-'); return p.length === 3 ? p[2] + '/' + p[1] : iso; }
+/* la hoja puede devolver la fecha como texto d/m/aaaa, aaaa-mm-dd o fecha ISO */
+function aIso(v){
+  var s = String(v==null?'':v).trim(); if (!s) return '';
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return m[3]+'-'+p2(m[2])+'-'+p2(m[1]);
+  if (s.indexOf('T') > 0){ var d = new Date(s); if (!isNaN(d)) return isoLocal(d); }
+  return s.slice(0,10);
+}
+function idLabor(v){
+  var l = LABORES.filter(function(x){ return x.id === v || x.txt === v; })[0];
+  return l ? l.id : 'varias';
+}
+
+/* Cada cambio de una máquina en una fecha va a la cola: una fila para
+   ProgMaquinaria y la escritura (o borrado) en la hoja Programacion de siempre. */
+function registrar(fecha, cod, a){
+  var d = new Date();
+  estado.cola.push({ id:'prog:' + nid(), efecto:{ fecha:fecha, cod:cod, a: a ? JSON.parse(JSON.stringify(a)) : null },
+    hoja: HOJA_PROG, encabezados: ENC_PROG,
+    fila: [d.toLocaleDateString('es-CO'), horaAhora(), a ? 'ASIGNAR' : 'QUITAR', nid(), fecha, cod,
+      a ? txtLabor(a.labor) : '', a ? (a.lotes || []).join(', ') : '', a ? (a.implemento || '') : '',
+      a ? (a.operario || '') : '', a ? (a.obs || '') : '', estado.yo] });
+  var q = { hoja:'Programacion', fecha: fechaCO(fecha), tractor: cod + ' - ' + nombreDe(cod) };
+  if (a){ q.action = 'write'; q.supervisor = estado.yo; q.labor = txtLabor(a.labor);
+          q.lote = (a.lotes || []).join(', '); q.impl = a.implemento || ''; q.hora = ''; }
+  else q.action = 'delete';
+  estado.cola.push({ id:'legado:' + nid(), url: GS_URL + '?' + new URLSearchParams(q).toString() });
+}
+
+/* lotes, fincas e implementos se comparten en la hoja Maestros */
+var CFG_MAESTROS = { LOTES:'lotes', FINCAS:'fincas', IMPL:'implementos' };
+function pendienteMaestro(t){ return (estado.cola || []).some(function(x){ return x.id === 'maestro:' + t; }); }
+function aplicarMaestros(){
+  Object.keys(CFG_MAESTROS).forEach(function(t){
+    var v = Maestros.get(t);
+    if (v && !pendienteMaestro(t)) estado.config[CFG_MAESTROS[t]] = v;
+  });
+}
+function guardarConfig(){
+  var hubo = false;
+  Object.keys(CFG_MAESTROS).forEach(function(t){
+    var actual = estado.config[CFG_MAESTROS[t]];
+    if (!actual) return;
+    var guardada = Maestros.get(t);
+    var defecto = t === 'LOTES' ? lotesDefecto() : t === 'FINCAS' ? FINCAS_DEF : IMPL_DEF;
+    if (JSON.stringify(actual) === JSON.stringify(guardada || defecto)) return;
+    var x = Maestros.fila(t, actual, estado.yo);
+    estado.cola = estado.cola.filter(function(c){ return c.id !== x.id; });
+    estado.cola.push({ id:x.id, hoja:x.hoja, fila:x.fila, encabezados:x.encabezados });
+    hubo = true;
+  });
+  return hubo;
+}
+
+var enviando = false;
+async function enviar(){
+  if (enviando || !estado.cola.length || !navigator.onLine){ pintarSync(); return; }
+  enviando = true;
+  try {
+    while (estado.cola.length){
+      var x = estado.cola[0];
+      try {
+        if (x.url) await fetch(x.url, { mode:'no-cors' });
+        else await fetch(GS_URL, { method:'POST', mode:'no-cors',
+          body: JSON.stringify({ hoja:x.hoja, fila:x.fila, encabezados:x.encabezados }) });
+      } catch(e){ break; }      // sin señal: sigue en la cola
+      estado.cola.shift();
+      await persistir();
+    }
+  } finally { enviando = false; pintarSync(); }
+}
+
+/* La hoja manda; encima se vuelven a aplicar los cambios de este celular que
+   todavía no se han enviado. */
+async function traerProgramacion(){
+  if (!navigator.onLine) return;
+  try {
+    var r = await fetch(GS_URL + '?hoja=' + HOJA_PROG + '&t=' + Date.now());
+    var d = await r.json();
+    if (!d || !d.ok || !Array.isArray(d.datos)) return;
+    if (!$('#hoja').hidden) return;           // con un formulario abierto no se cambia nada
+    var dias = {};
+    d.datos.forEach(function(row){
+      var acc = String(row[2] || '').trim().toUpperCase(), f = aIso(row[4]), cod = String(row[5] || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !cod) return;
+      if (acc === 'QUITAR'){ if (dias[f]) delete dias[f][cod]; return; }
+      if (acc !== 'ASIGNAR') return;
+      (dias[f] = dias[f] || {})[cod] = {
+        labor: idLabor(String(row[6] || '').trim()),
+        lotes: String(row[7] == null ? '' : row[7]).split(',').map(function(x){ return x.trim(); }).filter(Boolean),
+        implemento: String(row[8] || '').trim() || null,
+        operario: String(row[9] || '').trim() || null,
+        obs: String(row[10] || ''),
+        programadoPor: String(row[11] || '')
+      };
+    });
+    estado.cola.forEach(function(x){
+      if (!x.efecto) return;
+      var e = x.efecto;
+      if (e.a) (dias[e.fecha] = dias[e.fecha] || {})[e.cod] = e.a;
+      else if (dias[e.fecha]) delete dias[e.fecha][e.cod];
+    });
+    Object.keys(dias).forEach(function(f){ if (!Object.keys(dias[f]).length) delete dias[f]; });
+    estado.dias = dias;
+    await persistir();
+    pintar();
+  } catch(e){}
+}
+
+async function traerMaestros(){
+  if (!navigator.onLine) return;
+  var pend = {};
+  Object.keys(CFG_MAESTROS).concat(['FLOTA']).forEach(function(t){ if (pendienteMaestro(t)) pend[t] = true; });
+  try { if (await Maestros.traer(pend)){ aplicarMaestros(); await persistir(); if ($('#hoja').hidden) pintar(); } } catch(e){}
+}
+
+/* =====================================================================
+   Arranque
+   ===================================================================== */
+$('#btn-yo').onclick = function(){ elegirQuien(null); };
+$('#btn-ajustes').onclick = ajustes;
+$('#btn-copiar').onclick = copiarAnterior;
+$('#btn-imprimir').onclick = imprimir;
+
+/* Las paradas sin alta de la hoja Taller (misma lectura que el Taller:
+   filas PARADA y ALTA con el mismo ID). Si no hay señal, la última copia. */
+async function leerTaller(){
+  try {
+    var r = await fetch(GS_URL + '?hoja=Taller&t=' + Date.now());
+    var d = await r.json();
+    if (!d || !d.ok || !Array.isArray(d.datos)) throw new Error('sin datos');
+    var ev = {};
+    d.datos.forEach(function(row){
+      var acc = String(row[2] || '').trim().toUpperCase(), id = String(row[3] || '').trim();
+      if (!id || (acc !== 'PARADA' && acc !== 'ALTA')) return;
+      var e = ev[id] = ev[id] || { equipo:String(row[4] || '').trim(), novedad:'', desde:'', cerrada:false };
+      if (row[8]) e.novedad = String(row[8]);
+      if (row[10]) e.desde = aIso(row[10]);
+      if (acc === 'ALTA') e.cerrada = true;
+    });
+    varadas = {};
+    Object.keys(ev).forEach(function(id){
+      var e = ev[id]; if (e.cerrada) return;
+      varadas[e.equipo] = (e.novedad || 'reportada sin detalle') + (e.desde ? ' (desde el ' + dcorta(e.desde) + ')' : '');
+    });
+    try { localStorage.setItem(KEY_VARADAS, JSON.stringify(varadas)); } catch(e){}
+    return true;
+  } catch(e){
+    try { var c = localStorage.getItem(KEY_VARADAS); if (c){ varadas = JSON.parse(c) || {}; return true; } } catch(e2){}
+    varadas = {};
+    return false;
+  }
+}
+
+(async function init(){
+  var g = await DB.cargar();
+  if (g && g.dias) estado = g;
+  if (!estado.dias) estado.dias = {};
+  if (!estado.cola) estado.cola = [];
+  if (!estado.config) estado.config = { lotes:null, implementos:null, fincas:null, lotesConfirmados:false };
+  delete estado.config.flota;               // la flota ahora es la compartida
+  aplicarMaestros();
+  cfgLotes(); cfgImpl(); cfgFincas();
+  fechaSel = manana();
+  try { var cv = localStorage.getItem(KEY_VARADAS); if (cv) varadas = JSON.parse(cv) || {}; } catch(e){}
+  pintar();
+  if (!(await DB.guardar(estado))) { sinGuardar = true; pintarSync(); }
+  await enviar();
+  await traerMaestros();
+  var hayTaller = await leerTaller();
+  await traerProgramacion();
+  if ($('#hoja').hidden) pintar();
+  if (!hayTaller){
+    $('#app').insertAdjacentHTML('afterbegin',
+      '<div class="nota-z">No se pudo leer el Taller, así que no se sabe qué máquinas están paradas. ' +
+      'Todas aparecen como disponibles hasta que haya señal.</div>');
+  }
+  window.addEventListener('online', async function(){ await enviar(); traerProgramacion(); });
+  setInterval(async function(){
+    if (estado.cola.length){ await enviar(); return; }
+    await leerTaller(); await traerProgramacion();
+  }, 2 * 60000);
+  setInterval(traerMaestros, 10 * 60000);
+})();
 </script>
 </body>
 </html>
