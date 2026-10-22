@@ -102,9 +102,35 @@
   .aviso{position:fixed;left:50%;transform:translateX(-50%);bottom:92px;background:var(--ink);color:#EDF0EE;
          padding:12px 20px;border-radius:var(--r);z-index:60;font-size:15px;max-width:90%;text-align:center}
   .aviso[hidden]{display:none}
+
+  #pin{position:fixed;inset:0;background:var(--ink);z-index:99;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 16px;color:#EDF0EE}
+  #pin[hidden]{display:none}
+  #pin h2{color:#EDF0EE;font-size:20px;text-transform:none;letter-spacing:0;margin:0 0 4px}
+  #pin .sub{color:#9CB3A7;font-size:14px;margin-bottom:22px}
+  #pin .puntos{display:flex;gap:12px;justify-content:center;margin-bottom:22px}
+  #pin .puntos i{width:14px;height:14px;border-radius:50%;border:2px solid #4A5B53}
+  #pin .puntos i.lleno{background:#EDF0EE;border-color:#EDF0EE}
+  #pin .teclas{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:280px}
+  #pin .teclas button{background:#2A3A33;border-radius:var(--r);padding:16px;font-size:21px;font-weight:600;color:#EDF0EE}
+  #pin .error{min-height:20px;margin-top:14px;font-size:14px;color:#F1A39B}
+  #pin a{margin-top:18px;color:#9CB3A7;font-size:14px}
 </style>
+<script>
+  /* oculta el PIN antes de pintar si este celular ya lo ingresó (misma clave que la versión anterior) */
+  try { if (localStorage.getItem('pin_ok_taller') === '1') document.documentElement.className = 'pin-ok'; } catch(e){}
+</script>
+<style>.pin-ok #pin{display:none}</style>
 </head>
 <body>
+
+<div id="pin">
+  <h2>Taller · Palma Grande</h2>
+  <div class="sub">Ingrese el PIN</div>
+  <div class="puntos" id="pin-puntos"><i></i><i></i><i></i><i></i></div>
+  <div class="teclas" id="pin-teclas"></div>
+  <div class="error" id="pin-error"></div>
+  <a href="https://rojasanderson18-ship-it.github.io/maquinaria-taller-palmag/">← Volver a la página principal</a>
+</div>
 
 <header><div class="fila">
   <h1>Taller</h1>
@@ -115,7 +141,7 @@
 
 <div class="wrap" id="app"></div>
 
-<div class="fab" id="fab"><button id="btn-reportar" class="secundario">Reportar una máquina que no esté en la lista</button></div>
+<div class="fab" id="fab"><button id="btn-reportar">Reportar una máquina dañada</button></div>
 
 <div class="hoja" id="hoja" hidden><div class="panel" id="panel"></div></div>
 <div class="aviso" id="aviso" hidden></div>
@@ -127,6 +153,9 @@
    qué máquina, cuándo quedó fuera, cuándo volvió, qué le pasó,
    si fue falla o mantenimiento, y quién lo registró.
    Un evento = un registro, que nace abierto y se cierra con el alta.
+   El taller es la única fuente de paradas: el preoperativo no entra aquí.
+   Cada evento se envía a la hoja "Taller" como dos filas (PARADA y ALTA)
+   con el mismo ID; al leer la hoja se juntan por ID.
    ===================================================================== */
 
 var FLOTA = [
@@ -161,8 +190,15 @@ var SISTEMAS = [
 
 var PERSONAS = ['Tulio', 'Juan Carlos Oviedo', 'Brayan Pérez', 'Ing. Luis Fernando'];
 
+var GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
+var HOJA = 'Taller';
+var ENC_TALLER = ['Fecha','Hora','ID','Acción','Equipo','Máquina','Tipo','Sistema','Detalle','Persona','Fecha Parada','Días Parada'];
+/* mismas columnas que escribía el taller anterior; Gerencia las lee así */
+var ENC_ALTAS = ['Fecha','Hora Preop','Equipo','Operario','Mecánico','Hora Retención','Hora Alta','Minutos Resolución','Trabajo Realizado'];
+var PIN = '2026';
+
 var KEY = 'taller-palma-v1';
-var estado = { eventos: [], yo: '', pendientes: 0 };
+var estado = { eventos: [], yo: '', cola: [] };
 
 /* ---------- almacenamiento ---------- */
 /* window.storage solo existe dentro de Claude; en GitHub Pages se usa localStorage */
@@ -209,14 +245,27 @@ function aviso(m){ var a=$('#aviso'); a.textContent=m; a.hidden=false;
 function nombreDe(cod){ var e = FLOTA.filter(function(f){ return f.cod===cod; })[0]; return e ? e.nombre : ''; }
 function txtSistema(id){ var s = SISTEMAS.filter(function(x){ return x.id===id; })[0]; return s ? s.txt : id; }
 
+function idSistema(v){
+  var s = SISTEMAS.filter(function(x){ return x.id===v || x.txt===v; })[0]; return s ? s.id : (v || null); }
+function fechaCO(iso){ var p = String(iso).slice(0,10).split('-'); return (+p[2])+'/'+(+p[1])+'/'+p[0]; }
+function horaAhora(){ var d=new Date(); return p2(d.getHours())+':'+p2(d.getMinutes()); }
+/* la hoja puede devolver la fecha como texto d/m/aaaa o como fecha ISO */
+function aIso(v){
+  var s = String(v==null?'':v).trim(); if (!s) return '';
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return m[3]+'-'+p2(m[2])+'-'+p2(m[1]);
+  if (s.indexOf('T') > 0){ var d = new Date(s); if (!isNaN(d)) return isoLocal(d); }
+  return s.slice(0,10);
+}
+function hace24h(ts){ return ts && (Date.now() - new Date(ts).getTime()) < 86400000; }
+
 function abiertoDe(cod){
   return estado.eventos.filter(function(e){ return e.equipo===cod && !e.fechaAlta; })[0] || null;
 }
 function pintarSync(){
   var s = $('#sync');
   if (sinGuardar){ s.hidden = false; s.textContent = 'Sin guardar en este dispositivo. Avísele a Anderson.'; return; }
-  if (estado.pendientes > 0){ s.hidden = false;
-    s.textContent = estado.pendientes + ' registro(s) esperando señal para enviarse. Puede seguir trabajando.'; return; }
+  if (estado.cola.length > 0){ s.hidden = false;
+    s.textContent = estado.cola.length + ' registro(s) esperando señal para enviarse. Puede seguir trabajando.'; return; }
   s.hidden = true;
 }
 
@@ -238,15 +287,14 @@ function pintar(){
     '</div>';
 
   if (varados.length){
-    h += '<h2>Reportadas por los operarios</h2>';
+    h += '<h2>Paradas</h2>';
     h += varados.map(function(v){
       var d = diasEntre(v.ab.fechaReporte, hoy());
       return '<button class="eq varado" data-cod="' + esc(v.f.cod) + '">' +
         '<span class="cod mono">' + esc(v.f.cod) + '</span>' +
         '<span><span class="nom">' + esc(v.f.nombre) + '</span>' +
         '<span class="det">' + (v.ab.novedad ? esc(v.ab.novedad) : 'sin detalle') +
-          '<br>Reportó ' + esc(v.ab.reportadoPor || '—') +
-          (v.ab.origen === 'preoperativo' ? ' en el preoperativo' : '') + ' · ' +
+          '<br>Reportó ' + esc(v.ab.reportadoPor || '—') + ' · ' +
           '<b>' + (d === 0 ? 'desde hoy' : 'parada hace ' + d + (d===1?' día':' días')) + '</b>' +
         '</span></span><span class="ir">›</span></button>';
     }).join('');
@@ -262,12 +310,7 @@ function pintar(){
       '<span class="ir">›</span></button>';
   }).join('');
 
-  if (estado.eventos.some(function(e){ return e.ejemplo; })){
-    h = '<div class="nota-inf">Estos reportes son de ejemplo, para mostrar cómo llegan los varados desde el ' +
-        'preoperativo. <button id="borrar-ej" style="text-decoration:underline;font-weight:700">Borrarlos</button></div>' + h;
-  }
   $('#app').innerHTML = h;
-  var be = $('#borrar-ej'); if (be) be.onclick = borrarEjemplo;
   Array.prototype.forEach.call($('#app').querySelectorAll('.eq'), function(b){
     b.onclick = function(){ verEquipo(b.dataset.cod); };
   });
@@ -325,7 +368,7 @@ function reportar(codPre){
   var disponibles = FLOTA.filter(function(f){ return !abiertoDe(f.cod); });
   if (!disponibles.length){ aviso('Todas las máquinas ya están reportadas.'); return; }
 
-  abrir(tope('Reportar una máquina', 'Solo si el operario no alcanzó a reportarla') +
+  abrir(tope('Reportar una máquina', 'Queda parada hasta que el taller le dé el alta') +
     '<div class="cuerpo">' +
       '<p class="paso">1. ¿Cuál máquina?</p><div class="rejilla" id="g-eq">' +
         disponibles.map(function(f){
@@ -361,26 +404,28 @@ function reportar(codPre){
 
       $('#guardar').onclick = async function(){
         if (!sel.equipo) return;
-        estado.eventos.push({
+        if (abiertoDe(sel.equipo)){ cerrar(); pintar(); aviso(sel.equipo + ' ya estaba reportada.'); return; }
+        var ev = {
           id: nid(),
           equipo: sel.equipo,
           tipo: sel.tipo,
           sistema: null,                 // lo clasifica el mecánico al cerrar
           novedad: $('#nov').value.trim(),
           reportadoPor: estado.yo,
-          origen: 'taller',
           fechaReporte: hoy(),
           registradoEn: ahora(),
           fechaAlta: null,
           altaPor: null,
           trabajo: '',
-          cerradoEn: null,
-          enviado: false
-        });
-        estado.pendientes = estado.eventos.filter(function(e){ return !e.enviado; }).length;
+          cerradoEn: null
+        };
+        estado.eventos.push(ev);
+        encolar(HOJA, [fechaCO(ev.fechaReporte), horaAhora(), ev.id, 'PARADA', ev.equipo, nombreDe(ev.equipo),
+          ev.tipo, '', ev.novedad, ev.reportadoPor, fechaCO(ev.fechaReporte), ''], ENC_TALLER, ev.id);
         await persistir();
         cerrar(); pintar();
         aviso(sel.equipo + ' quedó reportada como parada.');
+        enviar();
       };
     });
 }
@@ -402,7 +447,7 @@ function verEquipo(cod){
       '<div class="et">' + (ab.tipo === 'mantenimiento' ? 'Entró a mantenimiento programado' : 'Lo que reportaron') + '</div>' +
       '<div class="vl grande">' + (ab.novedad ? esc(ab.novedad) : 'Sin detalle') + '</div>' +
       '<div class="vl" style="color:var(--steel);font-size:14px;margin-top:6px">' +
-        esc(ab.reportadoPor || '—') + (ab.origen === 'preoperativo' ? ' en el preoperativo' : '') +
+        esc(ab.reportadoPor || '—') +
         ' el ' + dcorta(ab.fechaReporte) +
         ' · parada ' + (d === 0 ? 'desde hoy' : 'hace ' + d + (d===1?' día':' días')) + '</div>' +
       '</div>';
@@ -474,11 +519,15 @@ function verEquipo(cod){
       ab.altaPor = estado.yo;
       ab.trabajo = ($('#trab').value || '').trim();
       ab.cerradoEn = ahora();
-      ab.enviado = false;
-      estado.pendientes = estado.eventos.filter(function(e){ return !e.enviado; }).length;
+      var dias = diasEntre(ab.fechaReporte, ab.fechaAlta), hora = horaAhora();
+      encolar(HOJA, [fechaCO(ab.fechaAlta), hora, ab.id, 'ALTA', ab.equipo, nombreDe(ab.equipo), ab.tipo,
+        txtSistema(ab.sistema), ab.trabajo, ab.altaPor, fechaCO(ab.fechaReporte), dias], ENC_TALLER, ab.id);
+      encolar('Altas', [fechaCO(ab.fechaAlta), '—', ab.equipo + ' ' + nombreDe(ab.equipo), ab.reportadoPor || '—',
+        ab.altaPor, '—', hora, '—', txtSistema(ab.sistema) + (ab.trabajo ? ' — ' + ab.trabajo : '')], ENC_ALTAS, ab.id);
       await persistir();
       cerrar(); pintar();
-      aviso(cod + ' quedó disponible. ' + diasEntre(ab.fechaReporte, ab.fechaAlta) + ' día(s) parada.');
+      aviso(cod + ' quedó disponible. ' + dias + ' día(s) parada.');
+      enviar();
     };
     var r = $('#rep');
     if (r) r.onclick = function(){ cerrar(); reportar(cod); };
@@ -486,8 +535,101 @@ function verEquipo(cod){
 }
 
 
-/* ---------- estado de la vista ---------- */
-var vista = 'taller';
+/* =====================================================================
+   Google Sheets
+   ===================================================================== */
+function encolar(hoja, fila, encabezados, id){
+  estado.cola.push({ hoja: hoja, fila: fila, encabezados: encabezados, id: id });
+}
+
+var enviando = false;
+async function enviar(){
+  if (enviando || !estado.cola.length || !navigator.onLine) { pintarSync(); return; }
+  enviando = true;
+  try {
+    while (estado.cola.length){
+      var x = estado.cola[0];
+      try {
+        await fetch(GS_URL, { method: 'POST', mode: 'no-cors',
+          body: JSON.stringify({ hoja: x.hoja, fila: x.fila, encabezados: x.encabezados }) });
+      } catch(e){ break; }           // sin señal: queda en la cola para el próximo intento
+      estado.cola.shift();
+      await persistir();
+    }
+  } finally { enviando = false; pintarSync(); }
+  // si el service worker del preoperativo guardó algo sin señal, que lo envíe ya
+  try { if (navigator.serviceWorker && navigator.serviceWorker.controller)
+    navigator.serviceWorker.controller.postMessage({ type: 'SYNC_NOW' }); } catch(e){}
+}
+
+/* La hoja manda: lo que hay allá reemplaza lo local, salvo lo que este
+   celular aún no ha enviado o envió hace menos de un día (puede ir en camino). */
+function fusionar(filas){
+  var rem = {};
+  filas.forEach(function(r){
+    var id = String(r[2]||'').trim(), acc = String(r[3]||'').trim().toUpperCase();
+    if (!id || (acc !== 'PARADA' && acc !== 'ALTA')) return;
+    var e = rem[id] || (rem[id] = { id: id, equipo: String(r[4]||'').trim(), tipo: 'falla', sistema: null,
+      novedad: '', reportadoPor: '', fechaReporte: aIso(r[10] || r[0]), registradoEn: null,
+      fechaAlta: null, altaPor: null, trabajo: '', cerradoEn: null });
+    if (r[6]) e.tipo = String(r[6]).trim();
+    if (r[10]) e.fechaReporte = aIso(r[10]);
+    if (acc === 'PARADA'){ e.novedad = String(r[8]||''); e.reportadoPor = String(r[9]||''); }
+    else { e.fechaAlta = aIso(r[0]); e.altaPor = String(r[9]||''); e.trabajo = String(r[8]||''); e.sistema = idSistema(String(r[7]||'')); }
+  });
+  var enCola = {};
+  estado.cola.forEach(function(x){ enCola[x.id] = true; });
+  var res = [];
+  estado.eventos.forEach(function(l){
+    var r = rem[l.id];
+    if (!r){ if (enCola[l.id] || hace24h(l.cerradoEn || l.registradoEn)) res.push(l); return; }
+    // la versión local va adelante si cerró y la hoja todavía no tiene el alta
+    res.push(enCola[l.id] || (l.fechaAlta && !r.fechaAlta && hace24h(l.cerradoEn)) ? l : r);
+    delete rem[l.id];
+  });
+  Object.keys(rem).forEach(function(id){ res.push(rem[id]); });
+  estado.eventos = res;
+}
+
+async function traer(){
+  if (!navigator.onLine) return;
+  try {
+    var r = await fetch(GS_URL + '?hoja=' + HOJA + '&t=' + Date.now());
+    var d = await r.json();
+    if (!d || !d.ok || !Array.isArray(d.datos)) return;   // hoja aún no creada o error: se deja lo local
+    // con una hoja abierta no se reemplazan los eventos: el formulario tiene uno en la mano
+    if (!$('#hoja').hidden) return;
+    fusionar(d.datos);
+    await persistir();
+    pintar();
+  } catch(e){}
+}
+
+/* =====================================================================
+   PIN
+   ===================================================================== */
+function montarPin(){
+  var val = '';
+  var teclas = ['1','2','3','4','5','6','7','8','9','','0','⌫'];
+  $('#pin-teclas').innerHTML = teclas.map(function(t){
+    return t ? '<button data-t="' + t + '">' + t + '</button>' : '<span></span>';
+  }).join('');
+  function puntos(){ Array.prototype.forEach.call($('#pin-puntos').children, function(p, i){
+    p.className = i < val.length ? 'lleno' : ''; }); }
+  Array.prototype.forEach.call($('#pin-teclas').querySelectorAll('button'), function(b){
+    b.onclick = function(){
+      $('#pin-error').textContent = '';
+      if (b.dataset.t === '⌫'){ val = val.slice(0, -1); puntos(); return; }
+      if (val.length >= 4) return;
+      val += b.dataset.t; puntos();
+      if (val.length < 4) return;
+      if (val === PIN){
+        try { localStorage.setItem('pin_ok_taller', '1'); } catch(e){}
+        $('#pin').hidden = true;
+      } else { val = ''; puntos(); $('#pin-error').textContent = 'PIN incorrecto. Inténtelo de nuevo.'; }
+    };
+  });
+}
 
 /* =====================================================================
    Arranque
@@ -495,34 +637,23 @@ var vista = 'taller';
 $('#btn-reportar').onclick = function(){ reportar(null); };
 $('#btn-yo').onclick = function(){ elegirPersona(null); };
 
-/* Mientras no esté conectado al preoperativo, estos tres entran como ejemplo
-   para que se vea de dónde salen los varados. Se borran desde el aviso. */
-function sembrarEjemplo(){
-  var d = function(n){ var x = new Date(); x.setDate(x.getDate()-n); return isoLocal(x); };
-  [['#05','Julio Vacca','No arranca, se pidió repuesto',6],
-   ['#09','Cesar Verona','Llanta trasera averiada',2],
-   ['#07','Jhon Garnica','Bota aceite por la manguera',0]].forEach(function(x){
-    estado.eventos.push({ id:nid(), equipo:x[0], tipo:'falla', sistema:null, novedad:x[2],
-      reportadoPor:x[1], origen:'preoperativo', fechaReporte:d(x[3]), registradoEn:d(x[3])+'T06:30',
-      fechaAlta:null, altaPor:null, trabajo:'', cerradoEn:null, enviado:false, ejemplo:true });
-  });
-  estado.ejemploCargado = true;
-}
-async function borrarEjemplo(){
-  estado.eventos = estado.eventos.filter(function(e){ return !e.ejemplo; });
-  estado.pendientes = estado.eventos.filter(function(e){ return !e.enviado; }).length;
-  await persistir(); pintar(); aviso('Ejemplos borrados.');
-}
-
 (async function init(){
+  if (document.documentElement.className === 'pin-ok') $('#pin').hidden = true;
+  montarPin();
   var g = await DB.cargar();
   if (g && g.eventos) estado = g;
   if (!estado.eventos) estado.eventos = [];
-  if (!estado.ejemploCargado && !estado.eventos.length) sembrarEjemplo();
-  estado.pendientes = estado.eventos.filter(function(e){ return !e.enviado; }).length;
+  if (!estado.cola) estado.cola = [];
+  // limpia datos de ejemplo y campos de la primera versión
+  estado.eventos = estado.eventos.filter(function(e){ return !e.ejemplo; });
+  delete estado.ejemploCargado; delete estado.pendientes;
   pintar();
   // comprueba el almacenamiento guardando de verdad, no adivinando
   if (!(await DB.guardar(estado))) { sinGuardar = true; pintarSync(); }
+  await enviar();
+  await traer();
+  window.addEventListener('online', async function(){ await enviar(); traer(); });
+  setInterval(function(){ if (!estado.cola.length) traer(); else enviar(); }, 60000);
 })();
 </script>
 </body>
