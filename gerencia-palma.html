@@ -75,6 +75,21 @@
   .gr .lb{width:150px;flex:none;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .gr .vl{width:70px;flex:none;text-align:right;font-size:13px}
 
+  .delta{font-size:12px;font-weight:600;margin-top:3px}
+  .delta.mejor{color:var(--green)} .delta.peor{color:var(--red)} .delta.igual{color:var(--steel)}
+  /* las barras miden contra el alto del área (0–100 %), así la línea de meta queda a la altura correcta */
+  .tend{display:flex;gap:10px;height:170px;margin-top:22px;position:relative;border-bottom:1px solid var(--line)}
+  .tend .col{flex:1;height:100%;position:relative;z-index:1}
+  .tend .col b{position:absolute;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:12px}
+  .tend .col i{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:54px;background:var(--green);border-radius:2px 2px 0 0}
+  .tend .col i.al{background:var(--amber)} .tend .col i.ma{background:var(--red)}
+  .tend .col.sin i{background:repeating-linear-gradient(45deg,#E8EBEA,#E8EBEA 4px,#F4F6F5 4px,#F4F6F5 8px);height:100%}
+  .tend .col.sin b{color:var(--steel);font-weight:500;font-family:inherit;top:45%;z-index:3}
+  .tend .col.actual i{box-shadow:0 0 0 2px var(--ink)}
+  .tend .linea{position:absolute;left:0;right:0;border-top:2px dashed rgba(21,32,28,.35);z-index:2}
+  .tend .linea span{position:absolute;right:0;top:-18px;font-size:11px;color:var(--steel)}
+  .tend-mes{display:flex;gap:10px;padding:6px 4px 0}
+  .tend-mes span{flex:1;text-align:center;font-size:12px;color:var(--soft);text-transform:capitalize}
   .critico{background:#fff;border:1px solid var(--line);border-left:3px solid var(--red);border-radius:3px;padding:14px 16px;margin-bottom:8px}
   .critico b{display:block;font-size:15px}
   .critico span{font-size:13.5px;color:var(--soft)}
@@ -193,6 +208,14 @@ var SISTEMAS = {motor:'Motor', hidraulico:'Hidráulico', electrico:'Eléctrico',
 var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
              'septiembre','octubre','noviembre','diciembre'];
 var EVENTOS = null, D = null;
+var INICIO_DATOS = null;          // primer día registrado en la hoja Taller
+var PROG = null, INICIO_PROG = null;   // programación por fecha → máquina → asignación
+var HIST = [];                    // los últimos 6 meses hasta el elegido
+var MESES_HIST = 6, VENTANA_REPETIDAS = 90;
+var BASE_TEND = 50;   // la gráfica de tendencia arranca en 50 % para que se noten las diferencias
+function altoTend(v){ return Math.max(2, Math.min(100, (v - BASE_TEND) / (100 - BASE_TEND) * 100)); }
+var LABORES = {alceTijera:'Alce de racimos con tijera', alceQuinta:'Alce de racimos con quinta rueda', rotospeed:'Rotospeed',
+  rolo:'Rolo cuchilla', fertMezcla:'Fertilización con mezcla', fertBorax:'Fertilización en bórax', sanidad:'Sanidad', varias:'Labores varias'};
 
 /* ---------- utilidades ---------- */
 function $(s){ return document.querySelector(s); }
@@ -254,8 +277,34 @@ async function traer(){
   var r = await fetch(GS_URL + '?hoja=Taller&t=' + Date.now());
   var d = await r.json();
   if (!d || !d.ok) throw new Error((d && d.error) || 'respuesta inválida');
+  // los meses antes del primer registro no tienen datos (no son 100 % disponibles)
+  INICIO_DATOS = null;
+  (d.datos || []).forEach(function(r){
+    var f = aIso(r[0]);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(f) && (!INICIO_DATOS || f < INICIO_DATOS)) INICIO_DATOS = f;
+  });
   return eventosDe(d.datos || []);
 }
+
+/* Programación: hoja ProgMaquinaria, la última fila de cada fecha + máquina vale
+   (igual que en Programación). */
+async function traerProgramacion(){
+  try {
+    var r = await fetch(GS_URL + '?hoja=ProgMaquinaria&t=' + Date.now());
+    var d = await r.json();
+    if (!d || !d.ok || !Array.isArray(d.datos)) return;
+    var dias = {}, ini = null;
+    d.datos.forEach(function(row){
+      var acc = String(row[2] || '').trim().toUpperCase(), f = aIso(row[4]), cod = String(row[5] || '').trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !cod) return;
+      if (!ini || f < ini) ini = f;
+      if (acc === 'QUITAR'){ if (dias[f]) delete dias[f][cod]; return; }
+      if (acc === 'ASIGNAR') (dias[f] = dias[f] || {})[cod] = String(row[6] || '').trim() || 'Sin labor';
+    });
+    PROG = dias; INICIO_PROG = ini;
+  } catch(e){}
+}
+function txtLabor(v){ return LABORES[v] || v; }
 
 /* ---------- cálculo del mes ---------- */
 /* Días programados: lunes a sábado. Un día se pierde si la máquina estaba
@@ -290,7 +339,7 @@ function calcular(eventos, anio, mes){
     Object.keys(perdido).forEach(function(d){ if (perdido[d] === 'falla') dFalla++; else dMtto++; });
     var fallasMes = evs.filter(function(e){ return e.tipo === 'falla' && e.inicio >= desde; });
     var durs = fallasMes.map(function(e){ return duracion(e); });
-    return { equipo:q.cod, nombre:q.nombre, uso:q.uso || '', grupo:q.grupo, programados:prog.length,
+    return { equipo:q.cod, nombre:q.nombre, uso:q.uso || '', grupo:q.grupo, programados:prog.length, perdido:perdido,
       diasFalla:dFalla, diasMtto:dMtto, disponibles:prog.length - dFalla - dMtto,
       fallas:fallasMes.length, mttos:evs.filter(function(e){ return e.tipo === 'mantenimiento' && e.inicio >= desde; }).length,
       diasPorFalla: durs.length ? durs.reduce(function(a,b){ return a+b; }, 0) / durs.length : null,
@@ -323,12 +372,91 @@ function calcular(eventos, anio, mes){
     x.fallas++; x.dias += duracion(e);
   });
 
-  return { anio:anio, mes:mes, desde:desde, hasta:hasta, corte:corte, diasProgramados:prog.length,
+  var sinDatos = !INICIO_DATOS || hasta < INICIO_DATOS.slice(0, 8) + '01';
+  var R = { anio:anio, mes:mes, desde:desde, hasta:hasta, corte:corte, diasProgramados:prog.length, prog:prog, sinDatos:sinDatos,
     futuro: desde > hy, equipos:equipos, maquinaria:maquinaria, camiones:camiones, totales:T, totalesCamiones:TC, eventos:delMes,
     abiertos: eventos.filter(function(e){ return !e.fin && eqDe(e.equipo); }),
     pareto: Object.keys(pareto).map(function(k){ return pareto[k]; })
       .sort(function(a,b){ return a.id === 'pendiente' ? 1 : b.id === 'pendiente' ? -1 : b.fallas - a.fallas || b.dias - a.dias; }),
     noReconocidos: Object.keys(noReconocidos) };
+  R.uso = utilizacion(R);
+  return R;
+}
+
+/* ---------- uso de la maquinaria (cruce con Programación) ---------- */
+/* Utilización = días disponibles en que la máquina tuvo labor asignada ÷ días
+   disponibles. Solo cuenta desde que hay programación guardada. */
+function utilizacion(R){
+  if (!PROG || !INICIO_PROG || R.corte < INICIO_PROG) return null;
+  var dias = R.prog.filter(function(d){ return d >= INICIO_PROG; });
+  if (!dias.length) return null;
+  var porLabor = {}, U = { disponibles:0, conLabor:0 };
+  var equipos = R.maquinaria.map(function(e){
+    var disp = 0, usados = 0;
+    dias.forEach(function(d){
+      var lab = PROG[d] && PROG[d][e.equipo];
+      if (lab) porLabor[lab] = (porLabor[lab] || 0) + 1;
+      if (e.perdido[d]) return;
+      disp++; if (lab) usados++;
+    });
+    U.disponibles += disp; U.conLabor += usados;
+    return { equipo:e.equipo, nombre:e.nombre, disponibles:disp, conLabor:usados, ociosos:disp - usados,
+             utilizacion: disp ? usados / disp * 100 : null };
+  });
+  U.utilizacion = U.disponibles ? U.conLabor / U.disponibles * 100 : null;
+  return { desde: dias[0], dias: dias.length, totales:U, equipos:equipos,
+    porLabor: Object.keys(porLabor).map(function(k){ return { labor:k, dias:porLabor[k] }; })
+      .sort(function(a,b){ return b.dias - a.dias; }) };
+}
+
+/* ---------- tendencia y confiabilidad ---------- */
+function historial(anio, mes){
+  var out = [];
+  for (var i = MESES_HIST - 1; i >= 0; i--){
+    var d = new Date(anio, mes - 1 - i, 1);
+    out.push(calcular(EVENTOS, d.getFullYear(), d.getMonth() + 1));
+  }
+  return out;
+}
+/* MTBF: días disponibles ÷ fallas, sumando los meses con datos del historial */
+function confiabilidad(){
+  var con = HIST.filter(function(h){ return !h.sinDatos && !h.futuro; });
+  var porEq = {}, F = { disponibles:0, fallas:0 };
+  con.forEach(function(h){
+    h.maquinaria.forEach(function(e){
+      var x = porEq[e.equipo] || (porEq[e.equipo] = { equipo:e.equipo, nombre:e.nombre, disponibles:0, fallas:0, diasFalla:0 });
+      x.disponibles += e.disponibles; x.fallas += e.fallas; x.diasFalla += e.diasFalla;
+      F.disponibles += e.disponibles; F.fallas += e.fallas;
+    });
+  });
+  var lista = Object.keys(porEq).map(function(k){ var x = porEq[k]; x.mtbf = x.fallas ? x.disponibles / x.fallas : null; return x; })
+    .sort(function(a,b){ return (a.mtbf == null ? 1e9 : a.mtbf) - (b.mtbf == null ? 1e9 : b.mtbf); });
+  F.mtbf = F.fallas ? F.disponibles / F.fallas : null;
+  return { meses: con.length, equipos: lista, flota: F };
+}
+/* Misma máquina y mismo sistema, 2 o más fallas en los últimos 90 días */
+function fallasRepetidas(corte){
+  var desde = sumarDias(corte, -VENTANA_REPETIDAS), grupos = {};
+  EVENTOS.forEach(function(e){
+    if (e.tipo !== 'falla' || !e.fin || !e.sistema || !eqDe(e.equipo) || esCamion(e.equipo)) return;
+    if (e.inicio < desde || e.inicio > corte) return;
+    var k = e.equipo + '|' + e.sistema;
+    (grupos[k] = grupos[k] || []).push(e);
+  });
+  return Object.keys(grupos).filter(function(k){ return grupos[k].length >= 2; }).map(function(k){
+    var l = grupos[k].sort(function(a,b){ return a.inicio < b.inicio ? -1 : 1; });
+    return { equipo:l[0].equipo, nombre:(eqDe(l[0].equipo)||{}).nombre || '', sistema:txtSistema(l[0].sistema), fallas:l };
+  }).sort(function(a,b){ return b.fallas.length - a.fallas.length; });
+}
+function nombreMes(h){ return MESES[h.mes - 1].slice(0, 3) + (h.mes === 1 ? ' ' + String(h.anio).slice(2) : ''); }
+/* diferencia contra el mes anterior; "menosEsMejor" para días perdidos y fallas */
+function delta(actual, previo, unidad, menosEsMejor, decimales){
+  if (actual == null || previo == null) return '';
+  var dif = actual - previo, r = decimales ? Math.round(dif * 10) / 10 : Math.round(dif);
+  if (!r) return '<div class="delta igual">= igual que ' + MESES[HIST[HIST.length-2].mes - 1] + '</div>';
+  var mejor = menosEsMejor ? r < 0 : r > 0;
+  return '<div class="delta ' + (mejor ? 'mejor' : 'peor') + '">' + (r > 0 ? '▲ ' : '▼ ') +
+    String(Math.abs(r)).replace('.', ',') + unidad + ' vs. ' + MESES[HIST[HIST.length-2].mes - 1] + '</div>';
 }
 
 /* ---------- pintado ---------- */
@@ -382,17 +510,29 @@ function pintar(){
       esc(D.noReconocidos.join(', ')) + '. Sus registros quedaron por fuera del informe.</div>';
   }
 
+  var P = HIST.length > 1 && !HIST[HIST.length-2].sinDatos ? HIST[HIST.length-2].totales : null;
+  var C = confiabilidad(), U = D.uso;
   html += '<div class="kpis">' +
     '<div class="kpi ' + clase(T.disponibilidad) + '"><div class="n">' + pct(T.disponibilidad) + '</div>' +
       '<div class="t">Disponibilidad de la maquinaria</div><div class="x">' + T.disponibles + ' de ' + T.programados +
-      ' días-máquina · meta ' + META + '% · sin camiones</div></div>' +
+      ' días-máquina · meta ' + META + '% · sin camiones</div>' +
+      (P ? delta(T.disponibilidad, P.disponibilidad, ' pts', false, true) : '') + '</div>' +
+    '<div class="kpi ' + (U ? (U.totales.utilizacion >= 80 ? 'ok' : U.totales.utilizacion >= 60 ? 'al' : 'ma') : '') + '"><div class="n">' +
+      (U ? pct(U.totales.utilizacion) : '—') + '</div><div class="t">Utilización</div><div class="x">' +
+      (U ? U.totales.conLabor + ' de ' + U.totales.disponibles + ' días disponibles con labor' : 'sin programación guardada en el mes') + '</div></div>' +
     '<div class="kpi ' + (T.diasFalla ? 'ma' : 'ok') + '"><div class="n">' + T.diasFalla + '</div>' +
       '<div class="t">Días-máquina perdidos por falla</div><div class="x">equivale a ' +
-      n1(T.diasFalla / Math.max(1, D.diasProgramados)) + ' máquinas paradas todo el mes</div></div>' +
+      n1(T.diasFalla / Math.max(1, D.diasProgramados)) + ' máquinas paradas todo el mes</div>' +
+      (P ? delta(T.diasFalla, P.diasFalla, ' días', true) : '') + '</div>' +
     '<div class="kpi"><div class="n">' + T.fallas + '</div><div class="t">Fallas en el mes</div>' +
-      '<div class="x">en ' + T.conFallas + ' de ' + T.equipos + ' máquinas</div></div>' +
-    '<div class="kpi"><div class="n">' + n1(T.diasPorFalla) + '</div><div class="t">Días promedio de reparación</div>' +
-      '<div class="x">de la parada hasta el alta</div></div>' +
+      '<div class="x">en ' + T.conFallas + ' de ' + T.equipos + ' máquinas</div>' +
+      (P ? delta(T.fallas, P.fallas, '', true) : '') + '</div>' +
+    '<div class="kpi"><div class="n">' + n1(T.diasPorFalla) + '</div><div class="t">MTTR · días promedio de reparación</div>' +
+      '<div class="x">de la parada hasta el alta</div>' +
+      (P ? delta(T.diasPorFalla, P.diasPorFalla, ' días', true, true) : '') + '</div>' +
+    '<div class="kpi"><div class="n">' + (C.flota.mtbf == null ? '—' : n1(C.flota.mtbf)) + '</div>' +
+      '<div class="t">MTBF · días entre fallas</div><div class="x">' +
+      (C.flota.mtbf == null ? 'sin fallas registradas' : 'por máquina, últimos ' + C.meses + (C.meses === 1 ? ' mes' : ' meses') + ' con datos') + '</div></div>' +
     '<div class="kpi ' + (T.diasMtto ? 'al' : '') + '"><div class="n">' + T.diasMtto + '</div>' +
       '<div class="t">Días en mantenimiento programado</div><div class="x">' + T.mttos + ' entrada(s) en el mes</div></div>' +
     '</div>';
@@ -407,6 +547,29 @@ function pintar(){
       D.abiertos.map(function(v){ return esc(v.equipo) + ' desde el ' + dcorta(v.inicio) + ' (' + duracion(v) + ' días)'; }).join(', ') +
       '. Si ya están reparadas, Tulio debe darles el alta en el Taller antes de enviar el informe.</div>';
   }
+
+  /* tendencia de los últimos meses */
+  var hayHist = HIST.filter(function(h){ return !h.sinDatos; }).length > 1;
+  html += '<h3 class="sec">Tendencia · últimos ' + MESES_HIST + ' meses</h3>' +
+    '<p class="hint">Disponibilidad de la maquinaria mes a mes (el eje empieza en ' + BASE_TEND + ' %). La línea marca la meta del ' + META + '%.' +
+      (hayHist ? '' : ' Todavía hay poco historial: la gráfica se va llenando a medida que pasan los meses.') + '</p>' +
+    '<div class="graf"><div class="tend"><div class="linea" style="bottom:' + altoTend(META) + '%"><span>meta ' + META + '%</span></div>' +
+    HIST.map(function(h, i){
+      var actual = i === HIST.length - 1;
+      if (h.sinDatos || h.futuro) return '<div class="col sin' + (actual ? ' actual' : '') + '"><b>sin datos</b><i></i></div>';
+      var v = h.totales.disponibilidad, cl = clase(v);
+      return '<div class="col' + (actual ? ' actual' : '') + '"><b style="bottom:calc(' + altoTend(v) + '% + 4px)">' + pct(v) + '</b><i class="' + (cl === 'ok' ? '' : cl) +
+        '" style="height:' + altoTend(v) + '%"></i></div>';
+    }).join('') + '</div><div class="tend-mes">' + HIST.map(function(h){ return '<span>' + nombreMes(h) + '</span>'; }).join('') + '</div></div>' +
+    '<div class="tabla" style="margin-top:10px"><table><thead><tr><th>Mes</th><th class="num">Disponibilidad</th><th class="num">Utilización</th>' +
+    '<th class="num">Días perdidos</th><th class="num">Fallas</th><th class="num">MTTR</th></tr></thead><tbody>' +
+    HIST.slice().reverse().map(function(h){
+      if (h.sinDatos || h.futuro) return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + '</td><td colspan="5" class="mod">sin datos del Taller</td></tr>';
+      return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + '</td><td class="num"><span class="pill ' + clase(h.totales.disponibilidad) + '">' +
+        pct(h.totales.disponibilidad) + '</span></td><td class="num mono">' + (h.uso ? pct(h.uso.totales.utilizacion) : '—') + '</td>' +
+        '<td class="num mono">' + h.totales.diasFalla + '</td><td class="num mono">' + h.totales.fallas + '</td>' +
+        '<td class="num mono">' + n1(h.totales.diasPorFalla) + '</td></tr>';
+    }).join('') + '</tbody></table></div>';
 
   GRUPOS.forEach(function(g){
     if (g.id === 'transporte') return;          // los camiones van en su propia sección
@@ -438,6 +601,49 @@ function pintar(){
     html += '<div class="vacio">Sin fallas en el mes.</div>';
   }
   html += '</div></div>';
+
+  /* uso de la maquinaria (Programación) */
+  html += '<h3 class="sec">Uso de la maquinaria</h3>';
+  if (!U){
+    html += '<p class="hint">Cruce de la disponibilidad con la Programación.</p><div class="vacio">' +
+      (PROG ? 'No hay programación guardada en este mes.' : 'No se pudo leer la Programación.') + '</div>';
+  } else {
+    var maxL = U.porLabor.length ? U.porLabor[0].dias : 1;
+    html += '<p class="hint">De los días en que cada máquina estuvo disponible, en cuántos tuvo labor asignada en la Programación' +
+      (U.desde > D.desde ? ' (desde el ' + dcorta(U.desde) + ', cuando empezó a guardarse la programación)' : '') +
+      '. Los días ociosos son capacidad que no se usó.</p><div class="dos"><div class="tabla"><table><thead><tr><th>Máquina</th>' +
+      '<th class="num">Disp.</th><th class="num">Con labor</th><th class="num">Ociosos</th><th class="num">Utilización</th></tr></thead><tbody>' +
+      U.equipos.slice().sort(function(a,b){ return (a.utilizacion == null ? 999 : a.utilizacion) - (b.utilizacion == null ? 999 : b.utilizacion); })
+        .map(function(e){
+          var cl = e.utilizacion == null ? 'na' : e.utilizacion >= 80 ? 'ok' : e.utilizacion >= 60 ? 'al' : 'ma';
+          return '<tr><td><span class="eqn mono">' + esc(e.equipo) + '</span> <span class="mod">' + esc(e.nombre) + '</span></td>' +
+            '<td class="num mono">' + e.disponibles + '</td><td class="num mono">' + e.conLabor + '</td>' +
+            '<td class="num mono">' + (e.ociosos || '—') + '</td><td class="num"><span class="pill ' + cl + '">' + pct(e.utilizacion) + '</span></td></tr>';
+        }).join('') + '</tbody></table></div>' +
+      '<div><div class="graf"><div class="mod" style="margin-bottom:10px">Días-máquina por labor</div>' +
+      (U.porLabor.length ? U.porLabor.map(function(x){
+        return '<div class="gr"><span class="lb">' + esc(txtLabor(x.labor)) + '</span><div class="bar" style="flex:1"><i class="az" style="width:' +
+          (x.dias / maxL * 100) + '%"></i></div><span class="vl mono">' + x.dias + ' d</span></div>';
+      }).join('') : '<div class="mod">Sin labores asignadas.</div>') + '</div></div></div>';
+  }
+
+  /* confiabilidad: MTBF por máquina y fallas repetidas */
+  var rep90 = fallasRepetidas(D.corte);
+  html += '<h3 class="sec">Confiabilidad</h3>' +
+    '<p class="hint">MTBF: cuántos días disponibles pasan en promedio entre una falla y otra (más es mejor), con los últimos ' +
+    C.meses + (C.meses === 1 ? ' mes' : ' meses') + ' con datos. Fallas repetidas: la misma máquina por el mismo sistema 2 o más veces en ' +
+    VENTANA_REPETIDAS + ' días, señal de que la reparación no quedó bien.</p><div class="dos"><div class="tabla"><table><thead><tr>' +
+    '<th>Máquina</th><th class="num">Días disp.</th><th class="num">Fallas</th><th class="num">MTBF</th></tr></thead><tbody>' +
+    C.equipos.map(function(e){
+      return '<tr><td><span class="eqn mono">' + esc(e.equipo) + '</span> <span class="mod">' + esc(e.nombre) + '</span></td>' +
+        '<td class="num mono">' + e.disponibles + '</td><td class="num mono">' + (e.fallas || '—') + '</td>' +
+        '<td class="num">' + (e.mtbf == null ? '<span class="pill ok">sin fallas</span>' : '<span class="mono">' + n1(e.mtbf) + ' días</span>') + '</td></tr>';
+    }).join('') + '</tbody></table></div><div>' +
+    (rep90.length ? rep90.map(function(x){
+      return '<div class="critico"><b>' + esc(x.equipo) + ' ' + esc(x.nombre) + ' — ' + esc(x.sistema) + ', ' + x.fallas.length +
+        ' fallas en ' + VENTANA_REPETIDAS + ' días</b><span>' + x.fallas.map(function(f){
+          return dcorta(f.inicio) + (f.novedad ? ': ' + esc(f.novedad) : ''); }).join(' · ') + '</span></div>';
+    }).join('') : '<div class="vacio">Sin fallas repetidas en los últimos ' + VENTANA_REPETIDAS + ' días.</div>') + '</div></div>';
 
   /* camiones: aparte, con su propia disponibilidad */
   if (D.camiones.length){
@@ -504,7 +710,10 @@ function pintar(){
     '<li><b>Días perdidos:</b> desde la fecha en que quedó parada (incluida) hasta el día del alta (sin incluir, porque ese día ya quedó lista). Sin alta, cuentan hasta hoy.</li>' +
     '<li><b>Disponibilidad:</b> días disponibles ÷ días programados. Las paradas por mantenimiento programado también restan, pero se muestran aparte y no cuentan como falla.</li>' +
     '<li><b>Camiones:</b> se calculan aparte; los indicadores de arriba, la gráfica y las fallas por sistema son solo de la maquinaria.</li>' +
-    '<li><b>Días/falla:</b> promedio de días desde la parada hasta el alta de las fallas que empezaron en el mes.</li>' +
+    '<li><b>MTTR (días/falla):</b> promedio de días desde la parada hasta el alta de las fallas que empezaron en el mes.</li>' +
+    '<li><b>MTBF:</b> días disponibles ÷ fallas, sumando los últimos meses con datos. Una máquina sin fallas no tiene MTBF.</li>' +
+    '<li><b>Utilización:</b> días con labor asignada en la Programación ÷ días disponibles. Solo maquinaria; cuenta desde que se empezó a guardar la programación.</li>' +
+    '<li><b>Tendencia:</b> los meses antes del primer registro del Taller salen "sin datos" en vez de 100 %.</li>' +
     '</ul></div>';
 
   $('#app').innerHTML = html;
@@ -517,14 +726,17 @@ async function cargar(forzar){
     $('#app').innerHTML = '<div class="cargando">Consultando la hoja Taller…</div>';
     try { await Maestros.traer(); } catch(e){}   // si falla se usa la copia guardada
     FLOTA = Maestros.flotaTodas();
+    var progListo = traerProgramacion();
     try { EVENTOS = await traer(); }
     catch(e){
       $('#app').innerHTML = '<div class="err"><strong>No se pudo leer la hoja Taller.</strong> Revise la conexión e intente con "Actualizar". (' + esc(e.message) + ')</div>';
       return;
     }
+    await progListo;
     $('#act').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
   }
-  D = calcular(EVENTOS, +mv[0], +mv[1]);
+  HIST = historial(+mv[0], +mv[1]);
+  D = HIST[HIST.length - 1];
   pintar();
 }
 
@@ -541,7 +753,8 @@ function informe(){
       '<div><b>' + pct(T.disponibilidad) + '</b><span>Disponibilidad de la maquinaria</span></div>' +
       '<div><b>' + T.diasFalla + '</b><span>Días-máquina perdidos por falla</span></div>' +
       '<div><b>' + T.fallas + '</b><span>Fallas</span></div>' +
-      '<div><b>' + n1(T.diasPorFalla) + '</b><span>Días promedio de reparación</span></div>' +
+      '<div><b>' + n1(T.diasPorFalla) + '</b><span>MTTR · días promedio de reparación</span></div>' +
+      (D.uso ? '<div><b>' + pct(D.uso.totales.utilizacion) + '</b><span>Utilización</span></div>' : '') +
       '<div><b>' + T.diasMtto + '</b><span>Días en mantenimiento</span></div>' +
       (D.camiones.length ? '<div><b>' + pct(TC.disponibilidad) + '</b><span>Disponibilidad de los camiones (aparte)</span></div>' : '') +
     '</div>';
@@ -554,6 +767,41 @@ function informe(){
         '<td>' + esc(g ? g.txt.replace('Grupo ', '') : '') + '</td><td>' + e.programados + '</td><td>' + e.disponibles + '</td>' +
         '<td>' + e.diasFalla + '</td><td>' + e.diasMtto + '</td><td>' + e.fallas + '</td><td><b>' + pct(e.disponibilidad) + '</b></td></tr>';
     }).join('') + '</tbody></table>';
+
+  h += '<h2>Tendencia de la disponibilidad</h2><table><thead><tr><th>Mes</th><th>Disponibilidad</th><th>Utilización</th>' +
+    '<th>Días perdidos</th><th>Fallas</th><th>MTTR</th></tr></thead><tbody>' +
+    HIST.map(function(x){
+      if (x.sinDatos || x.futuro) return '<tr><td>' + MESES[x.mes - 1] + ' ' + x.anio + '</td><td colspan="5">sin datos</td></tr>';
+      return '<tr><td>' + MESES[x.mes - 1] + ' ' + x.anio + '</td><td><b>' + pct(x.totales.disponibilidad) + '</b></td>' +
+        '<td>' + (x.uso ? pct(x.uso.totales.utilizacion) : '—') + '</td><td>' + x.totales.diasFalla + '</td>' +
+        '<td>' + x.totales.fallas + '</td><td>' + n1(x.totales.diasPorFalla) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+
+  if (D.uso){
+    h += '<h2>Uso de la maquinaria (Programación' + (D.uso.desde > D.desde ? ', desde el ' + dcorta(D.uso.desde) : '') +
+      ')</h2><table><thead><tr><th>Máquina</th><th>Días disponibles</th><th>Con labor</th><th>Ociosos</th><th>Utilización</th></tr></thead><tbody>' +
+      D.uso.equipos.map(function(e){
+        return '<tr><td>' + esc(e.equipo) + ' ' + esc(e.nombre) + '</td><td>' + e.disponibles + '</td><td>' + e.conLabor + '</td>' +
+          '<td>' + e.ociosos + '</td><td><b>' + pct(e.utilizacion) + '</b></td></tr>';
+      }).join('') + '<tr><td><b>Maquinaria</b></td><td>' + D.uso.totales.disponibles + '</td><td>' + D.uso.totales.conLabor +
+        '</td><td>' + (D.uso.totales.disponibles - D.uso.totales.conLabor) + '</td><td><b>' + pct(D.uso.totales.utilizacion) + '</b></td></tr></tbody></table>';
+  }
+
+  var C = confiabilidad(), rep90 = fallasRepetidas(D.corte);
+  h += '<h2>Confiabilidad (MTBF, últimos ' + C.meses + (C.meses === 1 ? ' mes' : ' meses') + ' con datos)</h2><table><thead><tr><th>Máquina</th>' +
+    '<th>Días disponibles</th><th>Fallas</th><th>MTBF (días)</th></tr></thead><tbody>' +
+    C.equipos.map(function(e){
+      return '<tr><td>' + esc(e.equipo) + ' ' + esc(e.nombre) + '</td><td>' + e.disponibles + '</td><td>' + e.fallas + '</td>' +
+        '<td>' + (e.mtbf == null ? 'sin fallas' : n1(e.mtbf)) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+  if (rep90.length){
+    h += '<h2>Fallas repetidas (mismo sistema, ' + VENTANA_REPETIDAS + ' días)</h2><table><thead><tr><th>Máquina</th><th>Sistema</th>' +
+      '<th>Fallas</th><th>Fechas</th></tr></thead><tbody>' +
+      rep90.map(function(x){
+        return '<tr><td>' + esc(x.equipo) + ' ' + esc(x.nombre) + '</td><td>' + esc(x.sistema) + '</td><td>' + x.fallas.length + '</td>' +
+          '<td>' + x.fallas.map(function(f){ return dcorta(f.inicio); }).join(', ') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
 
   if (D.camiones.length){
     h += '<h2>Camiones (aparte de la maquinaria)</h2><table><thead><tr><th>Camión</th><th>Uso</th><th>Programados</th>' +
