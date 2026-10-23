@@ -341,22 +341,28 @@ function pintarSync(){
 /* =====================================================================
    Pantalla principal
    ===================================================================== */
+/* Los camiones (grupo transporte) van aparte: no cuentan en la
+   disponibilidad de la maquinaria. */
+function esCamion(f){ return f.grupo === 'transporte'; }
 function pintar(){
-  var varados = [], libres = [];
+  var varados = [], libres = [], camiones = [];
   FLOTA.forEach(function(f){
     var ab = abiertoDe(f.cod);
-    (ab ? varados : libres).push({ f: f, ab: ab });
+    if (esCamion(f)) camiones.push({ f: f, ab: ab });
+    else (ab ? varados : libres).push({ f: f, ab: ab });
   });
   varados.sort(function(a,b){ return a.ab.fechaReporte < b.ab.fechaReporte ? -1 : 1; });
 
-  var disp = Math.round(libres.length / FLOTA.length * 100);
+  var nMaq = varados.length + libres.length;
+  var disp = nMaq ? Math.round(libres.length / nMaq * 100) : 100;
   var nivel = disp >= 85 ? 'bien' : disp >= 70 ? 'medio' : 'mal';
   var h = '<div class="resumen">' +
     '<div class="res ' + nivel + '"><div class="t">Disponibilidad</div><div class="n">' + disp + '<small>%</small></div>' +
       '<div class="medidor"><i style="width:' + disp + '%"></i></div></div>' +
     '<div class="res ' + (varados.length ? 'mal' : 'bien') + '"><div class="t">Paradas</div><div class="n">' + varados.length + '</div></div>' +
-    '<div class="res bien"><div class="t">Trabajando</div><div class="n">' + libres.length + '<small>/' + FLOTA.length + '</small></div></div>' +
-    '</div>';
+    '<div class="res bien"><div class="t">Trabajando</div><div class="n">' + libres.length + '<small>/' + nMaq + '</small></div></div>' +
+    '</div>' +
+    '<p class="nota" style="margin:2px 0 0">Indicadores de la maquinaria. Los camiones van aparte, al final.</p>';
 
   if (varados.length){
     h += '<h2 class="rojo">Paradas <span class="cuenta">' + varados.length + '</span></h2><div class="lista">';
@@ -380,6 +386,23 @@ function pintar(){
       '<span class="estado"><span class="pill v">Trabajando</span></span></span>' +
       '<span class="ir">›</span></button>';
   }).join('') + '</div>';
+
+  if (camiones.length){
+    var cParados = camiones.filter(function(v){ return v.ab; }).length;
+    h += '<h2' + (cParados ? ' class="rojo"' : '') + '>Camiones <span class="cuenta">' +
+      (camiones.length - cParados) + '/' + camiones.length + ' trabajando</span></h2><div class="lista">';
+    h += camiones.map(function(v){
+      var d = v.ab ? diasEntre(v.ab.fechaReporte, hoy()) : 0;
+      return '<button class="eq ' + (v.ab ? 'varado' : 'ok') + '" data-cod="' + esc(v.f.cod) + '">' + fotoHtml(v.f.cod) +
+        '<span class="txt"><span class="cod">' + esc(v.f.cod) + '</span><span class="nom">' + esc(v.f.nombre) + '</span>' +
+        '<span class="det">' + (v.ab ? (v.ab.novedad ? esc(v.ab.novedad) : 'Sin detalle') : esc(v.f.uso || '')) + '</span>' +
+        '<span class="estado">' + (v.ab
+          ? '<span class="pill ro">' + (d === 0 ? 'Parado desde hoy' : 'Parado hace ' + d + (d===1?' día':' días')) + '</span>' +
+            (v.ab.tipo === 'mantenimiento' ? ' <span class="pill a">Mantenimiento</span>' : '')
+          : '<span class="pill v">Trabajando</span>') + '</span>' +
+        '</span><span class="ir">›</span></button>';
+    }).join('') + '</div>';
+  }
 
   $('#app').innerHTML = h;
   Array.prototype.forEach.call($('#app').querySelectorAll('.eq'), function(b){
