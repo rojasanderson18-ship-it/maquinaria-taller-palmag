@@ -58,6 +58,8 @@
   .eq:hover{border-color:var(--steel)}
   .eq:active{transform:scale(.995)}
   .eq.varado{border-left:4px solid var(--red)}
+  .eq.pend{border-left:4px solid var(--amber)}
+  h2.ambar .cuenta{background:var(--amber-s);color:var(--amber)}
   .eq .txt{min-width:0;flex:1}
   .eq .cod{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700}
   .eq .nom{font-size:15px;font-weight:600;margin-left:6px}
@@ -130,10 +132,14 @@
   .accion.verde{background:var(--green);color:#fff}
   .accion.roja{background:var(--red);color:#fff}
   .accion.gris{background:var(--card);border:1px solid var(--line);color:var(--ink);font-weight:600}
+  .accion.ambar{background:var(--card);border:1px solid var(--amber);color:var(--amber);font-weight:700}
+  .mini{display:inline-block;padding:8px 12px;border-radius:var(--r);font-size:14px;font-weight:600;margin:10px 8px 0 0;border:1px solid var(--line);background:var(--card)}
+  .mini.verde{border-color:var(--green);color:var(--green)} .mini.roja{border-color:var(--red);color:var(--red)}
   .accion[disabled]{opacity:.45}
 
   .tarj{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px}
   .tarj.alerta{border-left:4px solid var(--red);background:#FFF9F8}
+  .tarj.pend{border-left:4px solid var(--amber);background:#FFFBF4}
   .tarj .et{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--steel);font-weight:600}
   .tarj .vl{font-size:16px;margin-top:2px}
   .tarj .vl.grande{font-size:21px;font-weight:700}
@@ -216,6 +222,9 @@
    la columna 4, la sobrescribe en vez de agregar. Por eso la columna 4 es
    el ID (único por evento) y la fila ALTA lleva todos los datos: si el alta
    es el mismo día, reemplaza a la PARADA sin perder nada.
+   Pendientes: algo que la máquina tiene pero que todavía no la para (fuga
+   leve, ruido). No bajan la disponibilidad. Van en la misma hoja como filas
+   PENDIENTE y luego RESUELTO, con el mismo esquema de ID.
    ===================================================================== */
 
 /* La flota es la de la hoja Maestros, compartida con Programación y Gerencia
@@ -267,7 +276,7 @@ var KEY = 'taller-palma-v1';
 var KEY_FOTOS = 'taller-palma-fotos-v1';
 var ENC_FOTOS = ['Fecha','Hora','Máquina','Equipo','Foto','Subió'];
 var fotos = {};   // código → data URL de la foto subida desde el Taller
-var estado = { eventos: [], yo: '', cola: [] };
+var estado = { eventos: [], novedades: [], yo: '', cola: [] };
 
 /* ---------- almacenamiento ---------- */
 /* window.storage solo existe dentro de Claude; en GitHub Pages se usa localStorage */
@@ -327,6 +336,16 @@ function aIso(v){
 }
 function hace24h(ts){ return ts && (Date.now() - new Date(ts).getTime()) < 86400000; }
 
+function pendientesDe(cod){
+  return (estado.novedades || []).filter(function(n){ return n.equipo === cod && !n.cerrada; })
+    .sort(function(a,b){ return (a.urgencia === 'urgente' ? 0 : 1) - (b.urgencia === 'urgente' ? 0 : 1) || (a.fecha < b.fecha ? -1 : 1); });
+}
+function pillPend(lista){
+  if (!lista.length) return '';
+  var urg = lista.some(function(n){ return n.urgencia === 'urgente'; });
+  return ' <span class="pill ' + (urg ? 'r' : 'a') + '">' + lista.length + (lista.length === 1 ? ' pendiente' : ' pendientes') +
+    (urg ? ' · urgente' : '') + '</span>';
+}
 function abiertoDe(cod){
   return estado.eventos.filter(function(e){ return e.equipo===cod && !e.fechaAlta; })[0] || null;
 }
@@ -379,8 +398,24 @@ function pintar(){
     h += '<h2>Paradas</h2><div class="vacio">Ninguna máquina parada en este momento.</div>';
   }
 
-  h += '<h2>Trabajando <span class="cuenta">' + libres.length + '</span></h2><div class="lista">';
-  h += libres.map(function(v){
+  /* trabajando pero con algo pendiente que puede pararla */
+  var conPend = libres.filter(function(v){ return pendientesDe(v.f.cod).length; });
+  var sinPend = libres.filter(function(v){ return !pendientesDe(v.f.cod).length; });
+  if (conPend.length){
+    conPend.sort(function(a,b){ return (pendientesDe(a.f.cod)[0].urgencia === 'urgente' ? 0 : 1) - (pendientesDe(b.f.cod)[0].urgencia === 'urgente' ? 0 : 1); });
+    h += '<h2 class="ambar">Trabajando con pendientes <span class="cuenta">' + conPend.length + '</span></h2><div class="lista">';
+    h += conPend.map(function(v){
+      var pl = pendientesDe(v.f.cod);
+      return '<button class="eq pend" data-cod="' + esc(v.f.cod) + '">' + fotoHtml(v.f.cod) +
+        '<span class="txt"><span class="cod">' + esc(v.f.cod) + '</span><span class="nom">' + esc(v.f.nombre) + '</span>' +
+        '<span class="det">' + pl.map(function(n){ return esc(n.novedad); }).join(' · ') + '</span>' +
+        '<span class="estado"><span class="pill v">Trabajando</span>' + pillPend(pl) + '</span></span>' +
+        '<span class="ir">›</span></button>';
+    }).join('') + '</div>';
+  }
+
+  h += '<h2>Trabajando <span class="cuenta">' + sinPend.length + '</span></h2><div class="lista">';
+  h += sinPend.map(function(v){
     return '<button class="eq ok" data-cod="' + esc(v.f.cod) + '">' + fotoHtml(v.f.cod) +
       '<span class="txt"><span class="cod">' + esc(v.f.cod) + '</span><span class="nom">' + esc(v.f.nombre) + '</span>' +
       '<span class="estado"><span class="pill v">Trabajando</span></span></span>' +
@@ -393,13 +428,15 @@ function pintar(){
       (camiones.length - cParados) + '/' + camiones.length + ' trabajando</span></h2><div class="lista">';
     h += camiones.map(function(v){
       var d = v.ab ? diasEntre(v.ab.fechaReporte, hoy()) : 0;
-      return '<button class="eq ' + (v.ab ? 'varado' : 'ok') + '" data-cod="' + esc(v.f.cod) + '">' + fotoHtml(v.f.cod) +
+      var pl = v.ab ? [] : pendientesDe(v.f.cod);
+      return '<button class="eq ' + (v.ab ? 'varado' : pl.length ? 'pend' : 'ok') + '" data-cod="' + esc(v.f.cod) + '">' + fotoHtml(v.f.cod) +
         '<span class="txt"><span class="cod">' + esc(v.f.cod) + '</span><span class="nom">' + esc(v.f.nombre) + '</span>' +
-        '<span class="det">' + (v.ab ? (v.ab.novedad ? esc(v.ab.novedad) : 'Sin detalle') : esc(v.f.uso || '')) + '</span>' +
+        '<span class="det">' + (v.ab ? (v.ab.novedad ? esc(v.ab.novedad) : 'Sin detalle') :
+          pl.length ? pl.map(function(n){ return esc(n.novedad); }).join(' · ') : esc(v.f.uso || '')) + '</span>' +
         '<span class="estado">' + (v.ab
           ? '<span class="pill ro">' + (d === 0 ? 'Parado desde hoy' : 'Parado hace ' + d + (d===1?' día':' días')) + '</span>' +
             (v.ab.tipo === 'mantenimiento' ? ' <span class="pill a">Mantenimiento</span>' : '')
-          : '<span class="pill v">Trabajando</span>') + '</span>' +
+          : '<span class="pill v">Trabajando</span>' + pillPend(pl)) + '</span>' +
         '</span><span class="ir">›</span></button>';
     }).join('') + '</div>';
   }
@@ -590,6 +627,21 @@ function verEquipo(cod){
   var h = topeFicha(cod, ab ? '<span class="pill ro">Parada</span>' : '<span class="pill v">Trabajando</span>') + '<div class="cuerpo">';
   var sisSel = { v: ab ? ab.sistema : null };
 
+  var pend = pendientesDe(cod), pendHtml = '';
+  if (pend.length){
+    pendHtml = '<h2 class="ambar" style="margin-top:4px">Pendientes <span class="cuenta">' + pend.length + '</span></h2>' +
+      pend.map(function(n){
+        var dd = diasEntre(n.fecha, hoy());
+        return '<div class="tarj pend"><div class="et">' + (n.urgencia === 'urgente' ? 'Urgente · puede dejarla parada pronto' : 'Puede esperar unos días') +
+          (n.sistema ? ' · ' + esc(txtSistema(n.sistema)) : '') + '</div>' +
+          '<div class="vl" style="font-weight:600">' + esc(n.novedad) + '</div>' +
+          '<div class="vl" style="color:var(--steel);font-size:13px">Anotado el ' + dcorta(n.fecha) + ' por ' + esc(n.reportadoPor || '—') +
+            ' · ' + (dd === 0 ? 'hoy' : 'hace ' + dd + (dd === 1 ? ' día' : ' días')) + '</div>' +
+          '<button class="mini verde" data-resolver="' + esc(n.id) + '">Ya se solucionó</button>' +
+          (ab ? '' : '<button class="mini roja" data-escalar="' + esc(n.id) + '">La dejó parada</button>') + '</div>';
+      }).join('') + '<div style="height:8px"></div>';
+  }
+
   if (ab){
     var d = diasEntre(ab.fechaReporte, hoy());
     h += '<div class="tarj alerta">' +
@@ -601,6 +653,7 @@ function verEquipo(cod){
         ' (' + (d === 0 ? 'hoy' : 'hace ' + d + (d===1?' día':' días')) + ')' +
         ' · <button id="corregir" style="text-decoration:underline;color:var(--ink)">Corregir fecha</button></div>' +
       '</div>';
+    h += pendHtml;
 
     // El mecánico es quien sabe de qué fue: el operario reporta el síntoma, él clasifica
     h += '<p class="paso">¿De qué fue?</p><div class="rejilla" id="g-sis">' +
@@ -614,8 +667,12 @@ function verEquipo(cod){
       '<button class="accion verde" id="alta" disabled>Ya quedó lista</button>' +
       '<button class="accion gris" data-cerrar>Todavía no</button>';
   } else {
-    h += '<div class="tarj"><div class="et">Estado</div><div class="vl grande" style="color:var(--green)">Trabajando</div></div>' +
+    h += '<div class="tarj"><div class="et">Estado</div><div class="vl grande" style="color:var(--green)">Trabajando' +
+        (pend.length ? '<span style="color:var(--amber);font-size:16px;font-weight:600"> · con ' + pend.length + (pend.length === 1 ? ' pendiente' : ' pendientes') + '</span>' : '') + '</div></div>' +
+      pendHtml +
       '<button class="accion roja" id="rep">Reportar que se dañó</button>' +
+      '<button class="accion ambar" id="anotar">Anotar un pendiente</button>' +
+      '<p class="nota">Un pendiente es algo que todavía no la para, pero puede pararla si no se atiende (fuga leve, ruido, desgaste).</p>' +
       '<button class="accion gris" data-cerrar>Cerrar</button>';
   }
 
@@ -681,11 +738,130 @@ function verEquipo(cod){
     };
     var r = $('#rep');
     if (r) r.onclick = function(){ cerrar(); reportar(cod); };
+    var an = $('#anotar');
+    if (an) an.onclick = function(){ anotarPendiente(cod); };
+    Array.prototype.forEach.call($('#panel').querySelectorAll('[data-resolver]'), function(b){
+      b.onclick = function(){ resolverPendiente(b.dataset.resolver); };
+    });
+    Array.prototype.forEach.call($('#panel').querySelectorAll('[data-escalar]'), function(b){
+      b.onclick = function(){ pasarAParada(b.dataset.escalar); };
+    });
     var c = $('#corregir');
     if (c) c.onclick = function(){ corregirFecha(cod); };
   });
 }
 
+
+/* =====================================================================
+   Pendientes: anotar, resolver o pasar a parada
+   ===================================================================== */
+function encolarNovedad(n){
+  encolar(HOJA, [fechaCO(hoy()), horaAhora(), n.cerrada ? 'RESUELTO' : 'PENDIENTE', n.id, n.equipo, nombreDe(n.equipo),
+    n.urgencia, n.sistema ? txtSistema(n.sistema) : '', n.novedad, n.reportadoPor, n.fecha,
+    n.trabajo || '', n.cerradoPor || '', n.cerrada ? diasEntre(n.fecha, n.fechaCierre) : ''], ENC_TALLER, n.id);
+}
+function anotarPendiente(cod){
+  var sel = { urgencia: 'normal', sistema: null };
+  abrir(topeFicha(cod, '<span class="pill a">Anotar un pendiente</span>') +
+    '<div class="cuerpo">' +
+      '<label class="campo"><span>¿Qué tiene?</span><textarea id="pn-txt" placeholder="Bota un poco de aceite por el retén, ruido en la caja…"></textarea></label>' +
+      '<p class="paso">¿Qué tan urgente es?</p><div class="rejilla">' +
+        '<button class="op ancho" data-urg="normal" aria-pressed="true">Puede esperar unos días<small>Se atiende en el próximo espacio</small></button>' +
+        '<button class="op ancho" data-urg="urgente" aria-pressed="false">Urgente<small>Si no se atiende pronto, la deja parada</small></button>' +
+      '</div>' +
+      '<p class="paso">¿De qué sistema es? <i style="font-weight:400;font-style:normal;color:var(--steel)">— opcional</i></p><div class="rejilla">' +
+        SISTEMAS.map(function(x){ return '<button class="op" data-psis="' + esc(x.id) + '" aria-pressed="false">' + esc(x.txt) + '</button>'; }).join('') +
+      '</div>' +
+      '<button class="accion ambar" id="pn-ok">Guardar pendiente</button>' +
+      '<button class="accion gris" id="pn-volver">Volver</button>' +
+      '<p class="nota">La máquina sigue trabajando y no baja la disponibilidad. El pendiente queda a la vista en el Taller y en la Programación hasta que se solucione.</p>' +
+    '</div>',
+    function(){
+      $('#pn-volver').onclick = function(){ verEquipo(cod); };
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-urg]'), function(b){
+        b.onclick = function(){ sel.urgencia = b.dataset.urg;
+          Array.prototype.forEach.call($('#panel').querySelectorAll('[data-urg]'), function(x){ x.setAttribute('aria-pressed', String(x === b)); }); };
+      });
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-psis]'), function(b){
+        b.onclick = function(){ sel.sistema = sel.sistema === b.dataset.psis ? null : b.dataset.psis;
+          Array.prototype.forEach.call($('#panel').querySelectorAll('[data-psis]'), function(x){ x.setAttribute('aria-pressed', String(x.dataset.psis === sel.sistema)); }); };
+      });
+      $('#pn-ok').onclick = async function(){
+        var txt = $('#pn-txt').value.trim();
+        if (!txt){ aviso('Escriba qué tiene la máquina.'); return; }
+        var n = { id: nid(), equipo: cod, novedad: txt, urgencia: sel.urgencia, sistema: sel.sistema, reportadoPor: estado.yo,
+          fecha: hoy(), registradoEn: ahora(), cerrada: false, fechaCierre: null, cerradoPor: null, trabajo: '', cerradoEn: null };
+        estado.novedades.push(n);
+        encolarNovedad(n);
+        await persistir(); pintar(); verEquipo(cod); enviar();
+        aviso('Pendiente anotado en ' + cod + '.');
+      };
+    });
+}
+function novedadDe(id){ return (estado.novedades || []).filter(function(n){ return n.id === id; })[0] || null; }
+function resolverPendiente(id){
+  var n = novedadDe(id); if (!n) return;
+  abrir(topeFicha(n.equipo, '<span class="pill v">Resolver pendiente</span>') +
+    '<div class="cuerpo"><div class="tarj pend"><div class="et">Pendiente</div><div class="vl">' + esc(n.novedad) + '</div></div>' +
+      '<label class="campo"><span>¿Qué se le hizo? <i>— opcional</i></span><textarea id="rs-txt" placeholder="Se cambió el retén…"></textarea></label>' +
+      '<button class="accion verde" id="rs-ok">Ya se solucionó</button>' +
+      '<button class="accion gris" id="rs-volver">Volver</button></div>',
+    function(){
+      $('#rs-volver').onclick = function(){ verEquipo(n.equipo); };
+      $('#rs-ok').onclick = async function(){
+        n.cerrada = true; n.fechaCierre = hoy(); n.cerradoPor = estado.yo; n.cerradoEn = ahora();
+        n.trabajo = $('#rs-txt').value.trim();
+        encolarNovedad(n);
+        await persistir(); pintar(); verEquipo(n.equipo); enviar();
+        aviso('Pendiente resuelto.');
+      };
+    });
+}
+/* El pendiente se cierra y la máquina queda parada desde hoy con esa novedad */
+async function pasarAParada(id){
+  var n = novedadDe(id); if (!n) return;
+  if (abiertoDe(n.equipo)){ aviso(n.equipo + ' ya está parada.'); return; }
+  if (!confirm(n.equipo + ' quedará parada desde hoy por: ' + n.novedad + '. ¿Continuar?')) return;
+  var ev = { id: nid(), equipo: n.equipo, tipo: 'falla', sistema: null, novedad: n.novedad, reportadoPor: estado.yo,
+    fechaReporte: hoy(), registradoEn: ahora(), fechaAlta: null, altaPor: null, trabajo: '', cerradoEn: null };
+  estado.eventos.push(ev);
+  encolarParada(ev);
+  n.cerrada = true; n.fechaCierre = hoy(); n.cerradoPor = estado.yo; n.cerradoEn = ahora(); n.trabajo = 'Pasó a parada';
+  encolarNovedad(n);
+  await persistir(); pintar(); verEquipo(n.equipo); enviar();
+  aviso(n.equipo + ' quedó parada. Si fue antes de hoy, corrija la fecha.');
+}
+/* Igual que fusionar(), para las filas PENDIENTE / RESUELTO */
+function fusionarNovedades(filas){
+  var rem = {};
+  filas.forEach(function(r){
+    var acc = String(r[2]||'').trim().toUpperCase(), id = String(r[3]||'').trim();
+    if (!id || (acc !== 'PENDIENTE' && acc !== 'RESUELTO')) return;
+    var n = rem[id] || (rem[id] = { id: id, equipo: String(r[4]||'').trim(), urgencia: 'normal', sistema: null, novedad: '',
+      reportadoPor: '', fecha: aIso(r[10] || r[0]), registradoEn: null, cerrada: false, fechaCierre: null, cerradoPor: null, trabajo: '', cerradoEn: null });
+    if (r[6]) n.urgencia = String(r[6]).trim() === 'urgente' ? 'urgente' : 'normal';
+    if (r[7]) n.sistema = idSistema(String(r[7]).trim());
+    if (r[8]) n.novedad = String(r[8]);
+    if (r[9]) n.reportadoPor = String(r[9]);
+    if (r[10]) n.fecha = aIso(r[10]);
+    if (acc === 'RESUELTO'){
+      n.cerrada = true; n.trabajo = String(r[11]||''); n.cerradoPor = String(r[12]||'');
+      var d = new Date(n.fecha + 'T12:00:00'); d.setDate(d.getDate() + (parseInt(r[13], 10) || 0));
+      n.fechaCierre = isNaN(d) ? aIso(r[0]) : isoLocal(d);
+    }
+  });
+  var enCola = {};
+  estado.cola.forEach(function(x){ enCola[x.id] = true; });
+  var res = [];
+  estado.novedades.forEach(function(l){
+    var r = rem[l.id];
+    if (!r){ if (enCola[l.id] || hace24h(l.cerradoEn || l.registradoEn)) res.push(l); return; }
+    res.push(enCola[l.id] || (l.cerrada && !r.cerrada && hace24h(l.cerradoEn)) ? l : r);
+    delete rem[l.id];
+  });
+  Object.keys(rem).forEach(function(id){ res.push(rem[id]); });
+  estado.novedades = res;
+}
 
 function corregirFecha(cod){
   var ab = abiertoDe(cod); if (!ab) return;
@@ -896,6 +1072,7 @@ async function traer(){
     // con una hoja abierta no se reemplazan los eventos: el formulario tiene uno en la mano
     if (!$('#hoja').hidden) return;
     fusionar(d.datos);
+    fusionarNovedades(d.datos);
     await persistir();
     pintar();
   } catch(e){}
@@ -1014,6 +1191,7 @@ else $('#btn-yo').style.cursor = 'default';
   if (g && g.eventos) estado = g;
   if (!estado.eventos) estado.eventos = [];
   if (!estado.cola) estado.cola = [];
+  if (!estado.novedades) estado.novedades = [];
   cargarFotosLocal();
   if (PERSONAS.indexOf(estado.yo) < 0) estado.yo = PERSONAS.length === 1 ? PERSONAS[0] : '';
   // limpia datos de ejemplo y campos de la primera versión

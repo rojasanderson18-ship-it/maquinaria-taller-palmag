@@ -67,6 +67,8 @@
   .maq .sub{font-size:13px;color:var(--steel);margin-top:1px;display:block}
   .maq .sub.asig{color:var(--green);font-weight:600}
   .maq .sub.falta{color:var(--amber);font-weight:600}
+  .maq .sub.pend{color:var(--amber);font-weight:600}
+  .maq.con-pend .cod::after{content:' ⚠';color:var(--amber);font-size:14px}
   .maq .ir{margin-left:auto;color:var(--steel);font-size:21px;flex:none}
   .maq.varada .cod{color:var(--red)}
   .maq.asignada .cod{color:var(--green)}
@@ -268,6 +270,9 @@ var QUIEN = ['Ing. Luis Fernando','Juan Carlos Oviedo','Brayan Pérez','Anderson
 
 var KEY = 'programacion-palma-v3';
 var KEY_VARADAS = 'programacion-varadas-v1';
+var KEY_PEND = 'programacion-pendientes-v1';
+var pendTaller = {};   // código → pendientes abiertos del Taller (la máquina trabaja, pero hay que estar pendiente)
+function txtPend(cod){ return (pendTaller[cod] || []).map(function(n){ return (n.urgente ? 'URGENTE: ' : '') + n.txt; }).join(' · '); }
 
 var estado = { dias:{}, yo:'', cola:[], config:{ lotes:null, implementos:null, fincas:null, lotesConfirmados:false } };
 var varadas = {};
@@ -461,7 +466,7 @@ function pintar(){
 
   function tarjeta(m){
     var a = d[m.cod], vr = varadas[m.cod];
-    var cls = vr ? 'varada' : (a ? 'asignada' : '');
+    var cls = (vr ? 'varada' : (a ? 'asignada' : '')) + (!vr && pendTaller[m.cod] ? ' con-pend' : '');
     var sub, clsSub = '';
     if (vr){ sub = 'En taller: ' + vr; }
     else if (a){
@@ -478,7 +483,8 @@ function pintar(){
       (vr ? ' data-varada="1"' : '') + '>' +
       '<span class="cod mono">' + esc(m.cod) + '</span>' +
       '<span><span class="nom">' + esc(m.nombre) + '</span>' +
-      '<span class="sub ' + clsSub + '">' + esc(sub) + '</span></span>' +
+      '<span class="sub ' + clsSub + '">' + esc(sub) + '</span>' +
+      (!vr && pendTaller[m.cod] ? '<span class="sub pend">Pendiente del taller: ' + esc(txtPend(m.cod)) + '</span>' : '') + '</span>' +
       '<span class="ir">' + (vr ? '' : '›') + '</span></button></div>';
   }
 
@@ -572,6 +578,10 @@ function asignar(cod){
   };
 
   var h = tope(cod + ' · ' + nombreDe(cod), fechaLarga(fechaSel)) + '<div class="cuerpo">';
+  if (pendTaller[cod]){
+    h += '<div class="nota-a"><b>Pendiente del taller:</b> ' + esc(txtPend(cod)) +
+      '. La máquina puede trabajar, pero avise al operario para que esté atento.</div>';
+  }
 
   if (antA){
     h += '<div class="tarj"><div class="et">El día anterior hizo</div><div class="vl">' +
@@ -1013,7 +1023,8 @@ function imprimir(){
             (fincas ? '<br><span style="color:#666">' + esc(fincas) + '</span>' : '') : '—') + '</td>' +
         '<td>' + (esc(x.a.implemento) || '—') + '</td>' +
         '<td>' + (esc(x.a.operario) || '____________') + '</td>' +
-        '<td>' + esc(x.a.obs || '') + '</td><td></td></tr>';
+        '<td>' + (pendTaller[x.maq.cod] ? '<b>Pendiente taller:</b> ' + esc(txtPend(x.maq.cod)) + (x.a.obs ? '<br>' : '') : '') +
+          esc(x.a.obs || '') + '</td><td></td></tr>';
     }).join('') + '</tbody></table>';
 
   if (varadasL.length){
@@ -1171,9 +1182,16 @@ async function leerTaller(){
     var r = await fetch(GS_URL + '?hoja=Taller&t=' + Date.now());
     var d = await r.json();
     if (!d || !d.ok || !Array.isArray(d.datos)) throw new Error('sin datos');
-    var ev = {};
+    var ev = {}, nov = {};
     d.datos.forEach(function(row){
       var acc = String(row[2] || '').trim().toUpperCase(), id = String(row[3] || '').trim();
+      if (id && (acc === 'PENDIENTE' || acc === 'RESUELTO')){
+        var n = nov[id] = nov[id] || { equipo:String(row[4] || '').trim(), txt:'', urgente:false, cerrado:false };
+        if (row[8]) n.txt = String(row[8]);
+        if (row[6]) n.urgente = String(row[6]).trim() === 'urgente';
+        if (acc === 'RESUELTO') n.cerrado = true;
+        return;
+      }
       if (!id || (acc !== 'PARADA' && acc !== 'ALTA')) return;
       var e = ev[id] = ev[id] || { equipo:String(row[4] || '').trim(), novedad:'', desde:'', cerrada:false };
       if (row[8]) e.novedad = String(row[8]);
@@ -1185,9 +1203,15 @@ async function leerTaller(){
       var e = ev[id]; if (e.cerrada) return;
       varadas[e.equipo] = (e.novedad || 'reportada sin detalle') + (e.desde ? ' (desde el ' + dcorta(e.desde) + ')' : '');
     });
-    try { localStorage.setItem(KEY_VARADAS, JSON.stringify(varadas)); } catch(e){}
+    pendTaller = {};
+    Object.keys(nov).forEach(function(id){
+      var n = nov[id]; if (n.cerrado || !n.txt) return;
+      (pendTaller[n.equipo] = pendTaller[n.equipo] || []).push({ txt:n.txt, urgente:n.urgente });
+    });
+    try { localStorage.setItem(KEY_VARADAS, JSON.stringify(varadas)); localStorage.setItem(KEY_PEND, JSON.stringify(pendTaller)); } catch(e){}
     return true;
   } catch(e){
+    try { var cp = localStorage.getItem(KEY_PEND); if (cp) pendTaller = JSON.parse(cp) || {}; } catch(e3){}
     try { var c = localStorage.getItem(KEY_VARADAS); if (c){ varadas = JSON.parse(c) || {}; return true; } } catch(e2){}
     varadas = {};
     return false;
@@ -1205,6 +1229,7 @@ async function leerTaller(){
   cfgLotes(); cfgImpl(); cfgFincas();
   fechaSel = manana();
   try { var cv = localStorage.getItem(KEY_VARADAS); if (cv) varadas = JSON.parse(cv) || {}; } catch(e){}
+  try { var cp = localStorage.getItem(KEY_PEND); if (cp) pendTaller = JSON.parse(cp) || {}; } catch(e){}
   pintar();
   if (!(await DB.guardar(estado))) { sinGuardar = true; pintarSync(); }
   await enviar();

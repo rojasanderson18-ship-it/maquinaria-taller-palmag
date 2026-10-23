@@ -209,6 +209,7 @@ var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
              'septiembre','octubre','noviembre','diciembre'];
 var EVENTOS = null, D = null;
 var INICIO_DATOS = null;          // primer día registrado en la hoja Taller
+var PENDIENTES = [];              // pendientes abiertos: la máquina trabaja, pero algo puede pararla
 var PROG = null, INICIO_PROG = null;   // programación por fecha → máquina → asignación
 var HIST = [];                    // los últimos 6 meses hasta el elegido
 var MESES_HIST = 6, VENTANA_REPETIDAS = 90;
@@ -283,7 +284,25 @@ async function traer(){
     var f = aIso(r[0]);
     if (/^\d{4}-\d{2}-\d{2}$/.test(f) && (!INICIO_DATOS || f < INICIO_DATOS)) INICIO_DATOS = f;
   });
+  PENDIENTES = pendientesDe(d.datos || []);
   return eventosDe(d.datos || []);
+}
+/* filas PENDIENTE / RESUELTO de la hoja Taller; quedan las abiertas */
+function pendientesDe(filas){
+  var nov = {};
+  filas.forEach(function(r){
+    var acc = String(r[2]||'').trim().toUpperCase(), id = String(r[3]||'').trim();
+    if (!id || (acc !== 'PENDIENTE' && acc !== 'RESUELTO')) return;
+    var n = nov[id] = nov[id] || { equipo:String(r[4]||'').trim(), txt:'', urgente:false, sistema:'', desde:'', cerrado:false };
+    if (r[6]) n.urgente = String(r[6]).trim() === 'urgente';
+    if (r[7]) n.sistema = String(r[7]);
+    if (r[8]) n.txt = String(r[8]);
+    if (r[10]) n.desde = aIso(r[10]);
+    if (acc === 'RESUELTO') n.cerrado = true;
+  });
+  return Object.keys(nov).map(function(k){ return nov[k]; })
+    .filter(function(n){ return !n.cerrado && n.txt; })
+    .sort(function(a,b){ return (a.urgente ? 0 : 1) - (b.urgente ? 0 : 1) || (a.desde < b.desde ? -1 : 1); });
 }
 
 /* Programación: hoja ProgMaquinaria, la última fila de cada fecha + máquina vale
@@ -548,6 +567,13 @@ function pintar(){
       '. Si ya están reparadas, Tulio debe darles el alta en el Taller antes de enviar el informe.</div>';
   }
 
+  if (PENDIENTES.length){
+    var urg = PENDIENTES.filter(function(n){ return n.urgente; }).length;
+    html += '<div class="aviso"><strong>' + PENDIENTES.length + (PENDIENTES.length === 1 ? ' pendiente abierto' : ' pendientes abiertos') +
+      ' en el taller' + (urg ? ' (' + urg + ' urgente' + (urg === 1 ? '' : 's') + ')' : '') + '.</strong> ' +
+      'Son máquinas que trabajan pero tienen algo que puede pararlas. El detalle está más abajo.</div>';
+  }
+
   /* tendencia de los últimos meses */
   var hayHist = HIST.filter(function(h){ return !h.sinDatos; }).length > 1;
   html += '<h3 class="sec">Tendencia · últimos ' + MESES_HIST + ' meses</h3>' +
@@ -683,6 +709,23 @@ function pintar(){
     html += '<h3 class="sec">Lo que explica el mes</h3>' +
       '<p class="hint">Dónde se concentran los días perdidos, y por qué cada caso es un problema distinto.</p>' +
       criticos.map(function(c){ return '<div class="critico"><b>' + esc(c.t) + '</b><span>' + esc(c.d) + '</span></div>'; }).join('');
+  }
+
+  /* pendientes abiertos */
+  html += '<h3 class="sec">Pendientes del taller</h3>' +
+    '<p class="hint">Lo que Tulio anotó en máquinas que siguen trabajando: no baja la disponibilidad, pero si no se atiende puede convertirse en una parada.</p>';
+  if (PENDIENTES.length){
+    html += '<div class="tabla"><table><thead><tr><th>Máquina</th><th>Pendiente</th><th>Urgencia</th><th>Sistema</th>' +
+      '<th>Desde</th><th class="num">Días</th></tr></thead><tbody>' +
+      PENDIENTES.map(function(n){
+        var q = eqDe(n.equipo) || {};
+        return '<tr><td><span class="eqn mono">' + esc(n.equipo) + '</span> <span class="mod">' + esc(q.nombre || '') + '</span></td>' +
+          '<td>' + esc(n.txt) + '</td><td>' + (n.urgente ? '<span class="pill ma">Urgente</span>' : '<span class="pill al">Puede esperar</span>') + '</td>' +
+          '<td>' + (esc(n.sistema) || '<span class="mod">—</span>') + '</td><td class="mono">' + dcorta(n.desde) + '</td>' +
+          '<td class="num mono">' + (n.desde ? diasEntre(n.desde, hoy()) : '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  } else {
+    html += '<div class="vacio">No hay pendientes abiertos.</div>';
   }
 
   /* paradas del mes */
@@ -827,6 +870,16 @@ function informe(){
           '<td>' + (e.tipo === 'mantenimiento' ? 'Mantenimiento' : 'Falla') + '</td>' +
           '<td>' + (e.fin ? esc(txtSistema(e.sistema)) : '') + '</td><td>' + esc(e.novedad) + '</td><td>' + esc(e.trabajo) + '</td>' +
           '<td>' + duracion(e) + '</td><td>' + (e.fin ? dcorta(e.fin) : 'sin alta') + '</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  if (PENDIENTES.length){
+    h += '<h2>Pendientes del taller (máquinas que trabajan con algo por atender)</h2><table><thead><tr><th>Máquina</th><th>Pendiente</th>' +
+      '<th>Urgencia</th><th>Desde</th><th>Días</th></tr></thead><tbody>' +
+      PENDIENTES.map(function(n){
+        return '<tr><td>' + esc(n.equipo) + ' ' + esc((eqDe(n.equipo) || {}).nombre || '') + '</td><td>' + esc(n.txt) + '</td>' +
+          '<td>' + (n.urgente ? 'Urgente' : 'Puede esperar') + '</td><td>' + dcorta(n.desde) + '</td>' +
+          '<td>' + (n.desde ? diasEntre(n.desde, hoy()) : '') + '</td></tr>';
       }).join('') + '</tbody></table>';
   }
 
