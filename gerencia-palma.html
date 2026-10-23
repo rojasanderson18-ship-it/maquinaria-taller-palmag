@@ -326,7 +326,7 @@ async function traerProgramacion(){
 function txtLabor(v){ return LABORES[v] || v; }
 
 /* ---------- cálculo del mes ---------- */
-/* Días programados: lunes a sábado. Un día se pierde si la máquina estaba
+/* Días programados: lunes a sábado sin festivos (Festivos en maestros.js). Un día se pierde si la máquina estaba
    parada ese día: desde la fecha de parada (incluida) hasta el alta (sin
    incluir, porque ese día ya quedó lista). Si no tiene alta, hasta hoy. */
 function calcular(eventos, anio, mes){
@@ -334,7 +334,11 @@ function calcular(eventos, anio, mes){
   var hasta = isoLocal(new Date(anio, mes, 0));
   var hy = hoy(), corte = hasta < hy ? hasta : hy;
   var prog = [];
-  for (var f = desde; f <= corte; f = sumarDias(f, 1)) if (new Date(f+'T12:00:00').getDay() !== 0) prog.push(f);
+  var laboralesMes = 0, festivosMes = [];
+  for (var f = desde; f <= hasta; f = sumarDias(f, 1)){
+    if (Festivos.laboral(f)){ laboralesMes++; if (f <= corte) prog.push(f); }
+    else if (Festivos.nombre(f)) festivosMes.push(f);
+  }
 
   var noReconocidos = {};
   var delMes = eventos.filter(function(e){
@@ -393,6 +397,7 @@ function calcular(eventos, anio, mes){
 
   var sinDatos = !INICIO_DATOS || hasta < INICIO_DATOS.slice(0, 8) + '01';
   var R = { anio:anio, mes:mes, desde:desde, hasta:hasta, corte:corte, diasProgramados:prog.length, prog:prog, sinDatos:sinDatos,
+    laboralesMes:laboralesMes, festivosMes:festivosMes,
     futuro: desde > hy, equipos:equipos, maquinaria:maquinaria, camiones:camiones, totales:T, totalesCamiones:TC, eventos:delMes,
     abiertos: eventos.filter(function(e){ return !e.fin && eqDe(e.equipo); }),
     pareto: Object.keys(pareto).map(function(k){ return pareto[k]; })
@@ -557,7 +562,9 @@ function pintar(){
     '</div>';
 
   if (D.corte < D.hasta){
-    html += '<div class="aviso">Mes en curso: el cálculo va hasta hoy, ' + dcorta(D.corte) + ' (' + D.diasProgramados + ' días programados).</div>';
+    html += '<div class="aviso">Mes en curso: van <strong>' + D.diasProgramados + ' de ' + D.laboralesMes +
+      ' días laborales</strong> (hasta hoy, ' + dcorta(D.corte) + '). El mes completo se calcula cuando termine, ' +
+      'porque los días que faltan todavía no se pueden medir.</div>';
   }
 
   if (D.abiertos.length){
@@ -749,7 +756,10 @@ function pintar(){
 
   html += '<div class="nota"><b>Cómo se calcula cada número</b><ul>' +
     '<li><b>Fuente:</b> la hoja Taller, que llena Tulio Olaya en el Taller. El preoperativo no entra en este cálculo.</li>' +
-    '<li><b>Días programados:</b> lunes a sábado del mes' + (D.corte < D.hasta ? ', hasta hoy' : '') + '.</li>' +
+    '<li><b>Días programados:</b> lunes a sábado, sin domingos ni festivos' + (D.corte < D.hasta ? ', hasta hoy' : '') + '. ' +
+      MESES[D.mes - 1].charAt(0).toUpperCase() + MESES[D.mes - 1].slice(1) + ' tiene ' + D.laboralesMes + ' días laborales' +
+      (D.festivosMes.length ? ' (festivo' + (D.festivosMes.length === 1 ? '' : 's') + ': ' +
+        D.festivosMes.map(function(f){ return dcorta(f) + ' ' + Festivos.nombre(f); }).join(', ') + ')' : '') + '.</li>' +
     '<li><b>Días perdidos:</b> desde la fecha en que quedó parada (incluida) hasta el día del alta (sin incluir, porque ese día ya quedó lista). Sin alta, cuentan hasta hoy.</li>' +
     '<li><b>Disponibilidad:</b> días disponibles ÷ días programados. Las paradas por mantenimiento programado también restan, pero se muestran aparte y no cuentan como falla.</li>' +
     '<li><b>Camiones:</b> se calculan aparte; los indicadores de arriba, la gráfica y las fallas por sistema son solo de la maquinaria.</li>' +
@@ -790,8 +800,9 @@ function informe(){
   var eqs = D.maquinaria.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
   var TC = D.totalesCamiones;
   var h = '<h1>Informe de disponibilidad y fallas de maquinaria</h1>' +
-    '<div class="sub">Palma Grande S.A.S. · ' + MESES[D.mes - 1] + ' ' + D.anio + ' · ' + D.diasProgramados +
-    ' días programados' + (D.corte < D.hasta ? ' · corte al ' + dcorta(D.corte) : '') + '</div>' +
+    '<div class="sub">Palma Grande S.A.S. · ' + MESES[D.mes - 1] + ' ' + D.anio + ' · ' +
+    (D.corte < D.hasta ? D.diasProgramados + ' de ' + D.laboralesMes + ' días laborales · corte al ' + dcorta(D.corte)
+                       : D.laboralesMes + ' días laborales') + '</div>' +
     '<div class="kpi-p">' +
       '<div><b>' + pct(T.disponibilidad) + '</b><span>Disponibilidad de la maquinaria</span></div>' +
       '<div><b>' + T.diasFalla + '</b><span>Días-máquina perdidos por falla</span></div>' +
@@ -884,7 +895,7 @@ function informe(){
   }
 
   h += '<div class="firma"><div>Jefe de Taller</div><div>Superintendente Agrícola</div><div>Gerencia</div></div>' +
-    '<div class="pie">Fuente: hoja Taller. Disponibilidad = días disponibles ÷ días programados (lunes a sábado); ' +
+    '<div class="pie">Fuente: hoja Taller. Disponibilidad = días disponibles ÷ días programados (lunes a sábado, sin festivos); ' +
     'los camiones se miden aparte y no entran en la de la maquinaria. ' +
     'Los días perdidos van desde la fecha de parada hasta el día del alta, sin incluirlo. El mantenimiento programado ' +
     'resta disponibilidad pero no cuenta como falla. Meta de referencia: ' + META + '%. Generado el ' +
