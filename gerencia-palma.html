@@ -209,6 +209,7 @@ function pct(v){ return v==null ? '—' : String(Math.round(v*10)/10).replace('.
 function dcorta(iso){ if(!iso) return '—'; var p = String(iso).split('-'); return p.length===3 ? p[2]+'/'+p[1] : iso; }
 function clase(v){ if(v==null) return 'na'; if(v >= META) return 'ok'; if(v >= META-5) return 'al'; return 'ma'; }
 function eqDe(cod){ return FLOTA.filter(function(f){ return f.cod === cod; })[0] || null; }
+function esCamion(cod){ var e = eqDe(cod); return !!e && e.grupo === 'transporte'; }
 /* días que estuvo parada: hasta el alta sin incluirla; sin alta, hoy también cuenta */
 function duracion(e){ return diasEntre(e.inicio, e.fin || sumarDias(hoy(), 1)); }
 function txtSistema(id){ return SISTEMAS[id] || 'Sin clasificar'; }
@@ -296,25 +297,34 @@ function calcular(eventos, anio, mes){
       disponibilidad: prog.length ? (prog.length - dFalla - dMtto) / prog.length * 100 : null };
   });
 
-  var T = { programados:0, disponibles:0, diasFalla:0, diasMtto:0, fallas:0, mttos:0 };
-  equipos.forEach(function(e){ T.programados += e.programados; T.disponibles += e.disponibles;
-    T.diasFalla += e.diasFalla; T.diasMtto += e.diasMtto; T.fallas += e.fallas; T.mttos += e.mttos; });
-  T.disponibilidad = T.programados ? T.disponibles / T.programados * 100 : null;
-  var durT = delMes.filter(function(e){ return e.tipo === 'falla' && e.inicio >= desde; })
-    .map(function(e){ return duracion(e); });
-  T.diasPorFalla = durT.length ? durT.reduce(function(a,b){ return a+b; }, 0) / durT.length : null;
+  /* La maquinaria y los camiones (grupo transporte) se calculan por separado:
+     los camiones no bajan la disponibilidad de la maquinaria. */
+  function totales(lista, camion){
+    var T = { programados:0, disponibles:0, diasFalla:0, diasMtto:0, fallas:0, mttos:0, equipos:lista.length,
+              conFallas: lista.filter(function(e){ return e.fallas; }).length };
+    lista.forEach(function(e){ T.programados += e.programados; T.disponibles += e.disponibles;
+      T.diasFalla += e.diasFalla; T.diasMtto += e.diasMtto; T.fallas += e.fallas; T.mttos += e.mttos; });
+    T.disponibilidad = T.programados ? T.disponibles / T.programados * 100 : null;
+    var dur = delMes.filter(function(e){ return e.tipo === 'falla' && e.inicio >= desde && esCamion(e.equipo) === camion; })
+      .map(function(e){ return duracion(e); });
+    T.diasPorFalla = dur.length ? dur.reduce(function(a,b){ return a+b; }, 0) / dur.length : null;
+    return T;
+  }
+  var maquinaria = equipos.filter(function(e){ return e.grupo !== 'transporte'; });
+  var camiones = equipos.filter(function(e){ return e.grupo === 'transporte'; });
+  var T = totales(maquinaria, false), TC = totales(camiones, true);
 
-  // Pareto: fallas que empezaron en el mes, por sistema
+  // Pareto: fallas de la maquinaria que empezaron en el mes, por sistema
   var pareto = {};
   delMes.forEach(function(e){
-    if (e.tipo !== 'falla' || e.inicio < desde) return;
+    if (e.tipo !== 'falla' || e.inicio < desde || esCamion(e.equipo)) return;
     var k = e.fin ? (e.sistema || 'otro') : 'pendiente';
     var x = pareto[k] || (pareto[k] = { id:k, txt: k === 'pendiente' ? 'Sin alta todavía' : txtSistema(k), fallas:0, dias:0 });
     x.fallas++; x.dias += duracion(e);
   });
 
   return { anio:anio, mes:mes, desde:desde, hasta:hasta, corte:corte, diasProgramados:prog.length,
-    futuro: desde > hy, equipos:equipos, totales:T, eventos:delMes,
+    futuro: desde > hy, equipos:equipos, maquinaria:maquinaria, camiones:camiones, totales:T, totalesCamiones:TC, eventos:delMes,
     abiertos: eventos.filter(function(e){ return !e.fin && eqDe(e.equipo); }),
     pareto: Object.keys(pareto).map(function(k){ return pareto[k]; })
       .sort(function(a,b){ return a.id === 'pendiente' ? 1 : b.id === 'pendiente' ? -1 : b.fallas - a.fallas || b.dias - a.dias; }),
@@ -374,13 +384,13 @@ function pintar(){
 
   html += '<div class="kpis">' +
     '<div class="kpi ' + clase(T.disponibilidad) + '"><div class="n">' + pct(T.disponibilidad) + '</div>' +
-      '<div class="t">Disponibilidad de la flota</div><div class="x">' + T.disponibles + ' de ' + T.programados +
-      ' días-máquina · meta ' + META + '%</div></div>' +
+      '<div class="t">Disponibilidad de la maquinaria</div><div class="x">' + T.disponibles + ' de ' + T.programados +
+      ' días-máquina · meta ' + META + '% · sin camiones</div></div>' +
     '<div class="kpi ' + (T.diasFalla ? 'ma' : 'ok') + '"><div class="n">' + T.diasFalla + '</div>' +
       '<div class="t">Días-máquina perdidos por falla</div><div class="x">equivale a ' +
       n1(T.diasFalla / Math.max(1, D.diasProgramados)) + ' máquinas paradas todo el mes</div></div>' +
     '<div class="kpi"><div class="n">' + T.fallas + '</div><div class="t">Fallas en el mes</div>' +
-      '<div class="x">en ' + D.equipos.filter(function(e){ return e.fallas; }).length + ' de ' + D.equipos.length + ' equipos</div></div>' +
+      '<div class="x">en ' + T.conFallas + ' de ' + T.equipos + ' máquinas</div></div>' +
     '<div class="kpi"><div class="n">' + n1(T.diasPorFalla) + '</div><div class="t">Días promedio de reparación</div>' +
       '<div class="x">de la parada hasta el alta</div></div>' +
     '<div class="kpi ' + (T.diasMtto ? 'al' : '') + '"><div class="n">' + T.diasMtto + '</div>' +
@@ -399,12 +409,13 @@ function pintar(){
   }
 
   GRUPOS.forEach(function(g){
+    if (g.id === 'transporte') return;          // los camiones van en su propia sección
     html += tablaGrupo(g.txt, D.equipos.filter(function(e){ return e.grupo === g.id; }));
   });
 
-  /* gráficas: disponibilidad por equipo y Pareto por sistema */
-  var orden = D.equipos.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
-  html += '<div class="dos"><div><h3 class="sec">Disponibilidad por equipo</h3>' +
+  /* gráficas: disponibilidad por máquina y Pareto por sistema (sin camiones) */
+  var orden = D.maquinaria.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
+  html += '<div class="dos"><div><h3 class="sec">Disponibilidad por máquina</h3>' +
     '<p class="hint">De menor a mayor. La línea marca la meta del ' + META + '%.</p><div class="graf">' +
     orden.map(function(e){
       var cl = clase(e.disponibilidad);
@@ -414,7 +425,7 @@ function pintar(){
     }).join('') + '</div></div>';
 
   html += '<div><h3 class="sec">Fallas por sistema</h3>' +
-    '<p class="hint">Qué parte de la máquina se daña más. Lo clasifica Tulio al dar el alta.</p>';
+    '<p class="hint">Qué parte de la maquinaria se daña más. Lo clasifica Tulio al dar el alta.</p>';
   if (D.pareto.length){
     var maxF = Math.max.apply(null, D.pareto.map(function(x){ return x.fallas; }));
     html += '<div class="graf">' + D.pareto.map(function(x){
@@ -428,9 +439,23 @@ function pintar(){
   }
   html += '</div></div>';
 
+  /* camiones: aparte, con su propia disponibilidad */
+  if (D.camiones.length){
+    var TC = D.totalesCamiones;
+    html += '<h3 class="sec" style="margin-top:30px">Camiones</h3>' +
+      '<p class="hint">Transporte de fruta y de personal. Se miden aparte y no entran en la disponibilidad de la maquinaria.</p>' +
+      '<div class="kpis">' +
+        '<div class="kpi ' + clase(TC.disponibilidad) + '"><div class="n">' + pct(TC.disponibilidad) + '</div>' +
+          '<div class="t">Disponibilidad de los camiones</div><div class="x">' + TC.disponibles + ' de ' + TC.programados + ' días-camión</div></div>' +
+        '<div class="kpi ' + (TC.diasFalla ? 'ma' : 'ok') + '"><div class="n">' + TC.diasFalla + '</div><div class="t">Días perdidos por falla</div></div>' +
+        '<div class="kpi"><div class="n">' + TC.fallas + '</div><div class="t">Fallas en el mes</div></div>' +
+        '<div class="kpi"><div class="n">' + n1(TC.diasPorFalla) + '</div><div class="t">Días promedio de reparación</div></div>' +
+      '</div>' + tablaGrupo('Detalle por camión', D.camiones);
+  }
+
   /* equipos que explican el mes */
   var criticos = [];
-  var masDias = D.equipos.slice().sort(function(a,b){ return b.diasFalla - a.diasFalla; })[0];
+  var masDias = D.maquinaria.slice().sort(function(a,b){ return b.diasFalla - a.diasFalla; })[0];
   if (masDias && masDias.diasFalla > 0){
     criticos.push({ t: masDias.equipo + ' ' + masDias.nombre + ' — ' + masDias.diasFalla +
       (masDias.diasFalla === 1 ? ' día parado' : ' días parados') + ' en ' + masDias.fallas + (masDias.fallas === 1 ? ' falla' : ' fallas'),
@@ -438,7 +463,7 @@ function pintar(){
         ? 'Una sola falla lo dejó quieto todos esos días. El problema no es la máquina, es el tiempo de consecución del repuesto. Se atiende con stock, no con mantenimiento.'
         : 'Concentra los días perdidos del mes. Revisar si son fallas distintas o la misma sin resolver.' });
   }
-  var masFallas = D.equipos.slice().sort(function(a,b){ return b.fallas - a.fallas; })[0];
+  var masFallas = D.maquinaria.slice().sort(function(a,b){ return b.fallas - a.fallas; })[0];
   if (masFallas && masFallas.fallas >= 3 && masFallas.equipo !== (masDias||{}).equipo){
     criticos.push({ t: masFallas.equipo + ' ' + masFallas.nombre + ' — ' + masFallas.fallas + ' fallas en el mes',
       d: 'Vuelve rápido cada vez, pero vuelve a caer. Falla repetida: ahí sí hay algo de fondo sin resolver.' });
@@ -478,6 +503,7 @@ function pintar(){
     '<li><b>Días programados:</b> lunes a sábado del mes' + (D.corte < D.hasta ? ', hasta hoy' : '') + '.</li>' +
     '<li><b>Días perdidos:</b> desde la fecha en que quedó parada (incluida) hasta el día del alta (sin incluir, porque ese día ya quedó lista). Sin alta, cuentan hasta hoy.</li>' +
     '<li><b>Disponibilidad:</b> días disponibles ÷ días programados. Las paradas por mantenimiento programado también restan, pero se muestran aparte y no cuentan como falla.</li>' +
+    '<li><b>Camiones:</b> se calculan aparte; los indicadores de arriba, la gráfica y las fallas por sistema son solo de la maquinaria.</li>' +
     '<li><b>Días/falla:</b> promedio de días desde la parada hasta el alta de las fallas que empezaron en el mes.</li>' +
     '</ul></div>';
 
@@ -506,19 +532,21 @@ async function cargar(forzar){
 function informe(){
   if (!D || D.futuro) return;
   var T = D.totales;
-  var eqs = D.equipos.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
+  var eqs = D.maquinaria.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
+  var TC = D.totalesCamiones;
   var h = '<h1>Informe de disponibilidad y fallas de maquinaria</h1>' +
     '<div class="sub">Palma Grande S.A.S. · ' + MESES[D.mes - 1] + ' ' + D.anio + ' · ' + D.diasProgramados +
     ' días programados' + (D.corte < D.hasta ? ' · corte al ' + dcorta(D.corte) : '') + '</div>' +
     '<div class="kpi-p">' +
-      '<div><b>' + pct(T.disponibilidad) + '</b><span>Disponibilidad de la flota</span></div>' +
+      '<div><b>' + pct(T.disponibilidad) + '</b><span>Disponibilidad de la maquinaria</span></div>' +
       '<div><b>' + T.diasFalla + '</b><span>Días-máquina perdidos por falla</span></div>' +
       '<div><b>' + T.fallas + '</b><span>Fallas</span></div>' +
       '<div><b>' + n1(T.diasPorFalla) + '</b><span>Días promedio de reparación</span></div>' +
       '<div><b>' + T.diasMtto + '</b><span>Días en mantenimiento</span></div>' +
+      (D.camiones.length ? '<div><b>' + pct(TC.disponibilidad) + '</b><span>Disponibilidad de los camiones (aparte)</span></div>' : '') +
     '</div>';
 
-  h += '<h2>Disponibilidad por equipo</h2><table><thead><tr><th>Equipo</th><th>Grupo</th><th>Programados</th>' +
+  h += '<h2>Disponibilidad por máquina</h2><table><thead><tr><th>Equipo</th><th>Grupo</th><th>Programados</th>' +
     '<th>Disponibles</th><th>Días falla</th><th>Días mtto.</th><th>Fallas</th><th>Disponibilidad</th></tr></thead><tbody>' +
     eqs.map(function(e){
       var g = GRUPOS.filter(function(x){ return x.id === e.grupo; })[0];
@@ -527,8 +555,18 @@ function informe(){
         '<td>' + e.diasFalla + '</td><td>' + e.diasMtto + '</td><td>' + e.fallas + '</td><td><b>' + pct(e.disponibilidad) + '</b></td></tr>';
     }).join('') + '</tbody></table>';
 
+  if (D.camiones.length){
+    h += '<h2>Camiones (aparte de la maquinaria)</h2><table><thead><tr><th>Camión</th><th>Uso</th><th>Programados</th>' +
+      '<th>Disponibles</th><th>Días falla</th><th>Días mtto.</th><th>Fallas</th><th>Disponibilidad</th></tr></thead><tbody>' +
+      D.camiones.map(function(e){
+        return '<tr><td>' + esc(e.equipo) + ' ' + esc(e.nombre) + '</td><td>' + esc(e.uso) + '</td><td>' + e.programados + '</td>' +
+          '<td>' + e.disponibles + '</td><td>' + e.diasFalla + '</td><td>' + e.diasMtto + '</td><td>' + e.fallas + '</td>' +
+          '<td><b>' + pct(e.disponibilidad) + '</b></td></tr>';
+      }).join('') + '</tbody></table>';
+  }
+
   if (D.pareto.length){
-    h += '<h2>Fallas por sistema</h2><table><thead><tr><th>Sistema</th><th>Fallas</th><th>Días parada</th></tr></thead><tbody>' +
+    h += '<h2>Fallas por sistema (maquinaria)</h2><table><thead><tr><th>Sistema</th><th>Fallas</th><th>Días parada</th></tr></thead><tbody>' +
       D.pareto.map(function(x){ return '<tr><td>' + esc(x.txt) + '</td><td>' + x.fallas + '</td><td>' + x.dias + '</td></tr>'; }).join('') +
       '</tbody></table>';
   }
@@ -545,7 +583,8 @@ function informe(){
   }
 
   h += '<div class="firma"><div>Jefe de Taller</div><div>Superintendente Agrícola</div><div>Gerencia</div></div>' +
-    '<div class="pie">Fuente: hoja Taller. Disponibilidad = días disponibles ÷ días programados (lunes a sábado). ' +
+    '<div class="pie">Fuente: hoja Taller. Disponibilidad = días disponibles ÷ días programados (lunes a sábado); ' +
+    'los camiones se miden aparte y no entran en la de la maquinaria. ' +
     'Los días perdidos van desde la fecha de parada hasta el día del alta, sin incluirlo. El mantenimiento programado ' +
     'resta disponibilidad pero no cuenta como falla. Meta de referencia: ' + META + '%. Generado el ' +
     new Date().toLocaleDateString('es-CO') + '.</div>';
