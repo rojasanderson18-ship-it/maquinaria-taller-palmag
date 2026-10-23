@@ -420,7 +420,9 @@ function pintar(){
     '<p class="dia">' + fechaLarga(fechaSel) +
       (fechaSel === manana() ? ' · mañana' : (fechaSel === hoy() ? ' · hoy' : '')) + '</p>';
 
-  if (esDomingo(fechaSel)){
+  if (Festivos.nombre(fechaSel)){
+    h += '<div class="nota-z">Es festivo (' + esc(Festivos.nombre(fechaSel)) + '). Normalmente no se trabaja, pero si hay labor puede asignarla igual.</div>';
+  } else if (esDomingo(fechaSel)){
     h += '<div class="nota-z">Es domingo. Normalmente no se programa, pero si hay labor puede asignarla igual.</div>';
   }
 
