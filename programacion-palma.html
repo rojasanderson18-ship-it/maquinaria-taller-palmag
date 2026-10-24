@@ -326,6 +326,9 @@ function p2(n){ return ('0'+n).slice(-2); }
 function isoLocal(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
 function hoy(){ return isoLocal(new Date()); }
 function manana(){ var d = new Date(); d.setDate(d.getDate()+1); return isoLocal(d); }
+/* el día que se programa: el siguiente día de trabajo (salta domingos y festivos),
+   así el sábado abre en el lunes */
+function siguienteLaboral(){ var f = manana(); for (var i = 0; i < 10 && !Festivos.laboral(f); i++) f = sumarDias(f, 1); return f; }
 function sumarDias(iso, n){ var p = iso.split('-'); return isoLocal(new Date(+p[0], +p[1]-1, +p[2]+n)); }
 var DIAS_SEM = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
 var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
@@ -401,7 +404,7 @@ function diaAnterior(f){
    Pantalla principal
    ===================================================================== */
 function pintar(){
-  if (!fechaSel) fechaSel = manana();
+  if (!fechaSel) fechaSel = siguienteLaboral();
   var d = estado.dias[fechaSel] || {};
   var libres = [], conAsig = [], varadasL = [];
 
@@ -428,7 +431,8 @@ function pintar(){
     '<input type="date" id="fecha" value="' + fechaSel + '">' +
     '<button id="sig">›</button></div>' +
     '<p class="dia">' + fechaLarga(fechaSel) +
-      (fechaSel === manana() ? ' · mañana' : (fechaSel === hoy() ? ' · hoy' : '')) + '</p>';
+      (fechaSel === manana() ? ' · mañana' : fechaSel === hoy() ? ' · hoy' :
+        fechaSel === siguienteLaboral() ? ' · próximo día de trabajo' : '') + '</p>';
 
   if (Festivos.nombre(fechaSel)){
     h += '<div class="nota-z">Es festivo (' + esc(Festivos.nombre(fechaSel)) + '). Normalmente no se trabaja, pero si hay labor puede asignarla igual.</div>';
@@ -512,7 +516,7 @@ function pintar(){
   }
 
   $('#app').innerHTML = h;
-  $('#fecha').onchange = function(e){ fechaSel = e.target.value || manana(); pintar(); };
+  $('#fecha').onchange = function(e){ fechaSel = e.target.value || siguienteLaboral(); pintar(); };
   $('#ant').onclick = function(){ fechaSel = sumarDias(fechaSel, -1); pintar(); };
   $('#sig').onclick = function(){ fechaSel = sumarDias(fechaSel, 1); pintar(); };
   $$('#app .cab').forEach(function(b){
@@ -1051,7 +1055,7 @@ function imprimir(){
 
   h += '<div class="p-firma"><div>Coordinador de Campo</div><div>Supervisor</div><div>Fecha y hora de entrega</div></div>' +
     '<div class="p-pie">La columna "Recibido" la firma el operario al recibir la máquina con su implemento. ' +
-    'Las máquinas en taller no se programan hasta que tengan el alta. Impreso el ' + hoy() + '.</div>';
+    'Las máquinas en taller no se programan hasta que tengan el alta. Impreso el ' + fechaCO(hoy()) + ' a las ' + horaAhora() + '.</div>';
 
   $('#print').innerHTML = h;
   setTimeout(function(){ window.print(); }, 150);
@@ -1258,7 +1262,7 @@ window.addEventListener('appinstalled', function(){ $('#btn-instalar').hidden = 
   delete estado.config.flota;               // la flota ahora es la compartida
   aplicarMaestros();
   cfgLotes(); cfgImpl(); cfgFincas();
-  fechaSel = manana();
+  fechaSel = siguienteLaboral();
   try { var cv = localStorage.getItem(KEY_VARADAS); if (cv) varadas = JSON.parse(cv) || {}; } catch(e){}
   try { var cp = localStorage.getItem(KEY_PEND); if (cp) pendTaller = JSON.parse(cp) || {}; } catch(e){}
   pintar();
