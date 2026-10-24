@@ -220,7 +220,7 @@
   <div><div class="marca">Palma Grande S.A.S.</div><h1>Programación</h1></div>
   <div class="acc">
     <button id="btn-instalar" hidden>Instalar app</button>
-    <button id="btn-ajustes">Máquinas y lotes</button>
+    <button id="btn-ajustes">Configuración</button>
     <button id="btn-yo">—</button>
   </div>
 </div></header>
@@ -311,9 +311,24 @@ function lotesDefecto(){
   return out;
 }
 
-var OPERARIOS = ['Jhon Garnica','Oswaldo Sanches','Cesar Verona','Julio Vacca',
-                 'Fernando Leon','Sandro Bonilla','Ever Clevez'];
-var QUIEN = ['Ing. Luis Fernando','Juan Carlos Oviedo','Brayan Pérez','Anderson Rojas'];
+/* Personas: se manejan en Configuración y se comparten en la hoja Maestros
+   (OPERARIOS y SUPERVISORES). Estas son las listas iniciales. */
+var OPERARIOS_DEF = ['Jhon Garnica','Oswaldo Sanches','Cesar Verona','Julio Vacca',
+                     'Fernando Leon','Sandro Bonilla','Ever Clevez'].map(function(n){ return { nombre:n }; });
+var SUPERVISORES_DEF = [
+  { nombre:'Anderson Rojas',     cargo:'Superintendente' },
+  { nombre:'Ing. Luis Fernando', cargo:'Coordinador de Campo' },
+  { nombre:'Juan Carlos Oviedo', cargo:'Supervisor de Cosecha' },
+  { nombre:'Brayan Pérez',       cargo:'Supervisor de Cosecha' }
+];
+var CARGOS = ['Superintendente','Coordinador de Campo','Supervisor de Cosecha','Supervisor de Sanidad','Supervisor de Mantenimiento'];
+function cfgOperarios(){ if (!estado.config.operarios) estado.config.operarios = JSON.parse(JSON.stringify(OPERARIOS_DEF)); return estado.config.operarios; }
+function cfgSupervisores(){ if (!estado.config.supervisores) estado.config.supervisores = JSON.parse(JSON.stringify(SUPERVISORES_DEF)); return estado.config.supervisores; }
+/* los dados de baja no se pueden asignar, pero su nombre queda en lo ya programado */
+function operariosActivos(){ return cfgOperarios().filter(function(o){ return o.nombre && o.activo !== false; }).map(function(o){ return o.nombre; }); }
+function supervisoresActivos(){ return cfgSupervisores().filter(function(x){ return x.nombre && x.activo !== false; }); }
+function cargoDe(nombre){ var x = cfgSupervisores().filter(function(y){ return y.nombre === nombre; })[0]; return x ? x.cargo || '' : ''; }
+function conCargo(nombre){ var c = cargoDe(nombre); return nombre + (c ? ' (' + c + ')' : ''); }
 
 var KEY = 'programacion-palma-v3';
 var KEY_VARADAS = 'programacion-varadas-v1';
@@ -456,7 +471,7 @@ function pintar(){
     if (a.operario){ opsUsados[a.operario] = true; cuenta[a.operario] = (cuenta[a.operario]||[]).concat([cod]); }
     if (a.implemento){ implCuenta[a.implemento] = (implCuenta[a.implemento]||[]).concat([cod]); }
   });
-  var opsLibres = OPERARIOS.filter(function(o){ return !opsUsados[o]; });
+  var opsLibres = operariosActivos().filter(function(o){ return !opsUsados[o]; });
   var dobles = Object.keys(cuenta).filter(function(o){ return cuenta[o].length > 1; });
   var implDobles = Object.keys(implCuenta).filter(function(i){ return implCuenta[i].length > 1; });
   var tijUsadas = Object.keys(implCuenta).filter(function(c){
@@ -507,7 +522,7 @@ function pintar(){
       (sinOperario.length === 1 ? ' máquina programada sin operario' : ' máquinas programadas sin operario') +
       ':</b> ' + sinOperario.map(function(m){ return m.cod; }).join(', ') +
       '. ' + (opsLibres.length ? 'Quedan libres: ' + opsLibres.map(esc).join(', ') + '.'
-            : 'No quedan operarios libres; hay ' + OPERARIOS.length + ' operarios para ' + cfgFlota().length + ' máquinas.') + '</div>';
+            : 'No quedan operarios libres; hay ' + operariosActivos().length + ' operarios para ' + cfgFlota().length + ' máquinas.') + '</div>';
   }
   var sinImpl = conAsig.filter(function(m){
     var l = labor(d[m.cod].labor); return l && l.req && !d[m.cod].implemento; });
@@ -563,6 +578,7 @@ function pintar(){
     };
   });
   $('#btn-yo').textContent = estado.yo || '¿Quién programa?';
+  $('#btn-yo').title = estado.yo ? cargoDe(estado.yo) : '';
 }
 
 /* =====================================================================
@@ -599,9 +615,10 @@ function elegirQuien(despues, obligatorio){
         '<div class="sub">Escoja su nombre para empezar. Queda guardado en cada máquina que programe.</div></div></div></div>'
       : tope('¿Quién está programando?', 'Queda guardado en la programación del día')) +
     '<div class="cuerpo"><div class="rejilla">' +
-    QUIEN.map(function(p){
+    supervisoresActivos().map(function(x){
+      var p = x.nombre;
       return '<button class="op ancho" data-p="' + esc(p) + '" aria-pressed="' + (marcado===p) + '">' + esc(p) +
-        (obligatorio && p === ultimoQuien ? '<small>La última vez programó desde este celular</small>' : '') + '</button>';
+        '<small>' + esc(x.cargo || '') + (obligatorio && p === ultimoQuien ? ' · la última vez programó desde este celular' : '') + '</small></button>';
     }).join('') + '</div></div>',
     function(){
       $$('#panel [data-p]').forEach(function(b){
@@ -669,7 +686,7 @@ function asignar(cod){
   h += '<div id="zona-impl"></div>';
 
   h += '<p class="paso">Operario</p><div class="rejilla" id="g-op">' +
-    OPERARIOS.map(function(o){
+    operariosActivos().map(function(o){
       var en = ocup[o];
       return '<button class="op ancho" data-op="' + esc(o) + '" aria-pressed="' + (sel.operario===o) + '"' +
         (en ? ' disabled' : '') + '>' + esc(o) +
@@ -731,7 +748,7 @@ function asignar(cod){
       var lista = implPorTipo(l.req);
       if (!lista.length){
         z.innerHTML = '<div class="nota-a">En el inventario no hay <b>' + esc(TIPOS_IMPL[l.req]) +
-          '</b>. Agréguela en Máquinas y lotes, o guarde así y complete después.</div>';
+          '</b>. Agréguela en Configuración → Implementos, o guarde así y complete después.</div>';
         sel.implemento = null; return;
       }
       z.innerHTML = '<p class="paso">3. ' + esc(TIPOS_IMPL[l.req]) + '</p><div class="rejilla" id="g-impl">' +
@@ -819,19 +836,42 @@ function asignar(cod){
    ===================================================================== */
 var cfgAbierta = false;
 function ajustes(){
-  var vista = 'maquinas';
+  var vista = 'operarios';
   cfgAbierta = true;
   function pintarCfg(){
-    var L = cfgLotes(), I = cfgImpl(), M = cfgFlota();
-    var h = tope('Máquinas y lotes', 'Lo que corrija aquí queda guardado y se usa en toda la programación') +
+    var L = cfgLotes(), I = cfgImpl(), M = cfgFlota(), O = cfgOperarios(), SV = cfgSupervisores();
+    var h = tope('Configuración', 'Lo que corrija aquí queda guardado y lo ven todos los celulares') +
       '<div class="cuerpo">' +
       '<div class="rejilla" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px">' +
+        '<button class="op" data-v="operarios" aria-pressed="' + (vista==='operarios') + '">Tractoristas<small>' + operariosActivos().length + ' activos</small></button>' +
+        '<button class="op" data-v="supervisores" aria-pressed="' + (vista==='supervisores') + '">Supervisores<small>' + supervisoresActivos().length + ' activos</small></button>' +
         '<button class="op" data-v="maquinas" aria-pressed="' + (vista==='maquinas') + '">Máquinas<small>' + M.length + '</small></button>' +
         '<button class="op" data-v="lotes" aria-pressed="' + (vista==='lotes') + '">Lotes<small>' + L.length + '</small></button>' +
         '<button class="op" data-v="impl" aria-pressed="' + (vista==='impl') + '">Implementos<small>' + I.length + '</small></button>' +
       '</div>';
 
-    if (vista === 'maquinas'){
+    /* filas de personas: nombre (y cargo), activo o dado de baja */
+    function filaPersona(x, i, tipo){
+      var baja = x.activo === false;
+      return '<tr' + (baja ? ' style="opacity:.55"' : '') + '><td><input data-pe="' + tipo + '" data-i="' + i + '" data-f="nombre" value="' + esc(x.nombre || '') + '" placeholder="Nombre completo">' +
+        (tipo === 'sup' ? '<input data-pe="sup" data-i="' + i + '" data-f="cargo" list="cargos" value="' + esc(x.cargo || '') + '" placeholder="Cargo" style="margin-top:6px">' : '') + '</td>' +
+        '<td style="width:78px;text-align:center"><button class="x" style="color:' + (baja ? 'var(--green)' : 'var(--red)') + ';font-size:13px;line-height:1.2" data-baja="' + tipo + '" data-i="' + i + '">' +
+          (baja ? 'Activar' : 'Dar de baja') + '</button></td></tr>';
+    }
+
+    if (vista === 'operarios'){
+      h += '<p class="nota">Los tractoristas que se pueden asignar en la programación. Si alguien se retira, déle de baja: ' +
+        'deja de aparecer para asignar, pero su nombre queda en lo que ya se programó.</p>' +
+        '<table class="tabla-cfg"><thead><tr><th>Nombre</th><th style="width:78px"></th></tr></thead><tbody>' +
+        O.map(function(x, i){ return filaPersona(x, i, 'op'); }).join('') + '</tbody></table>' +
+        '<button class="accion gris" id="add-op">+ Agregar tractorista</button>';
+    } else if (vista === 'supervisores'){
+      h += '<p class="nota">Quienes programan. Aparecen con su cargo al abrir la Programación y en la hoja impresa.</p>' +
+        '<datalist id="cargos">' + CARGOS.map(function(c){ return '<option value="' + esc(c) + '">'; }).join('') + '</datalist>' +
+        '<table class="tabla-cfg"><thead><tr><th>Nombre y cargo</th><th style="width:78px"></th></tr></thead><tbody>' +
+        SV.map(function(x, i){ return filaPersona(x, i, 'sup'); }).join('') + '</tbody></table>' +
+        '<button class="accion gris" id="add-sup">+ Agregar supervisor</button>';
+    } else if (vista === 'maquinas'){
       h += '<div class="nota-z">Las máquinas se agregan, se corrigen o se dan de baja en el <b>Taller</b> ' +
         '(botón Máquinas). Aparecen aquí solas. Los camiones de transporte no se programan.</div>' +
         '<div class="lista-maq">' + M.map(function(x){
@@ -1002,6 +1042,36 @@ function ajustes(){
         await persistir(); pintarCfg();
       };
 
+      /* tractoristas y supervisores */
+      function listaPe(t){ return t === 'sup' ? cfgSupervisores() : cfgOperarios(); }
+      $$('#panel [data-pe]').forEach(function(inp){
+        inp.onchange = async function(){
+          var lista = listaPe(inp.dataset.pe), i = +inp.dataset.i, v = inp.value.trim().replace(/\s+/g, ' ');
+          if (inp.dataset.f === 'nombre'){
+            if (!v){ aviso('El nombre no puede quedar vacío.'); inp.value = lista[i].nombre || ''; return; }
+            if (lista.some(function(x, j){ return j !== i && (x.nombre || '').toLowerCase() === v.toLowerCase(); })){
+              aviso(v + ' ya está en la lista.'); inp.value = lista[i].nombre || ''; return; }
+          }
+          lista[i][inp.dataset.f] = v;
+          await persistir();
+        };
+      });
+      $$('#panel [data-baja]').forEach(function(b){
+        b.onclick = async function(){
+          var x = listaPe(b.dataset.baja)[+b.dataset.i];
+          if (!x.nombre){ listaPe(b.dataset.baja).splice(+b.dataset.i, 1); await persistir(); pintarCfg(); return; }
+          if (x.activo === false) delete x.activo; else x.activo = false;
+          await persistir(); pintarCfg();
+          aviso(x.nombre + (x.activo === false ? ' quedó dado de baja.' : ' volvió a la lista.'));
+        };
+      });
+      var aop = $('#add-op');
+      if (aop) aop.onclick = async function(){ cfgOperarios().push({ nombre:'' }); await persistir(); pintarCfg();
+        var n = $$('#panel [data-pe="op"][data-f="nombre"]'); if (n.length) n[n.length-1].focus(); };
+      var asup = $('#add-sup');
+      if (asup) asup.onclick = async function(){ cfgSupervisores().push({ nombre:'', cargo:'' }); await persistir(); pintarCfg();
+        var n = $$('#panel [data-pe="sup"][data-f="nombre"]'); if (n.length) n[n.length-1].focus(); };
+
       $('#cfg-ok').onclick = async function(){
         await persistir(); cerrar(); pintar();
       };
@@ -1081,7 +1151,7 @@ function imprimir(){
     if (x.a.implemento) implUsados[x.a.implemento] = true;
     if (x.a.programadoPor && quienes.indexOf(x.a.programadoPor) < 0) quienes.push(x.a.programadoPor);
   });
-  var opsLibres = OPERARIOS.filter(function(o){ return !opsUsados[o]; });
+  var opsLibres = operariosActivos().filter(function(o){ return !opsUsados[o]; });
   var implLibres = cfgImpl().filter(function(i){ return i.cod && !implUsados[i.cod]; });
   var tij = implPorTipo('tijera'), tijUsadas = tij.filter(function(i){ return implUsados[i.cod]; }).length;
   var sinOperario = orden.filter(function(x){ return !x.a.operario; }).length;
@@ -1097,13 +1167,13 @@ function imprimir(){
       '<div class="pr-dato">' +
         '<div>Fecha</div><div class="grande">' + esc(fechaCorta) + '</div>' +
         '<div>Consecutivo</div><div class="mono">PRG-' + fechaSel.replace(/-/g, '') + '</div>' +
-        '<div>Programó</div><div>' + (esc(quienes.join(', ')) || esc(estado.yo) || '—') + '</div>' +
+        '<div>Programó</div><div>' + (esc(quienes.map(conCargo).join(', ')) || esc(estado.yo ? conCargo(estado.yo) : '') || '—') + '</div>' +
       '</div>' +
     '</div>' +
     /* resumen */
     '<div class="pr-kpi">' +
       '<div class="verde"><b>' + orden.length + '/' + disponibles + '</b><span>Máquinas programadas / disponibles</span></div>' +
-      '<div' + (sinOperario ? ' class="ambar"' : '') + '><b>' + Object.keys(opsUsados).length + '/' + OPERARIOS.length + '</b><span>Operarios asignados' + (sinOperario ? ' · ' + sinOperario + ' sin operario' : '') + '</span></div>' +
+      '<div' + (sinOperario ? ' class="ambar"' : '') + '><b>' + Object.keys(opsUsados).length + '/' + operariosActivos().length + '</b><span>Operarios asignados' + (sinOperario ? ' · ' + sinOperario + ' sin operario' : '') + '</span></div>' +
       '<div><b>' + tijUsadas + '/' + tij.length + '</b><span>Tijeras de volteo en uso</span></div>' +
       '<div' + (varadasL.length ? ' class="rojo"' : '') + '><b>' + varadasL.length + '</b><span>En taller</span></div>' +
       '<div' + (conPend.length ? ' class="ambar"' : '') + '><b>' + conPend.length + '</b><span>Con pendiente del taller</span></div>' +
@@ -1151,8 +1221,10 @@ function imprimir(){
   '</div>';
 
   h += '<div class="pr-firmas">' +
-      '<div>Programó<span>' + (esc(quienes.join(', ')) || esc(estado.yo) || '') + '</span></div>' +
-      '<div>Coordinador de Campo<span>Revisó y aprobó</span></div>' +
+      '<div>Programó<span>' + (esc(quienes.map(conCargo).join(', ')) || esc(estado.yo ? conCargo(estado.yo) : '') || '') + '</span></div>' +
+      '<div>Coordinador de Campo<span>' + (function(){
+        var c = supervisoresActivos().filter(function(x){ return /coordinador/i.test(x.cargo || ''); })[0];
+        return c ? esc(c.nombre) + ' · revisó y aprobó' : 'Revisó y aprobó'; })() + '</span></div>' +
       '<div>Jefe de Taller<span>Entregó las máquinas</span></div>' +
     '</div>' +
     '<div class="pr-pie"><span>El operario anota el horómetro al salir y al llegar, y firma al recibir la máquina con su implemento. ' +
@@ -1200,7 +1272,7 @@ function registrar(fecha, cod, a){
 }
 
 /* lotes, fincas e implementos se comparten en la hoja Maestros */
-var CFG_MAESTROS = { LOTES:'lotes', FINCAS:'fincas', IMPL:'implementos' };
+var CFG_MAESTROS = { LOTES:'lotes', FINCAS:'fincas', IMPL:'implementos', OPERARIOS:'operarios', SUPERVISORES:'supervisores' };
 function pendienteMaestro(t){ return (estado.cola || []).some(function(x){ return x.id === 'maestro:' + t; }); }
 function aplicarMaestros(){
   Object.keys(CFG_MAESTROS).forEach(function(t){
@@ -1210,11 +1282,15 @@ function aplicarMaestros(){
 }
 function guardarConfig(){
   var hubo = false;
+  ['operarios', 'supervisores'].forEach(function(k){
+    if (estado.config[k]) estado.config[k] = estado.config[k].filter(function(x){ return x.nombre; });
+  });
   Object.keys(CFG_MAESTROS).forEach(function(t){
     var actual = estado.config[CFG_MAESTROS[t]];
     if (!actual) return;
     var guardada = Maestros.get(t);
-    var defecto = t === 'LOTES' ? lotesDefecto() : t === 'FINCAS' ? FINCAS_DEF : IMPL_DEF;
+    var defecto = t === 'LOTES' ? lotesDefecto() : t === 'FINCAS' ? FINCAS_DEF : t === 'IMPL' ? IMPL_DEF :
+                  t === 'OPERARIOS' ? OPERARIOS_DEF : SUPERVISORES_DEF;
     if (JSON.stringify(actual) === JSON.stringify(guardada || defecto)) return;
     var x = Maestros.fila(t, actual, estado.yo);
     estado.cola = estado.cola.filter(function(c){ return c.id !== x.id; });
