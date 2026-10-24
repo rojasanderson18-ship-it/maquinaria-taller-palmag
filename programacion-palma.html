@@ -579,25 +579,39 @@ function cerrar(){
   $('#hoja').hidden = true; $('#panel').innerHTML = ''; document.body.style.overflow = '';
   if (cfgAbierta){ cfgAbierta = false; if (guardarConfig()){ persistir(); enviar(); } }
 }
-$('#hoja').addEventListener('click', function(e){ if (e.target.id === 'hoja') cerrar(); });
-document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('#hoja').hidden) cerrar(); });
+/* al abrir, la pregunta de quién programa no se puede cerrar sin escoger */
+var quienObligatorio = false, ultimoQuien = '';
+$('#hoja').addEventListener('click', function(e){ if (e.target.id === 'hoja' && !quienObligatorio) cerrar(); });
+document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('#hoja').hidden && !quienObligatorio) cerrar(); });
 function tope(titulo, sub){
   return '<div class="tope"><div class="fila"><div><h3>' + esc(titulo) + '</h3>' +
     (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') +
     '</div><button class="cerrar" data-cerrar>×</button></div></div>';
 }
 
-function elegirQuien(despues){
-  abrir(tope('¿Quién está programando?', 'Queda guardado en la programación del día') +
+/* obligatorio: al abrir la app siempre se pregunta, para que cada programación
+   quede a nombre de quien la hizo aunque varios usen el mismo celular */
+function elegirQuien(despues, obligatorio){
+  quienObligatorio = !!obligatorio;
+  var marcado = estado.yo || ultimoQuien;
+  abrir((obligatorio
+      ? '<div class="tope"><div class="fila"><div><h3>¿Quién está programando?</h3>' +
+        '<div class="sub">Escoja su nombre para empezar. Queda guardado en cada máquina que programe.</div></div></div></div>'
+      : tope('¿Quién está programando?', 'Queda guardado en la programación del día')) +
     '<div class="cuerpo"><div class="rejilla">' +
     QUIEN.map(function(p){
-      return '<button class="op ancho" data-p="' + esc(p) + '" aria-pressed="' + (estado.yo===p) + '">' + esc(p) + '</button>';
+      return '<button class="op ancho" data-p="' + esc(p) + '" aria-pressed="' + (marcado===p) + '">' + esc(p) +
+        (obligatorio && p === ultimoQuien ? '<small>La última vez programó desde este celular</small>' : '') + '</button>';
     }).join('') + '</div></div>',
     function(){
       $$('#panel [data-p]').forEach(function(b){
         b.onclick = async function(){
+          var eraObligatorio = quienObligatorio;
+          quienObligatorio = false;
           estado.yo = b.dataset.p;
           await persistir(); cerrar(); pintar();
+          aviso('Programando como ' + estado.yo + '.');
+          if (eraObligatorio) traerProgramacion();   // mientras estaba abierta no se actualizó
           if (despues) despues();
         };
       });
@@ -1352,9 +1366,12 @@ window.addEventListener('appinstalled', function(){ $('#btn-instalar').hidden = 
   aplicarMaestros();
   cfgLotes(); cfgImpl(); cfgFincas();
   fechaSel = siguienteLaboral();
+  ultimoQuien = estado.yo || '';
+  estado.yo = '';                          // se vuelve a preguntar cada vez que se abre
   try { var cv = localStorage.getItem(KEY_VARADAS); if (cv) varadas = JSON.parse(cv) || {}; } catch(e){}
   try { var cp = localStorage.getItem(KEY_PEND); if (cp) pendTaller = JSON.parse(cp) || {}; } catch(e){}
   pintar();
+  elegirQuien(null, true);
   if (!(await DB.guardar(estado))) { sinGuardar = true; pintarSync(); }
   await enviar();
   await traerMaestros();
