@@ -159,20 +159,57 @@
   @media print{
     header,.wrap,.fab,.hoja,.aviso,.sync{display:none !important}
     #print{display:block}
-    body{background:#fff;font-size:11px}
-    @page{margin:11mm}
-    .p-cab{border-bottom:2px solid #16211C;padding-bottom:9px;margin-bottom:11px}
-    .p-emp{font-size:10px;color:#555;letter-spacing:.04em}
-    .p-tit{font-size:18px;font-weight:700;line-height:1.2}
-    .p-sub{font-size:11px;color:#555}
-    #print table{width:100%;border-collapse:collapse;border:1px solid #999;margin-bottom:9px;font-size:10.5px}
-    #print th{background:#EEE;padding:5px;border-bottom:1px solid #999;text-align:left;font-size:9px;text-transform:uppercase}
-    #print td{padding:6px 5px;border-bottom:1px solid #DDD;vertical-align:top}
-    #print tr{page-break-inside:avoid}
-    #print h4{font-size:12px;margin:11px 0 4px;border-bottom:1px solid #CCC;padding-bottom:3px}
-    .p-firma{margin-top:24px;display:flex;gap:34px;font-size:10px}
-    .p-firma div{flex:1;border-top:1px solid #333;padding-top:4px}
-    .p-pie{margin-top:13px;font-size:9px;color:#666;border-top:1px solid #CCC;padding-top:5px}
+    body{background:#fff;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    @page{size:letter landscape;margin:8mm 9mm}
+    .pr{color:#16211C;font-family:'Barlow',system-ui,sans-serif}
+    .pr .mono{font-family:'JetBrains Mono',monospace}
+    /* encabezado tipo formato */
+    .pr-cab{display:grid;grid-template-columns:auto 1fr auto;border:1.5px solid #16211C;margin-bottom:7px}
+    .pr-marca{display:flex;align-items:center;gap:9px;padding:8px 12px;border-right:1.5px solid #16211C}
+    .pr-logo{width:34px;height:34px;background:#1F5D3C;color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;border-radius:3px;letter-spacing:.02em}
+    .pr-emp b{display:block;font-size:12px;letter-spacing:.05em}
+    .pr-emp span{font-size:9.5px;color:#555}
+    .pr-tit{padding:8px 14px;display:flex;flex-direction:column;justify-content:center}
+    .pr-tit b{font-size:17px;line-height:1.15}
+    .pr-tit span{font-size:10px;color:#555}
+    .pr-dato{display:grid;grid-template-columns:auto auto;border-left:1.5px solid #16211C}
+    .pr-dato div{padding:4px 10px;border-bottom:1px solid #C9CFCC;font-size:9.5px}
+    .pr-dato div:nth-child(odd){background:#EEF1EF;color:#4A5B53;font-weight:600;text-transform:uppercase;font-size:8.5px;letter-spacing:.04em;border-right:1px solid #C9CFCC}
+    .pr-dato div:nth-last-child(-n+2){border-bottom:none}
+    .pr-dato .grande{font-size:12.5px;font-weight:700}
+    /* resumen */
+    .pr-kpi{display:grid;grid-template-columns:repeat(6,1fr);border:1px solid #9AA59F;margin-bottom:8px}
+    .pr-kpi div{padding:5px 9px;border-right:1px solid #C9CFCC}
+    .pr-kpi div:last-child{border-right:none}
+    .pr-kpi b{display:block;font-size:15px;font-family:'JetBrains Mono',monospace;line-height:1.1}
+    .pr-kpi span{font-size:8.5px;color:#4A5B53;text-transform:uppercase;letter-spacing:.04em}
+    .pr-kpi .rojo b{color:#9E2B21} .pr-kpi .ambar b{color:#B0600D} .pr-kpi .verde b{color:#1F5D3C}
+    /* tabla principal */
+    .pr table{width:100%;border-collapse:collapse;font-size:10px}
+    .pr th{background:#16211C;color:#fff;padding:5px 6px;text-align:left;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em;font-weight:600}
+    .pr td{padding:6px;border-bottom:1px solid #C9CFCC;vertical-align:top}
+    .pr tr{page-break-inside:avoid}
+    .pr tr.pr-grupo td{background:#E2EDE6;color:#1F5D3C;font-weight:700;font-size:10px;padding:4px 6px;border-left:4px solid #1F5D3C;border-bottom:1px solid #9AA59F}
+    .pr tr.pr-grupo td span{font-weight:500;color:#4A5B53}
+    .pr td.pr-maq b{font-family:'JetBrains Mono',monospace;font-size:12px;display:block}
+    .pr td.pr-maq span{color:#555;font-size:9px}
+    .pr td.pr-lote b{display:block}
+    .pr td.pr-lote span{color:#666;font-size:8.5px;text-transform:uppercase}
+    .pr .pr-casilla{border:1px solid #9AA59F;height:20px;border-radius:2px;background:#FAFBFA}
+    .pr .pr-firma-op{border-bottom:1px solid #666;height:20px}
+    .pr .pr-pend{background:#FBEEDC;color:#7A430A;padding:2px 5px;border-radius:2px;display:inline-block;margin-bottom:2px;font-weight:600}
+    .pr .pr-vacio{color:#999}
+    /* bloques inferiores */
+    .pr-bloques{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:9px;page-break-inside:avoid}
+    .pr-bloque{border:1px solid #9AA59F}
+    .pr-bloque h5{margin:0;background:#EEF1EF;padding:4px 8px;font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #9AA59F}
+    .pr-bloque.rojo h5{background:#F9E3E1;color:#9E2B21} .pr-bloque.ambar h5{background:#FBEEDC;color:#7A430A}
+    .pr-bloque ul{margin:0;padding:5px 8px 6px 20px;font-size:9.5px} .pr-bloque li{margin-bottom:2px}
+    .pr-bloque p{margin:0;padding:5px 8px;font-size:9.5px}
+    .pr-firmas{display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:22px;page-break-inside:avoid}
+    .pr-firmas div{border-top:1px solid #16211C;padding-top:3px;font-size:9.5px}
+    .pr-firmas div span{display:block;color:#666;font-size:8.5px}
+    .pr-pie{margin-top:9px;display:flex;justify-content:space-between;gap:16px;font-size:8.5px;color:#666;border-top:1px solid #C9CFCC;padding-top:4px}
   }
 </style>
 </head>
@@ -1017,45 +1054,97 @@ function fincasDe(cods){
 function imprimir(){
   var lista = asignados(fechaSel);
   if (!lista.length){ aviso('No hay nada programado para imprimir.'); return; }
-  var LOTES = cfgLotes();
   var orden = lista.slice().sort(function(a,b){
     return ordenLabor(a.a.labor) - ordenLabor(b.a.labor) || a.maq.cod.localeCompare(b.maq.cod);
   });
-  var varadasL = cfgFlota().filter(function(m){ return varadas[m.cod]; });
-  var sinProg = cfgFlota().filter(function(m){ return !varadas[m.cod] && !asignacion(fechaSel, m.cod); });
-  var h = '<div class="p-cab">' +
-    '<div class="p-emp">PALMA GRANDE S.A.S. · PUERTO CONCORDIA, META</div>' +
-    '<div class="p-tit">Programación de maquinaria</div>' +
-    '<div class="p-sub">' + fechaLarga(fechaSel) + ' de ' + fechaSel.slice(0,4) +
-    ' · ' + orden.length + (orden.length === 1 ? ' máquina' : ' máquinas') +
-    (estado.yo ? ' · programó ' + esc(estado.yo) : '') + '</div></div>' +
-    '<table><thead><tr><th>Máquina</th><th>Labor</th><th>Lotes</th><th>Implemento</th>' +
-    '<th>Operario</th><th>Observación</th><th style="width:72px">Recibido</th></tr></thead><tbody>' +
-    orden.map(function(x){
-      var fincas = fincasDe(x.a.lotes);
-      return '<tr><td><strong>' + esc(x.maq.cod) + '</strong><br>' + esc(x.maq.nombre) + '</td>' +
-        '<td>' + esc(txtLabor(x.a.labor)) + '</td>' +
-        '<td>' + ((x.a.lotes && x.a.lotes.length) ? esc(x.a.lotes.join(', ')) +
-            (fincas ? '<br><span style="color:#666">' + esc(fincas) + '</span>' : '') : '—') + '</td>' +
-        '<td>' + (esc(x.a.implemento) || '—') + '</td>' +
-        '<td>' + (esc(x.a.operario) || '____________') + '</td>' +
-        '<td>' + (pendTaller[x.maq.cod] ? '<b>Pendiente taller:</b> ' + esc(txtPend(x.maq.cod)) + (x.a.obs ? '<br>' : '') : '') +
-          esc(x.a.obs || '') + '</td><td></td></tr>';
-    }).join('') + '</tbody></table>';
+  var flota = cfgFlota();
+  var varadasL = flota.filter(function(m){ return varadas[m.cod]; });
+  var sinProg = flota.filter(function(m){ return !varadas[m.cod] && !asignacion(fechaSel, m.cod); });
+  var disponibles = flota.length - varadasL.length;
+  var opsUsados = {}, implUsados = {}, quienes = [];
+  orden.forEach(function(x){
+    if (x.a.operario) opsUsados[x.a.operario] = true;
+    if (x.a.implemento) implUsados[x.a.implemento] = true;
+    if (x.a.programadoPor && quienes.indexOf(x.a.programadoPor) < 0) quienes.push(x.a.programadoPor);
+  });
+  var opsLibres = OPERARIOS.filter(function(o){ return !opsUsados[o]; });
+  var implLibres = cfgImpl().filter(function(i){ return i.cod && !implUsados[i.cod]; });
+  var tij = implPorTipo('tijera'), tijUsadas = tij.filter(function(i){ return implUsados[i.cod]; }).length;
+  var sinOperario = orden.filter(function(x){ return !x.a.operario; }).length;
+  var conPend = flota.filter(function(m){ return pendTaller[m.cod] && !varadas[m.cod]; });
+  var p = fechaSel.split('-'), dSem = DIAS_SEM[new Date(+p[0], +p[1]-1, +p[2]).getDay()];
+  var fechaCorta = dSem.charAt(0).toUpperCase() + dSem.slice(1) + ' ' + (+p[2]) + ' ' + MESES[+p[1]-1].slice(0,3) + '. ' + p[0];
 
-  if (varadasL.length){
-    h += '<h4>En el taller</h4><table><thead><tr><th>Máquina</th><th>Novedad</th></tr></thead><tbody>' +
-      varadasL.map(function(m){ return '<tr><td><strong>' + esc(m.cod) + '</strong> ' + esc(m.nombre) +
-        '</td><td>' + esc(varadas[m.cod]) + '</td></tr>'; }).join('') + '</tbody></table>';
-  }
-  if (sinProg.length){
-    h += '<h4>Sin programar</h4><p style="font-size:11px">' +
-      sinProg.map(function(m){ return esc(m.cod) + ' ' + esc(m.nombre); }).join(' · ') + '</p>';
-  }
+  var h = '<div class="pr">' +
+    /* encabezado */
+    '<div class="pr-cab">' +
+      '<div class="pr-marca"><div class="pr-logo">PG</div><div class="pr-emp"><b>PALMA GRANDE S.A.S.</b><span>Puerto Concordia, Meta</span></div></div>' +
+      '<div class="pr-tit"><b>Programación diaria de maquinaria</b><span>Orden de trabajo para campo · entregar con la máquina y su implemento</span></div>' +
+      '<div class="pr-dato">' +
+        '<div>Fecha</div><div class="grande">' + esc(fechaCorta) + '</div>' +
+        '<div>Consecutivo</div><div class="mono">PRG-' + fechaSel.replace(/-/g, '') + '</div>' +
+        '<div>Programó</div><div>' + (esc(quienes.join(', ')) || esc(estado.yo) || '—') + '</div>' +
+      '</div>' +
+    '</div>' +
+    /* resumen */
+    '<div class="pr-kpi">' +
+      '<div class="verde"><b>' + orden.length + '/' + disponibles + '</b><span>Máquinas programadas / disponibles</span></div>' +
+      '<div' + (sinOperario ? ' class="ambar"' : '') + '><b>' + Object.keys(opsUsados).length + '/' + OPERARIOS.length + '</b><span>Operarios asignados' + (sinOperario ? ' · ' + sinOperario + ' sin operario' : '') + '</span></div>' +
+      '<div><b>' + tijUsadas + '/' + tij.length + '</b><span>Tijeras de volteo en uso</span></div>' +
+      '<div' + (varadasL.length ? ' class="rojo"' : '') + '><b>' + varadasL.length + '</b><span>En taller</span></div>' +
+      '<div' + (conPend.length ? ' class="ambar"' : '') + '><b>' + conPend.length + '</b><span>Con pendiente del taller</span></div>' +
+      '<div' + (sinProg.length ? ' class="ambar"' : '') + '><b>' + sinProg.length + '</b><span>Disponibles sin programar</span></div>' +
+    '</div>' +
+    /* tabla agrupada por labor */
+    '<table><thead><tr><th style="width:11%">Máquina</th><th style="width:12%">Lotes</th><th style="width:8%">Implemento</th>' +
+      '<th style="width:12%">Operario</th><th style="width:21%">Observaciones</th>' +
+      '<th style="width:9%">Horómetro salida</th><th style="width:9%">Horómetro llegada</th><th style="width:18%">Firma del operario</th></tr></thead><tbody>';
+  var labActual = null;
+  orden.forEach(function(x){
+    if (x.a.labor !== labActual){
+      labActual = x.a.labor;
+      var delGrupo = orden.filter(function(y){ return y.a.labor === labActual; });
+      var lotesG = [];
+      delGrupo.forEach(function(y){ (y.a.lotes || []).forEach(function(l){ if (lotesG.indexOf(l) < 0) lotesG.push(l); }); });
+      h += '<tr class="pr-grupo"><td colspan="8">' + esc(txtLabor(labActual)) + ' <span>· ' + delGrupo.length +
+        (delGrupo.length === 1 ? ' máquina' : ' máquinas') + (lotesG.length ? ' · ' + lotesG.length + (lotesG.length === 1 ? ' lote' : ' lotes') : '') + '</span></td></tr>';
+    }
+    var fincas = fincasDe(x.a.lotes);
+    h += '<tr>' +
+      '<td class="pr-maq"><b>' + esc(x.maq.cod) + '</b><span>' + esc(x.maq.nombre) + '</span></td>' +
+      '<td class="pr-lote">' + ((x.a.lotes && x.a.lotes.length) ? '<b>' + esc(x.a.lotes.join(', ')) + '</b>' +
+        (fincas ? '<span>' + esc(fincas) + '</span>' : '') : '<span class="pr-vacio">—</span>') + '</td>' +
+      '<td class="mono">' + (esc(x.a.implemento) || '<span class="pr-vacio">—</span>') + '</td>' +
+      '<td>' + (x.a.operario ? '<b>' + esc(x.a.operario) + '</b>' : '<div class="pr-firma-op"></div>') + '</td>' +
+      '<td>' + (pendTaller[x.maq.cod] ? '<span class="pr-pend">⚠ Taller: ' + esc(txtPend(x.maq.cod)) + '</span><br>' : '') + esc(x.a.obs || '') + '</td>' +
+      '<td><div class="pr-casilla"></div></td><td><div class="pr-casilla"></div></td><td><div class="pr-firma-op"></div></td></tr>';
+  });
+  h += '</tbody></table>';
 
-  h += '<div class="p-firma"><div>Coordinador de Campo</div><div>Supervisor</div><div>Fecha y hora de entrega</div></div>' +
-    '<div class="p-pie">La columna "Recibido" la firma el operario al recibir la máquina con su implemento. ' +
-    'Las máquinas en taller no se programan hasta que tengan el alta. Impreso el ' + fechaCO(hoy()) + ' a las ' + horaAhora() + '.</div>';
+  /* bloques: taller, pendientes y recursos libres */
+  h += '<div class="pr-bloques">' +
+    '<div class="pr-bloque rojo"><h5>En el taller · no se programan</h5>' +
+      (varadasL.length ? '<ul>' + varadasL.map(function(m){ return '<li><b>' + esc(m.cod) + '</b> ' + esc(m.nombre) + ' — ' + esc(varadas[m.cod]) + '</li>'; }).join('') + '</ul>'
+                       : '<p>Ninguna máquina en el taller.</p>') + '</div>' +
+    '<div class="pr-bloque ambar"><h5>Trabajan con pendiente del taller</h5>' +
+      (conPend.length ? '<ul>' + conPend.map(function(m){ return '<li><b>' + esc(m.cod) + '</b> — ' + esc(txtPend(m.cod)) + '</li>'; }).join('') + '</ul>'
+                      : '<p>Sin pendientes.</p>') + '</div>' +
+    '<div class="pr-bloque"><h5>Recursos sin asignar</h5><p>' +
+      '<b>Máquinas:</b> ' + (sinProg.length ? sinProg.map(function(m){ return esc(m.cod); }).join(', ') : 'ninguna') + '<br>' +
+      '<b>Operarios:</b> ' + (opsLibres.length ? opsLibres.map(esc).join(', ') : 'ninguno') + '<br>' +
+      '<b>Implementos:</b> ' + (implLibres.length ? implLibres.map(function(i){ return esc(i.cod); }).join(', ') : 'ninguno') +
+    '</p></div>' +
+  '</div>';
+
+  h += '<div class="pr-firmas">' +
+      '<div>Programó<span>' + (esc(quienes.join(', ')) || esc(estado.yo) || '') + '</span></div>' +
+      '<div>Coordinador de Campo<span>Revisó y aprobó</span></div>' +
+      '<div>Jefe de Taller<span>Entregó las máquinas</span></div>' +
+    '</div>' +
+    '<div class="pr-pie"><span>El operario anota el horómetro al salir y al llegar, y firma al recibir la máquina con su implemento. ' +
+      'Las máquinas en taller no se programan hasta que tengan el alta.</span>' +
+      '<span>Impreso el ' + fechaCO(hoy()) + ' a las ' + horaAhora() + '</span></div>' +
+  '</div>';
 
   $('#print').innerHTML = h;
   setTimeout(function(){ window.print(); }, 150);
