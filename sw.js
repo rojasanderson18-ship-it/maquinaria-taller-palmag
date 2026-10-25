@@ -6,6 +6,8 @@ const ASSETS = [
   '/maquinaria-taller-palmag/maestros.js',
   '/maquinaria-taller-palmag/manifest-programacion.json',
   '/maquinaria-taller-palmag/icons/programacion-192.png',
+  '/maquinaria-taller-palmag/manifest-preoperativo.json',
+  '/maquinaria-taller-palmag/icons/preoperativo-192.png',
   'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap',
 ];
 
