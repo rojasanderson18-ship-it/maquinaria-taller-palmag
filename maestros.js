@@ -241,15 +241,17 @@
         if (h == null || h <= 0 || !cod || !f) return;
         if (!ult[cod] || f > ult[cod].fecha || (f === ult[cod].fecha && h > ult[cod].h)) ult[cod] = { fecha:f, h:h };
       }
-      // horómetro con que arrancó cada máquina cada día (el menor si hubo dos preoperativos)
-      function inicio(cod, f, h){
+      // horómetro con que arrancó cada máquina cada día, por operario (doble turno)
+      // y el menor del día
+      function inicio(cod, f, h, op){
         anotar(cod, f, h);
         if (h == null || h <= 0 || !cod || !f) return;
         var k = cod + '|' + f;
         if (inicioDia[k] == null || h < inicioDia[k]) inicioDia[k] = h;
+        inicioDia[k + '|' + op] = h;
       }
-      (res[0] || []).forEach(function(r){ inicio(codDe(r[3]), aIso(r[0]), num(r[7])); });
-      (res[2] || []).forEach(function(r){ inicio(codDe(r[3]), aIso(r[0]), num(r[6])); });   // Preoperativo anterior
+      (res[0] || []).forEach(function(r){ inicio(codDe(r[3]), aIso(r[0]), num(r[7]), String(r[2]||'').trim()); });
+      (res[2] || []).forEach(function(r){ inicio(codDe(r[3]), aIso(r[0]), num(r[6]), String(r[2]||'').trim()); });   // Preoperativo anterior
       var filas = (res[1] || []).map(function(r){
         return { cod:codDe(r[3]), fecha:aIso(r[0]), final:num(r[4]), inicial:num(r[5]), horas:num(r[6]), operario:String(r[2]||'') };
       }).filter(function(c){ return c.cod && /^\d{4}-\d{2}-\d{2}$/.test(c.fecha); })
@@ -257,8 +259,11 @@
       var previo = {};
       filas.forEach(function(c){
         // Las filas viejas tienen texto (Estado, Novedad) en esas columnas: num() da null.
-        if (c.inicial == null) c.inicial = inicioDia[c.cod + '|' + c.fecha] != null ? inicioDia[c.cod + '|' + c.fecha] : null;
-        if (c.inicial == null && previo[c.cod] && c.fecha > previo[c.cod].fecha) c.inicial = previo[c.cod].final;   // el cierre anterior
+        var k = c.cod + '|' + c.fecha, ant = previo[c.cod];
+        if (c.inicial == null && inicioDia[k + '|' + c.operario.trim()] != null) c.inicial = inicioDia[k + '|' + c.operario.trim()];
+        if (c.inicial == null && ant && ant.fecha === c.fecha) c.inicial = ant.final;   // segundo turno: donde terminó el primero
+        if (c.inicial == null && inicioDia[k] != null) c.inicial = inicioDia[k];
+        if (c.inicial == null && ant && c.fecha > ant.fecha) c.inicial = ant.final;     // el cierre del día anterior
         if (c.horas == null && c.final != null && c.inicial != null) c.horas = Math.round((c.final - c.inicial) * 10) / 10;
         if (c.horas != null && (c.horas < 0 || c.horas > 24)) c.horas = null;   // horómetro mal digitado: no se cuenta
         anotar(c.cod, c.fecha, c.final);
