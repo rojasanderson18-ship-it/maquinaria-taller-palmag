@@ -353,8 +353,8 @@ async function traerTodo(){
         programo:String(r[1] || '').split(' — ')[0] };
     });
   }
-  var ult = {};
-  function anotar(cod, f, h){ if (h == null || h <= 0 || !cod || !maqDe(cod)) return; if (!ult[cod] || f > ult[cod].fecha || (f === ult[cod].fecha && h > ult[cod].h)) ult[cod] = { fecha:f, h:h }; }
+  var ult = {}, lecturas = {};
+  function anotar(cod, f, h){ if (h == null || h <= 0 || !cod || !f || !maqDe(cod)) return; (lecturas[cod] = lecturas[cod] || []).push({ fecha:f, h:h }); }
   if (preop){
     R.preopHoy = {};
     preop.forEach(function(r){
@@ -373,6 +373,12 @@ async function traerTodo(){
     });
   }
   if (preopViejo) preopViejo.forEach(function(r){ anotar(codDe(r[3]), aIso(r[0]), num(r[6])); });   // Preoperativo anterior
+  // el último creíble: un horómetro mal digitado no queda de referencia (maestros.js)
+  Object.keys(lecturas).forEach(function(cod){
+    var u = Horometros.ultimoValido ? Horometros.ultimoValido(lecturas[cod])
+      : lecturas[cod].reduce(function(a, x){ return !a || x.fecha > a.fecha || (x.fecha === a.fecha && x.h > a.h) ? x : a; }, null);
+    if (u) ult[cod] = u;
+  });
   if (preop || cierre || preopViejo) R.ultHor = ult;
   if (confirmar({ PreopDiario: preop, CierreJornada: cierre, Taller: taller })) enviar();
   R.fecha = hy;

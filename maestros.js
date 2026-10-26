@@ -217,6 +217,22 @@
     if (f) return f.cod;
     var m = t.match(/^#?\s*0*(\d{1,2})\b/); return m ? '#' + p2(+m[1]) : t;
   }
+  function diasEntre(a, b){ return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000); }
+  /* El último horómetro creíble. Una lectura que salta más de 24 h por día
+     (o baja) respecto a la anterior aceptada es casi siempre un error de
+     digitación (11642 por 1164,2) y se ignora. Si la siguiente lectura
+     confirma el salto (cambiaron el horómetro), se aceptan las dos. */
+  function ultimoValido(l){
+    l = l.slice().sort(function(a, b){ return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.h - b.h; });
+    function creible(a, b){ return b.h >= a.h - 0.5 && b.h - a.h <= 24 * Math.max(1, diasEntre(a.fecha, b.fecha)); }
+    var acc = null, pend = null;
+    l.forEach(function(r){
+      if (!acc || creible(acc, r)){ acc = r; pend = null; }
+      else if (pend && creible(pend, r)){ acc = r; pend = null; }
+      else pend = r;
+    });
+    return acc;
+  }
   var H = (function(){ try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ return null; } })() || { ultimo:{}, cierres:[] };
 
   async function leer(hoja){
@@ -228,18 +244,22 @@
 
   window.Horometros = {
     codDe: codDe,
+    ultimoValido: ultimoValido,
     /* último horómetro conocido por máquina: { cod: { h, fecha } } */
     ultimo: function(){ return H.ultimo || {}; },
     /* cierres de jornada: [{ cod, fecha, final, inicial, horas, operario }] */
     cierres: function(){ return H.cierres || []; },
+    /* días en que cada máquina tuvo preoperativo o cierre: { 'cod|fecha': true } */
+    usos: function(){ return H.usos || {}; },
     traer: async function(){
       var res = await Promise.all([leer('PreopDiario'), leer('CierreJornada'), leer('Preoperativos')]
         .map(function(p){ return p.catch(function(){ return null; }); }));
       if (!res[0] && !res[1] && !res[2]) return false;
-      var ult = {}, cierres = [], inicioDia = {};
+      var ult = {}, cierres = [], inicioDia = {}, lecturas = {}, usos = {};
       function anotar(cod, f, h){
+        if (cod && /^\d{4}-\d{2}-\d{2}$/.test(f)) usos[cod + '|' + f] = true;   // ese día la máquina se usó
         if (h == null || h <= 0 || !cod || !f) return;
-        if (!ult[cod] || f > ult[cod].fecha || (f === ult[cod].fecha && h > ult[cod].h)) ult[cod] = { fecha:f, h:h };
+        (lecturas[cod] = lecturas[cod] || []).push({ fecha:f, h:h });
       }
       // horómetro con que arrancó cada máquina cada día, por operario (doble turno)
       // y el menor del día
@@ -276,7 +296,8 @@
         if (c.final != null && c.final > 0) previo[c.cod] = c;
         cierres.push(c);
       });
-      H = { ultimo: ult, cierres: cierres, leido: new Date().toISOString() };
+      Object.keys(lecturas).forEach(function(cod){ var u = ultimoValido(lecturas[cod]); if (u) ult[cod] = u; });
+      H = { ultimo: ult, cierres: cierres, usos: usos, leido: new Date().toISOString() };
       try { localStorage.setItem(KEY, JSON.stringify(H)); } catch(e){}
       return true;
     }
