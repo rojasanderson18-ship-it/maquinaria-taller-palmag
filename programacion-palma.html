@@ -1362,7 +1362,15 @@ async function traerMaestros(){
   if (!navigator.onLine) return;
   var pend = {};
   Object.keys(CFG_MAESTROS).concat(['FLOTA']).forEach(function(t){ if (pendienteMaestro(t)) pend[t] = true; });
-  try { if (await Maestros.traer(pend)){ aplicarMaestros(); await persistir(); if ($('#hoja').hidden) pintar(); } } catch(e){}
+  try {
+    if (await Maestros.traer(pend)){ aplicarMaestros(); await persistir(); if ($('#hoja').hidden) pintar(); }
+    if (!Maestros.reenviar) return;   // maestros.js viejo en caché
+    Maestros.avisos().forEach(function(m){ aviso(m); });
+    // lo que se envió y no apareció en la hoja se vuelve a enviar (hasta 3 veces)
+    var re = Maestros.reenviar(pend);
+    re.forEach(function(x){ estado.cola.push({ id:x.id, hoja:x.hoja, fila:x.fila, encabezados:x.encabezados }); });
+    if (re.length){ await persistir(); enviar(); }
+  } catch(e){}
 }
 
 /* =====================================================================
