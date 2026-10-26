@@ -18,6 +18,8 @@
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:#fff;min-height:100vh;overflow-x:hidden}
 
 /* ── HERO ── */
+.aviso-lectura{margin-top:12px;background:var(--rojo-m);color:#fff;font-size:13px;padding:8px 12px;border-radius:8px;line-height:1.35}
+.aviso-lectura[hidden]{display:none}
 .hero{position:relative;min-height:100vh;display:flex;flex-direction:column;padding:0}
 
 /* Fondo con gradiente */
@@ -141,20 +143,21 @@ footer strong{color:rgba(255,255,255,.4)}
     <div class="hero-date" id="hero-date">—</div>
     <h1 class="hero-title">Control de<br><span>Maquinaria</span><br>Agrícola</h1>
     <p class="hero-sub">Preoperativos, taller y programación diaria en tiempo real</p>
+    <div class="aviso-lectura" id="aviso-lectura" hidden>No se pudo leer la hoja de cálculo. Revise la señal; los números pueden no estar al día.</div>
 
     <!-- KPIs del día -->
     <div class="kpi-strip">
       <div class="kpi-item">
-        <div class="kpi-val verde kpi-loading" id="kpi-reportados">—</div>
-        <div class="kpi-lbl">Reportados</div>
+        <div class="kpi-val verde kpi-loading" id="kpi-trabajando">—</div>
+        <div class="kpi-lbl">Trabajando</div>
       </div>
       <div class="kpi-item">
-        <div class="kpi-val verde kpi-loading" id="kpi-autorizados">—</div>
-        <div class="kpi-lbl">Autorizados</div>
+        <div class="kpi-val rojo kpi-loading" id="kpi-taller">—</div>
+        <div class="kpi-lbl">En taller</div>
       </div>
       <div class="kpi-item">
-        <div class="kpi-val rojo kpi-loading" id="kpi-retenidos">—</div>
-        <div class="kpi-lbl">Retenidos</div>
+        <div class="kpi-val dorado kpi-loading" id="kpi-pend">—</div>
+        <div class="kpi-lbl">Pendientes</div>
       </div>
       <div class="kpi-item">
         <div class="kpi-val dorado kpi-loading" id="kpi-disp">—</div>
@@ -169,23 +172,23 @@ footer strong{color:rgba(255,255,255,.4)}
       <div class="status-title">Estado del día</div>
       <div class="status-row">
         <div class="status-dot verde"></div>
-        <div class="status-text">Preoperativos recibidos</div>
+        <div class="status-text">Preoperativos de hoy</div>
         <div class="status-val" id="st-preop">—</div>
       </div>
       <div class="status-row">
         <div class="status-dot dorado"></div>
-        <div class="status-text">Tractores programados</div>
+        <div class="status-text">Máquinas programadas hoy</div>
         <div class="status-val" id="st-prog">—</div>
       </div>
       <div class="status-row">
         <div class="status-dot rojo"></div>
-        <div class="status-text">Alertas de mantenimiento</div>
+        <div class="status-text">Mantenimiento vencido</div>
         <div class="status-val" id="st-alert">—</div>
       </div>
       <div class="status-row">
         <div class="status-dot verde"></div>
-        <div class="status-text">Combustible cargado hoy</div>
-        <div class="status-val" id="st-comb">—</div>
+        <div class="status-text">Camiones trabajando</div>
+        <div class="status-val" id="st-cam">—</div>
       </div>
     </div>
   </div>
@@ -200,7 +203,7 @@ footer strong{color:rgba(255,255,255,.4)}
         <div class="app-info">
           <div class="app-role">Operarios</div>
           <div class="app-name">Preoperativo</div>
-          <div class="app-desc">Llena tu reporte antes de arrancar el tractor</div>
+          <div class="app-desc">Antes de arrancar y al terminar la jornada</div>
         </div>
         <div class="app-arrow">›</div>
       </div>
@@ -212,7 +215,7 @@ footer strong{color:rgba(255,255,255,.4)}
         <div class="app-info">
           <div class="app-role">Mecánico — Tulio</div>
           <div class="app-name">Panel del Taller</div>
-          <div class="app-desc">Revisa novedades y autoriza la salida de equipos</div>
+          <div class="app-desc">Paradas, altas, pendientes y mantenimiento</div>
         </div>
         <div class="app-arrow">›</div>
         <div class="app-badge" id="badge-novedades">0</div>
@@ -251,9 +254,21 @@ footer strong{color:rgba(255,255,255,.4)}
   </footer>
 </div>
 
+<script src="maestros.js"></script>
 <script>
+/* Página de inicio: el estado de hoy, leído de las mismas hojas que usan las
+   apps (Taller, PreopDiario, ProgMaquinaria) y, mientras todos pasan a las
+   versiones nuevas, también de las anteriores (Preoperativos, Programacion). */
 const GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
-const HOY = new Date().toLocaleDateString('es-CO');
+
+function p2(n){ return ('0'+n).slice(-2); }
+function isoLocal(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
+function aIso(v){
+  const s = String(v==null?'':v).trim(); if (!s) return '';
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return m[3]+'-'+p2(m[2])+'-'+p2(m[1]);
+  if (s.indexOf('T') > 0){ const d = new Date(s); if (!isNaN(d)) return isoLocal(d); }
+  return s.slice(0,10);
+}
 
 function init(){
   const now = new Date();
@@ -264,67 +279,92 @@ function init(){
   setInterval(cargarDatos, 3*60*1000);
 }
 
-async function fetchHoja(hoja){
-  try{
-    const r = await fetch(GS_URL+'?hoja='+hoja);
-    const d = await r.json();
-    if(!d.ok) return [];
-    return d.datos.filter(function(f){
-      let fecha = f[0]||'';
-      if(typeof fecha==='string'&&fecha.includes('T')) fecha=new Date(fecha).toLocaleDateString('es-CO');
-      return fecha===HOY;
-    });
-  }catch(e){ return []; }
+async function leer(hoja){
+  const r = await fetch(GS_URL + '?hoja=' + encodeURIComponent(hoja) + '&t=' + Date.now());
+  const d = await r.json();
+  if (!d || !d.ok || !Array.isArray(d.datos)) throw new Error('sin datos');
+  return d.datos;
 }
 
 async function cargarDatos(){
-  try{
-    const [preops, revisiones, altas, alertas, tanqueos, programacion] = await Promise.all([
-      fetchHoja('Preoperativos'),
-      fetchHoja('Revisiones'),
-      fetchHoja('Altas'),
-      fetchHoja('Alertas Mantenimiento'),
-      fetchHoja('Tanqueos'),
-      fetchHoja('Programacion'),
-    ]);
+  const hoy = isoLocal(new Date());
+  const res = await Promise.all(['Taller', 'PreopDiario', 'Preoperativos', 'ProgMaquinaria', 'Programacion']
+    .map(h => leer(h).catch(() => null)));
+  try { await Maestros.traer(); } catch(e){}
+  try { await Horometros.traer(); } catch(e){}
+  const [taller, preop, preopViejo, prog, progViejo] = res;
+  document.getElementById('aviso-lectura').hidden = !!taller;
+  if (!taller) return;                       // sin el Taller no se sabe nada de hoy: se deja lo último
 
-    const reportados  = preops.length;
-    const autorizados = revisiones.filter(r=>r[4]==='AUTORIZADO').length + altas.length;
-    const retenidos   = Math.max(0, revisiones.filter(r=>r[4]==='RETENIDO').length - altas.length);
-    const disp        = reportados>0?Math.round(autorizados/reportados*100):0;
-    const programados = programacion.filter(r=>r[3]&&String(r[3]).trim()).length;
-    const litros      = tanqueos.filter(r=>r[5]==='Sí').reduce((s,r)=>s+(parseFloat(r[6])||0),0);
+  const flota = Maestros.flota(), cod = t => Horometros.codDe(t);
+  const maq = flota.filter(f => f.grupo !== 'transporte'), cam = flota.filter(f => f.grupo === 'transporte');
 
-    // KPIs hero
-    setKPI('kpi-reportados', reportados, false);
-    setKPI('kpi-autorizados', autorizados, false);
-    setKPI('kpi-retenidos', retenidos, true);
-    document.getElementById('kpi-disp').textContent = reportados>0?disp+'%':'—';
-    document.getElementById('kpi-disp').classList.remove('kpi-loading');
+  // Taller: paradas sin alta y pendientes abiertos (la última fila de cada ID manda)
+  const ev = {}, nov = {};
+  taller.forEach(r => {
+    const acc = String(r[2]||'').trim().toUpperCase(), id = String(r[3]||'').trim();
+    if (!id) return;
+    if (acc === 'PARADA' || acc === 'ALTA'){
+      const e = ev[id] = ev[id] || { cod: String(r[4]||'').trim(), abierta: true };
+      if (acc === 'ALTA') e.abierta = false;               // con alta queda cerrada
+    }
+    if (acc === 'PENDIENTE' || acc === 'RESUELTO'){
+      const n = nov[id] = nov[id] || { cod: String(r[4]||'').trim(), urgente:false, abierta:true };
+      if (r[6]) n.urgente = String(r[6]).trim() === 'urgente';
+      if (acc === 'RESUELTO') n.abierta = false;
+    }
+  });
+  const parada = {};
+  Object.values(ev).forEach(e => { if (e.abierta) parada[e.cod] = true; });
+  const pend = Object.values(nov).filter(n => n.abierta && flota.some(f => f.cod === n.cod));
+  const urg = pend.filter(n => n.urgente).length;
 
-    // Status
-    document.getElementById('st-preop').textContent  = reportados+' / 11';
-    document.getElementById('st-prog').textContent   = programados+' / 11';
-    document.getElementById('st-alert').textContent  = alertas.length||'✅ Sin alertas';
-    document.getElementById('st-comb').textContent   = litros>0?litros.toFixed(0)+' gal':'—';
+  const enTaller = maq.filter(f => parada[f.cod]).length, trabajando = maq.length - enTaller;
+  const disp = maq.length ? Math.round(trabajando / maq.length * 100) : 0;
+  const camOk = cam.filter(f => !parada[f.cod]).length;
 
-    // Badge novedades mecánico
-    const conNov = preops.filter(p=>p[22]==='CON NOVEDAD').length;
-    const badge  = document.getElementById('badge-novedades');
-    if(conNov>0){ badge.textContent=conNov; badge.classList.add('show'); }
-    else { badge.classList.remove('show'); }
+  // preoperativos de hoy (máquinas distintas, versión nueva y anterior)
+  const conPreop = {};
+  (preop || []).forEach(r => { if (aIso(r[0]) === hoy) conPreop[cod(r[3])] = true; });
+  (preopViejo || []).forEach(r => { if (aIso(r[0]) === hoy) conPreop[cod(r[3])] = true; });
+  const nPreop = maq.filter(f => conPreop[f.cod]).length;
 
-    document.getElementById('footer-time').textContent = new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+  // programación de hoy: ProgMaquinaria (la última fila de cada máquina) o la hoja de siempre
+  const pr = {};
+  (prog || []).forEach(r => {
+    if (aIso(r[4]) !== hoy) return;
+    const c = String(r[5]||'').trim(), acc = String(r[2]||'').trim().toUpperCase();
+    if (acc === 'ASIGNAR') pr[c] = true; else if (acc === 'QUITAR') delete pr[c];
+  });
+  (progViejo || []).forEach(r => { if (aIso(r[0]) === hoy && String(r[3]||'').trim()) pr[cod(r[2])] = pr[cod(r[2])] || true; });
+  const nProg = maq.filter(f => pr[f.cod] && !parada[f.cod]).length;
 
-  }catch(e){ console.error(e); }
+  // mantenimiento vencido (lo que registra Tulio + horómetros de los operarios)
+  const mt = maq.map(f => Mtto.estado(f.cod));
+  const venc = mt.filter(m => m.nivel === 'vencido').length, registrados = mt.filter(m => m.nivel !== 'sindato').length;
+
+  valor('kpi-trabajando', trabajando + '/' + maq.length, 'verde');
+  valor('kpi-taller', enTaller, enTaller ? 'rojo' : 'verde');
+  valor('kpi-pend', pend.length, pend.length ? 'dorado' : 'verde');
+  valor('kpi-disp', disp + '%', disp >= 90 ? 'verde' : disp >= 75 ? 'dorado' : 'rojo');
+
+  document.getElementById('st-preop').textContent = nPreop + ' / ' + trabajando;
+  document.getElementById('st-prog').textContent  = nProg + ' / ' + trabajando;
+  document.getElementById('st-alert').textContent = !registrados ? 'Sin registrar' : venc ? venc + (venc === 1 ? ' máquina' : ' máquinas') : '✅ Al día';
+  document.getElementById('st-cam').textContent   = camOk + ' / ' + cam.length;
+
+  // en la tarjeta del Taller: pendientes abiertos (los urgentes primero)
+  const badge = document.getElementById('badge-novedades');
+  if (pend.length){ badge.textContent = urg ? urg + '!' : pend.length; badge.classList.add('show'); }
+  else badge.classList.remove('show');
+
+  document.getElementById('footer-time').textContent = new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
 }
 
-function setKPI(id, val, esRojo){
+function valor(id, v, color){
   const el = document.getElementById(id);
-  el.textContent = val||'—';
-  el.classList.remove('kpi-loading');
-  if(esRojo && val>0) el.className='kpi-val rojo';
-  else if(!esRojo) el.className='kpi-val verde';
+  el.textContent = v;
+  el.className = 'kpi-val ' + color;
 }
 
 init();
