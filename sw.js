@@ -58,7 +58,16 @@ async function saveQueue(queue) {
   await cache.put('/__queue__', new Response(JSON.stringify(queue)));
 }
 
-async function processQueue() {
+/* Cola de la versión anterior del Preoperativo. Las páginas actuales tienen
+   su propia cola (y confirman en la hoja), así que aquí solo se termina de
+   enviar lo que quedó guardado de antes. Un envío a la vez: si dos páginas
+   piden SYNC_NOW juntas, no se manda dos veces lo mismo. */
+let procesando = null;
+function processQueue() {
+  if (!procesando) procesando = vaciarCola().finally(() => { procesando = null; });
+  return procesando;
+}
+async function vaciarCola() {
   const cache = await caches.open(CACHE);
   const queueRes = await cache.match('/__queue__');
   const queue = JSON.parse(await queueRes?.text() || '[]');
@@ -87,27 +96,10 @@ async function processQueue() {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // POST a Apps Script → encolar si no hay red
-  if (e.request.method === 'POST' && url.hostname.includes('script.google.com')) {
-    e.respondWith(
-      e.request.clone().text().then(async body => {
-        try {
-          await fetch(e.request.clone(), { mode: 'no-cors' });
-          return new Response(JSON.stringify({ ok: true, online: true }), { headers: { 'Content-Type': 'application/json' } });
-        } catch {
-          // Sin internet → encolar
-          const cache = await caches.open(CACHE);
-          const queueRes = await cache.match('/__queue__');
-          const queue = JSON.parse(await queueRes?.text() || '[]');
-          queue.push({ url: e.request.url, body, timestamp: Date.now() });
-          await cache.put('/__queue__', new Response(JSON.stringify(queue)));
-          return new Response(JSON.stringify({ ok: true, offline: true, encolado: queue.length }), { headers: { 'Content-Type': 'application/json' } });
-        }
-      })
-    );
-    return;
-  }
-
+  // Los envíos (POST) no se tocan: cada página los guarda en su propia cola
+  // y los da por enviados solo si salieron. Antes el service worker también
+  // los guardaba y le decía a la página "enviado": quedaban en dos colas y
+  // podían llegar dos veces a la hoja.
   if (e.request.method !== 'GET') return;
 
   // Lecturas de la hoja de cálculo: siempre de la red, nunca de la caché
