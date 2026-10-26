@@ -19,7 +19,9 @@ const ASSETS = [
 // Instalar — cachear archivos principales
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    // uno por uno: si falla uno (p. ej. la fuente), igual se instala la versión nueva
+    caches.open(CACHE).then(cache => Promise.all(ASSETS.map(a => cache.add(a).catch(() => null))))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -28,9 +30,20 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    ).then(limpiarLecturas).then(() => self.clients.claim())
   );
 });
+
+// Las versiones anteriores guardaban cada lectura de la hoja de cálculo:
+// no sirven (cada una lleva una marca de tiempo distinta) y llenan el celular.
+async function limpiarLecturas() {
+  const cache = await caches.open(CACHE);
+  const keys = await cache.keys();
+  await Promise.all(keys.filter(r => esGoogle(new URL(r.url))).map(r => cache.delete(r)));
+}
+function esGoogle(url) {
+  return url.hostname.includes('script.google.com') || url.hostname.includes('googleusercontent.com');
+}
 
 // Cola de envíos pendientes (cuando no hay internet)
 const QUEUE_KEY = 'flota_queue';
@@ -95,19 +108,45 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // GET → caché primero, luego red
+  if (e.request.method !== 'GET') return;
+
+  // Lecturas de la hoja de cálculo: siempre de la red, nunca de la caché
+  // (cada página avisa cuando no las puede leer).
+  if (esGoogle(url)) return;
+
+  // Páginas y archivos propios → primero la red, para que todos vean la
+  // última versión apenas se publica; sin señal (o si tarda más de 4 s), la
+  // copia guardada.
+  if (url.origin === self.location.origin) {
+    e.respondWith(redPrimero(e.request));
+    return;
+  }
+
+  // Fuentes y demás → caché primero
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      const network = fetch(e.request).then(res => {
-        if (res.ok && e.request.method === 'GET') {
-          caches.open(CACHE).then(cache => cache.put(e.request, res.clone()));
-        }
-        return res;
-      }).catch(() => cached);
-      return cached || network;
-    })
+    caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
+      if (res.ok) { const c = res.clone(); caches.open(CACHE).then(cache => cache.put(e.request, c)); }
+      return res;
+    }))
   );
 });
+
+async function redPrimero(req) {
+  const cache = await caches.open(CACHE);
+  const red = fetch(req).then(res => {
+    if (res.ok) cache.put(req, res.clone());
+    return res;
+  });
+  red.catch(() => null);   // si falla después de usar la copia guardada, no es un error
+  const espera = new Promise(r => setTimeout(r, 4000, null));
+  try {
+    const res = await Promise.race([red, espera]);
+    if (res) return res;
+  } catch (err) { /* sin señal */ }
+  const guardada = await cache.match(req, { ignoreSearch: true });
+  if (guardada) return guardada;
+  return red;   // nunca se guardó: esperar a la red
+}
 
 // Sincronizar cuando vuelve la conexión
 self.addEventListener('sync', e => {

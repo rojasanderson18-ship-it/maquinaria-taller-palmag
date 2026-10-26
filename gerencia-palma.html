@@ -363,22 +363,36 @@ function pendientesDe(filas){
 }
 
 /* Programación: hoja ProgMaquinaria, la última fila de cada fecha + máquina vale
-   (igual que en Programación). */
+   (igual que en Programación). Las fechas que no están ahí se toman de la
+   hoja "Programacion" de siempre (la Programación anterior y la nueva
+   escriben en ella), así no se pierde el historial. */
+async function leerHoja(h){
+  var r = await fetch(GS_URL + '?hoja=' + h + '&t=' + Date.now());
+  var d = await r.json();
+  if (!d || !d.ok || !Array.isArray(d.datos)) throw new Error('sin datos');
+  return d.datos;
+}
 async function traerProgramacion(){
-  try {
-    var r = await fetch(GS_URL + '?hoja=ProgMaquinaria&t=' + Date.now());
-    var d = await r.json();
-    if (!d || !d.ok || !Array.isArray(d.datos)) return;
-    var dias = {}, ini = null;
-    d.datos.forEach(function(row){
-      var acc = String(row[2] || '').trim().toUpperCase(), f = aIso(row[4]), cod = String(row[5] || '').trim();
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !cod) return;
-      if (!ini || f < ini) ini = f;
-      if (acc === 'QUITAR'){ if (dias[f]) delete dias[f][cod]; return; }
-      if (acc === 'ASIGNAR') (dias[f] = dias[f] || {})[cod] = String(row[6] || '').trim() || 'Sin labor';
-    });
-    PROG = dias; INICIO_PROG = ini;
-  } catch(e){}
+  var res = await Promise.all(['ProgMaquinaria', 'Programacion'].map(function(h){ return leerHoja(h).catch(function(){ return null; }); }));
+  if (!res[0] && !res[1]) return;
+  var dias = {}, ini = null;
+  function fecha(f){ if (!ini || f < ini) ini = f; }
+  (res[0] || []).forEach(function(row){
+    var acc = String(row[2] || '').trim().toUpperCase(), f = aIso(row[4]), cod = String(row[5] || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !cod) return;
+    fecha(f);
+    if (acc === 'QUITAR'){ if (dias[f]) delete dias[f][cod]; return; }
+    if (acc === 'ASIGNAR') (dias[f] = dias[f] || {})[cod] = String(row[6] || '').trim() || 'Sin labor';
+  });
+  var nuevas = {};
+  Object.keys(dias).forEach(function(f){ nuevas[f] = true; });
+  (res[1] || []).forEach(function(row){
+    var f = aIso(row[0]), cod = Horometros.codDe(row[2]), lab = String(row[3] || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !cod || !lab || nuevas[f] || !eqDe(cod)) return;
+    fecha(f);
+    (dias[f] = dias[f] || {})[cod] = lab;
+  });
+  PROG = dias; INICIO_PROG = ini;
 }
 function txtLabor(v){ return LABORES[v] || v; }
 
@@ -489,6 +503,34 @@ function utilizacion(R){
   return { desde: dias[0], dias: dias.length, totales:U, equipos:equipos,
     porLabor: Object.keys(porLabor).map(function(k){ return { labor:k, dias:porLabor[k] }; })
       .sort(function(a,b){ return b.dias - a.dias; }) };
+}
+
+/* La máquina (o las máquinas, si empatan) con más días perdidos en el mes.
+   Una parada que viene de meses anteriores no es una falla "del mes": se
+   dice desde cuándo está parada. */
+function criticoDias(D){
+  var max = Math.max.apply(null, D.maquinaria.map(function(e){ return e.diasFalla; }).concat([0]));
+  if (!max) return null;
+  var top = D.maquinaria.filter(function(e){ return e.diasFalla === max; });
+  function desde(e){
+    var a = D.abiertos.filter(function(v){ return v.equipo === e.equipo; })[0];
+    return a ? a.inicio : null;
+  }
+  var todo = max === D.prog.length, dias = max + (max === 1 ? ' día parado' : ' días parados');
+  if (top.length > 1){
+    return { t: top.length + ' máquinas paradas ' + (todo ? 'todos los días del mes' : max + ' días cada una'),
+      d: top.map(function(e){ var f = desde(e); return e.equipo + (f ? ' desde el ' + dcorta(f) + (f < D.desde ? '/' + f.slice(0, 4) : '') : ''); }).join(', ') +
+        '. Son las que más bajan la disponibilidad: revisar con Tulio qué falta en cada una (repuesto, taller externo o dar de baja).' };
+  }
+  var e = top[0], f = desde(e);
+  if (f && f < D.desde){
+    return { t: e.equipo + ' ' + e.nombre + ' — ' + dias + ', parada desde el ' + dcorta(f) + '/' + f.slice(0, 4),
+      d: 'Viene de antes de este mes y sigue sin alta. El problema es conseguir el repuesto o la reparación, no el uso de la máquina.' };
+  }
+  return { t: e.equipo + ' ' + e.nombre + ' — ' + dias + ' en ' + e.fallas + (e.fallas === 1 ? ' falla' : ' fallas'),
+    d: e.fallas <= 1
+      ? 'Una sola falla lo dejó quieto todos esos días. El problema no es la máquina, es el tiempo de consecución del repuesto. Se atiende con stock, no con mantenimiento.'
+      : 'Concentra los días perdidos del mes. Revisar si son fallas distintas o la misma sin resolver.' };
 }
 
 /* ---------- horas trabajadas (horómetro del Cierre de jornada) ---------- */
@@ -756,13 +798,8 @@ function pintar(){
 
   var criticos = [];
   var masDias = D.maquinaria.slice().sort(function(a,b){ return b.diasFalla - a.diasFalla; })[0];
-  if (masDias && masDias.diasFalla > 0){
-    criticos.push({ t: masDias.equipo + ' ' + masDias.nombre + ' — ' + masDias.diasFalla +
-      (masDias.diasFalla === 1 ? ' día parado' : ' días parados') + ' en ' + masDias.fallas + (masDias.fallas === 1 ? ' falla' : ' fallas'),
-      d: masDias.fallas <= 1
-        ? 'Una sola falla lo dejó quieto todos esos días. El problema no es la máquina, es el tiempo de consecución del repuesto. Se atiende con stock, no con mantenimiento.'
-        : 'Concentra los días perdidos del mes. Revisar si son fallas distintas o la misma sin resolver.' });
-  }
+  var cDias = criticoDias(D);
+  if (cDias) criticos.push(cDias);
   var masFallas = D.maquinaria.slice().sort(function(a,b){ return b.fallas - a.fallas; })[0];
   if (masFallas && masFallas.fallas >= 3 && masFallas.equipo !== (masDias||{}).equipo){
     criticos.push({ t: masFallas.equipo + ' ' + masFallas.nombre + ' — ' + masFallas.fallas + ' fallas en el mes',
@@ -991,9 +1028,8 @@ function informe(){
   if (aten.length) h += '<h3>Requiere atención</h3><ul class="aten">' + aten.map(function(a){ return '<li>' + a + '</li>'; }).join('') + '</ul>';
 
   var criticos = [];
-  var masDias = D.maquinaria.slice().sort(function(a,b){ return b.diasFalla - a.diasFalla; })[0];
-  if (masDias && masDias.diasFalla > 0) criticos.push({ t: masDias.equipo + ' ' + masDias.nombre + ' — ' + masDias.diasFalla + ' días parados en ' + masDias.fallas + (masDias.fallas === 1 ? ' falla' : ' fallas'),
-    d: masDias.fallas <= 1 ? 'Una sola falla lo dejó quieto todos esos días: es el tiempo de consecución del repuesto, se atiende con stock.' : 'Concentra los días perdidos del mes.' });
+  var cDias = criticoDias(D);
+  if (cDias) criticos.push(cDias);
   var top = D.pareto.filter(function(x){ return x.id !== 'pendiente'; })[0];
   if (top && T.fallas >= 3 && top.fallas / T.fallas >= 0.4) criticos.push({ t: top.txt + ' — ' + top.fallas + ' de ' + T.fallas + ' fallas', d: 'Un solo sistema concentra buena parte de las fallas: revisar el preventivo de esa parte.' });
   if (criticos.length) h += '<h3>Lo que explica el mes</h3>' + criticos.map(function(c){ return '<div class="hallazgo"><b>' + esc(c.t) + '</b><span>' + esc(c.d) + '</span></div>'; }).join('');
