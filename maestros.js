@@ -186,8 +186,10 @@
 /* =====================================================================
    HORÓMETROS Y MANTENIMIENTO PREVENTIVO
    - Horómetros: lo que registran los operarios en el Preoperativo
-     (PreopDiario, horómetro inicial) y en el Cierre (CierreJornada,
-     horómetro final y horas trabajadas). Copia en el celular sin señal.
+     (PreopDiario, horómetro inicial; y Preoperativos, el anterior) y en el
+     Cierre (CierreJornada, horómetro final y horas trabajadas). Si el cierre
+     no trae el inicial, se toma el del preoperativo de ese día o el del
+     cierre anterior. Copia en el celular sin señal.
    - Mantenimiento: cada máquina tiene el horómetro de su último
      mantenimiento (lo registra Tulio en el Taller) en la hoja Maestros,
      tipo MTTO. Se avisa al acercarse y al pasarse del intervalo.
@@ -227,19 +229,37 @@
     /* cierres de jornada: [{ cod, fecha, final, inicial, horas, operario }] */
     cierres: function(){ return H.cierres || []; },
     traer: async function(){
-      var res = await Promise.all([leer('PreopDiario'), leer('CierreJornada')].map(function(p){ return p.catch(function(){ return null; }); }));
-      if (!res[0] && !res[1]) return false;
-      var ult = {}, cierres = [];
+      var res = await Promise.all([leer('PreopDiario'), leer('CierreJornada'), leer('Preoperativos')]
+        .map(function(p){ return p.catch(function(){ return null; }); }));
+      if (!res[0] && !res[1] && !res[2]) return false;
+      var ult = {}, cierres = [], inicioDia = {};
       function anotar(cod, f, h){
-        if (h == null || !cod || !f) return;
+        if (h == null || h <= 0 || !cod || !f) return;
         if (!ult[cod] || f > ult[cod].fecha || (f === ult[cod].fecha && h > ult[cod].h)) ult[cod] = { fecha:f, h:h };
       }
-      (res[0] || []).forEach(function(r){ anotar(codDe(r[3]), aIso(r[0]), num(r[7])); });
-      (res[1] || []).forEach(function(r){
-        var cod = codDe(r[3]), f = aIso(r[0]), fin = num(r[4]), ini = num(r[5]), horas = num(r[6]);
-        if (horas == null && fin != null && ini != null && fin >= ini) horas = Math.round((fin - ini) * 10) / 10;
-        anotar(cod, f, fin);
-        if (cod && f) cierres.push({ cod:cod, fecha:f, final:fin, inicial:ini, horas:horas, operario:String(r[2]||'') });
+      // horómetro con que arrancó cada máquina cada día (el menor si hubo dos preoperativos)
+      function inicio(cod, f, h){
+        anotar(cod, f, h);
+        if (h == null || h <= 0 || !cod || !f) return;
+        var k = cod + '|' + f;
+        if (inicioDia[k] == null || h < inicioDia[k]) inicioDia[k] = h;
+      }
+      (res[0] || []).forEach(function(r){ inicio(codDe(r[3]), aIso(r[0]), num(r[7])); });
+      (res[2] || []).forEach(function(r){ inicio(codDe(r[3]), aIso(r[0]), num(r[6])); });   // Preoperativo anterior
+      var filas = (res[1] || []).map(function(r){
+        return { cod:codDe(r[3]), fecha:aIso(r[0]), final:num(r[4]), inicial:num(r[5]), horas:num(r[6]), operario:String(r[2]||'') };
+      }).filter(function(c){ return c.cod && /^\d{4}-\d{2}-\d{2}$/.test(c.fecha); })
+        .sort(function(a, b){ return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : (a.final || 0) - (b.final || 0); });
+      var previo = {};
+      filas.forEach(function(c){
+        // Las filas viejas tienen texto (Estado, Novedad) en esas columnas: num() da null.
+        if (c.inicial == null) c.inicial = inicioDia[c.cod + '|' + c.fecha] != null ? inicioDia[c.cod + '|' + c.fecha] : null;
+        if (c.inicial == null && previo[c.cod] && c.fecha > previo[c.cod].fecha) c.inicial = previo[c.cod].final;   // el cierre anterior
+        if (c.horas == null && c.final != null && c.inicial != null) c.horas = Math.round((c.final - c.inicial) * 10) / 10;
+        if (c.horas != null && (c.horas < 0 || c.horas > 24)) c.horas = null;   // horómetro mal digitado: no se cuenta
+        anotar(c.cod, c.fecha, c.final);
+        if (c.final != null && c.final > 0) previo[c.cod] = c;
+        cierres.push(c);
       });
       H = { ultimo: ult, cierres: cierres, leido: new Date().toISOString() };
       try { localStorage.setItem(KEY, JSON.stringify(H)); } catch(e){}
