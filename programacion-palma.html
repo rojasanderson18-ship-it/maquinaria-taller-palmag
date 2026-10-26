@@ -201,6 +201,7 @@
     .pr td.pr-lote span{color:#666;font-size:8.5px;text-transform:uppercase}
     .pr .pr-casilla{border:1px solid #9AA59F;height:20px;border-radius:2px;background:#FAFBFA}
     .pr .pr-firma-op{border-bottom:1px solid #666;height:20px}
+    .pr .pr-t2{font-size:8pt;margin-top:3px;color:#333}
     .pr .pr-pend{background:#FBEEDC;color:#7A430A;padding:2px 5px;border-radius:2px;display:inline-block;margin-bottom:2px;font-weight:600}
     .pr .pr-vacio{color:#999}
     /* bloques inferiores */
@@ -263,7 +264,7 @@
 
 var GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
 var HOJA_PROG = 'ProgMaquinaria';
-var ENC_PROG = ['Registrado','Hora','Acción','ID','Fecha','Equipo','Labor','Lotes','Implemento','Operario','Observación','Programó'];
+var ENC_PROG = ['Registrado','Hora','Acción','ID','Fecha','Equipo','Labor','Lotes','Implemento','Operario','Observación','Programó','Operario Turno 2'];
 
 /* La flota sale de la hoja Maestros (maestros.js); el transporte no se programa. */
 
@@ -432,6 +433,9 @@ function asignacion(f, cod){ return (estado.dias[f] || {})[cod] || null; }
 /* Una máquina que entró al taller después de programada no cuenta para
    hoy o días futuros: no sale en la hoja impresa y su operario e
    implemento quedan libres. Los días pasados se dejan como fueron. */
+/* operarios de una asignación: el del turno 1 y, si hay doble turno, el del 2 */
+function opsDe(a){ return a ? [a.operario, a.operario2].filter(Boolean) : []; }
+function txtOps(a){ return a.operario2 ? (a.operario || 'SIN OPERARIO') + ' / T2: ' + a.operario2 : (a.operario || ''); }
 function enTallerEse(f, cod){ return !!varadas[cod] && f >= hoy(); }
 function asignados(f){
   var d = estado.dias[f] || {}, out = [];
@@ -447,7 +451,7 @@ function ocupados(f, exceptoCod){
   var d = estado.dias[f] || {}, mapa = {};
   Object.keys(d).forEach(function(cod){
     if (cod === exceptoCod || enTallerEse(f, cod)) return;
-    if (d[cod] && d[cod].operario) mapa[d[cod].operario] = cod;
+    opsDe(d[cod]).forEach(function(o){ mapa[o] = cod; });
   });
   return mapa;
 }
@@ -482,7 +486,7 @@ function pintar(){
   var opsUsados = {}, cuenta = {}, implCuenta = {};
   Object.keys(d).forEach(function(cod){
     var a = d[cod]; if (!a || enTallerEse(fechaSel, cod)) return;
-    if (a.operario){ opsUsados[a.operario] = true; cuenta[a.operario] = (cuenta[a.operario]||[]).concat([cod]); }
+    opsDe(a).forEach(function(o){ opsUsados[o] = true; cuenta[o] = (cuenta[o]||[]).concat([cod]); });
     if (a.implemento){ implCuenta[a.implemento] = (implCuenta[a.implemento]||[]).concat([cod]); }
   });
   var opsLibres = operariosActivos().filter(function(o){ return !opsUsados[o]; });
@@ -525,8 +529,8 @@ function pintar(){
   if (pTaller.length){
     h += '<div class="alerta"><b>' + (pTaller.length === 1 ? 'Una máquina programada entró al taller.' : pTaller.length + ' máquinas programadas entraron al taller.') +
       '</b> ' + pTaller.map(function(m){ var a = d[m.cod];
-        return esc(m.cod) + ' tenía ' + esc(txtLabor(a.labor)) + (a.operario ? ' con ' + esc(a.operario) : ''); }).join('; ') +
-      '. ' + (pTaller.some(function(m){ return d[m.cod].operario; }) ? 'Ese operario quedó libre: asígnelo a otra máquina. ' : '') +
+        return esc(m.cod) + ' tenía ' + esc(txtLabor(a.labor)) + (opsDe(a).length ? ' con ' + esc(opsDe(a).join(' y ')) : ''); }).join('; ') +
+      '. ' + (pTaller.some(function(m){ return opsDe(d[m.cod]).length; }) ? 'Quedó libre: asígnelo a otra máquina. ' : '') +
       '<button class="btn-lib" id="liberar">Quitar de la programación</button></div>';
   }
   if (dobles.length){
@@ -565,7 +569,7 @@ function pintar(){
       var tl = txtLotes(a); if (tl) partes.push(tl);
       if (a.implemento) partes.push(a.implemento);
       else if (l && l.req) partes.push('FALTA ' + (TIPOS_IMPL[l.req]||'').toUpperCase());
-      partes.push(a.operario ? a.operario : 'SIN OPERARIO');
+      partes.push(a.operario ? txtOps(a) : 'SIN OPERARIO' + (a.operario2 ? ' / T2: ' + a.operario2 : ''));
       sub = partes.join(' · ');
       clsSub = (a.operario && (!l || !l.req || a.implemento)) ? 'asig' : 'falta';
     } else { sub = 'Sin programar'; }
@@ -687,6 +691,7 @@ function asignar(cod){
     lotes: prev && prev.lotes ? prev.lotes.slice() : [],
     implemento: prev ? prev.implemento : null,
     operario: prev ? prev.operario : null,
+    operario2: prev ? prev.operario2 || null : null,
     busca: ''
   };
 
@@ -700,7 +705,7 @@ function asignar(cod){
     h += '<div class="tarj"><div class="et">El día anterior hizo</div><div class="vl">' +
       esc(txtLabor(antA.labor)) + (txtLotes(antA) ? ' · ' + esc(txtLotes(antA)) : '') +
       (antA.implemento ? ' · ' + esc(antA.implemento) : '') +
-      (antA.operario ? ' · ' + esc(antA.operario) : '') + '</div>' +
+      (antA.operario ? ' · ' + esc(txtOps(antA)) : '') + '</div>' +
       '<button class="accion gris" id="igual" style="margin:10px 0 0">Dejar igual que ese día</button></div>';
   }
 
@@ -721,6 +726,9 @@ function asignar(cod){
         (en ? ' disabled' : '') + '>' + esc(o) +
         (en ? '<span class="ocupado">ya está en ' + esc(en) + '</span>' : '') + '</button>';
     }).join('') + '</div>';
+
+  /* doble turno: un segundo operario para la misma máquina ese día */
+  h += '<div id="zona-t2"></div>';
 
   h += '<label class="campo"><span>Observación <i>— opcional</i></span>' +
     '<textarea id="obs" placeholder="Llevar la tijera nueva, entrar por el carreteable…">' +
@@ -796,6 +804,29 @@ function asignar(cod){
       });
     }
 
+    /* ---- segundo turno ---- */
+    var verT2 = !!sel.operario2;
+    function pintarT2(){
+      var z = $('#zona-t2');
+      if (!verT2){
+        z.innerHTML = '<button class="accion gris" id="doble" style="margin:4px 0 12px">+ Hay doble turno (segundo operario)</button>';
+        $('#doble').onclick = function(){ verT2 = true; pintarT2(); };
+        return;
+      }
+      z.innerHTML = '<p class="paso">Segundo turno <i>— otro operario usa la máquina después</i></p><div class="rejilla" id="g-op2">' +
+        operariosActivos().map(function(o){
+          var en = ocup[o], mismo = o === sel.operario;
+          return '<button class="op ancho" data-op2="' + esc(o) + '" aria-pressed="' + (sel.operario2===o) + '"' +
+            (en || mismo ? ' disabled' : '') + '>' + esc(o) +
+            (en ? '<span class="ocupado">ya está en ' + esc(en) + '</span>' : mismo ? '<span class="ocupado">es el del turno 1</span>' : '') + '</button>';
+        }).join('') + '</div>' +
+        '<button class="accion gris" id="sin-t2" style="margin:0 0 12px">Sin doble turno</button>';
+      $$('#g-op2 [data-op2]').forEach(function(b){
+        b.onclick = function(){ sel.operario2 = (sel.operario2 === b.dataset.op2) ? null : b.dataset.op2; pintarT2(); };
+      });
+      $('#sin-t2').onclick = function(){ sel.operario2 = null; verT2 = false; pintarT2(); };
+    }
+
     function refrescar(){
       $$('#panel [data-lab]').forEach(function(b){
         b.setAttribute('aria-pressed', String(b.dataset.lab === sel.labor)); });
@@ -815,7 +846,8 @@ function asignar(cod){
     $$('#panel [data-op]').forEach(function(b){
       b.onclick = function(){
         sel.operario = (sel.operario === b.dataset.op) ? null : b.dataset.op;
-        refrescar();
+        if (sel.operario && sel.operario === sel.operario2) sel.operario2 = null;
+        refrescar(); pintarT2();
       };
     });
     var ig = $('#igual');
@@ -824,14 +856,17 @@ function asignar(cod){
       sel.lotes = (antA.lotes || []).slice();
       sel.implemento = ocupI[antA.implemento] ? null : (antA.implemento || null);
       sel.operario = ocup[antA.operario] ? null : (antA.operario || null);
+      sel.operario2 = ocup[antA.operario2] ? null : (antA.operario2 || null);
+      verT2 = !!sel.operario2;
+      if (antA.operario2 && ocup[antA.operario2]) aviso(antA.operario2 + ' ya está en ' + ocup[antA.operario2] + '.');
       var pega = [];
       if (antA.operario && ocup[antA.operario]) pega.push(antA.operario + ' ya está en ' + ocup[antA.operario]);
       if (antA.implemento && ocupI[antA.implemento]) pega.push(antA.implemento + ' ya está en ' + ocupI[antA.implemento]);
       if (pega.length) aviso(pega.join('. ') + '.');
-      refrescar(); pintarLotes(); pintarImpl();
+      refrescar(); pintarLotes(); pintarImpl(); pintarT2();
     };
 
-    refrescar(); pintarLotes(); pintarImpl();
+    refrescar(); pintarLotes(); pintarImpl(); pintarT2();
 
     $('#guardar').onclick = async function(){
       if (!sel.labor) return;
@@ -840,6 +875,7 @@ function asignar(cod){
         lotes: sel.lotes.slice(),
         implemento: sel.implemento || null,
         operario: sel.operario || null,
+        operario2: sel.operario2 || null,
         obs: $('#obs').value.trim(),
         programadoPor: estado.yo,
         registradoEn: new Date().toISOString()
@@ -1120,7 +1156,7 @@ async function copiarAnterior(){
   var copiadas = 0, saltadas = [], choques = [];
   var opsTomados = {}, implTomados = {};
   Object.keys(destino).forEach(function(c){
-    if (destino[c].operario) opsTomados[destino[c].operario] = c;
+    opsDe(destino[c]).forEach(function(o){ opsTomados[o] = c; });
     if (destino[c].implemento) implTomados[destino[c].implemento] = c;
   });
   cfgFlota().forEach(function(m){
@@ -1128,13 +1164,15 @@ async function copiarAnterior(){
     if (!a) return;
     if (varadas[m.cod]){ saltadas.push(m.cod); return; }
     if (destino[m.cod]) return;
-    var op = a.operario || null, im = a.implemento || null;
+    var op = a.operario || null, op2 = a.operario2 || null, im = a.implemento || null;
     if (op && opsTomados[op]){ choques.push(op + ' (' + m.cod + ')'); op = null; }
+    if (op2 && opsTomados[op2]){ choques.push(op2 + ' (' + m.cod + ', turno 2)'); op2 = null; }
     if (im && implTomados[im]){ choques.push(im + ' (' + m.cod + ')'); im = null; }
-    destino[m.cod] = { labor:a.labor, lotes:(a.lotes||[]).slice(), implemento:im, operario:op, obs:a.obs,
+    destino[m.cod] = { labor:a.labor, lotes:(a.lotes||[]).slice(), implemento:im, operario:op, operario2:op2, obs:a.obs,
                        programadoPor: estado.yo, registradoEn: new Date().toISOString() };
     registrar(fechaSel, m.cod, destino[m.cod]);
     if (op) opsTomados[op] = m.cod;
+    if (op2) opsTomados[op2] = m.cod;
     if (im) implTomados[im] = m.cod;
     copiadas++;
   });
@@ -1176,7 +1214,7 @@ function imprimir(){
   var disponibles = flota.length - varadasL.length;
   var opsUsados = {}, implUsados = {}, quienes = [];
   orden.forEach(function(x){
-    if (x.a.operario) opsUsados[x.a.operario] = true;
+    opsDe(x.a).forEach(function(o){ opsUsados[o] = true; });
     if (x.a.implemento) implUsados[x.a.implemento] = true;
     if (x.a.programadoPor && quienes.indexOf(x.a.programadoPor) < 0) quienes.push(x.a.programadoPor);
   });
@@ -1228,7 +1266,8 @@ function imprimir(){
       '<td class="pr-lote">' + ((x.a.lotes && x.a.lotes.length) ? '<b>' + esc(x.a.lotes.join(', ')) + '</b>' +
         (fincas ? '<span>' + esc(fincas) + '</span>' : '') : '<span class="pr-vacio">—</span>') + '</td>' +
       '<td class="mono">' + (esc(x.a.implemento) || '<span class="pr-vacio">—</span>') + '</td>' +
-      '<td>' + (x.a.operario ? '<b>' + esc(x.a.operario) + '</b>' : '<div class="pr-firma-op"></div>') + '</td>' +
+      '<td>' + (x.a.operario ? '<b>' + esc(x.a.operario) + '</b>' : '<div class="pr-firma-op"></div>') +
+        (x.a.operario2 ? '<div class="pr-t2">Turno 2: <b>' + esc(x.a.operario2) + '</b></div>' : '') + '</td>' +
       '<td>' + (pendTaller[x.maq.cod] ? '<span class="pr-pend">⚠ Taller: ' + esc(txtPend(x.maq.cod)) + '</span><br>' : '') + esc(x.a.obs || '') + '</td>' +
       '<td><div class="pr-casilla"></div></td><td><div class="pr-casilla"></div></td><td><div class="pr-firma-op"></div></td></tr>';
   });
@@ -1292,7 +1331,7 @@ function registrar(fecha, cod, a){
     hoja: HOJA_PROG, encabezados: ENC_PROG,
     fila: [d.toLocaleDateString('es-CO'), horaAhora(), a ? 'ASIGNAR' : 'QUITAR', nid(), fecha, cod,
       a ? txtLabor(a.labor) : '', a ? (a.lotes || []).join(', ') : '', a ? (a.implemento || '') : '',
-      a ? (a.operario || '') : '', a ? (a.obs || '') : '', estado.yo] });
+      a ? (a.operario || '') : '', a ? (a.obs || '') : '', estado.yo, a ? (a.operario2 || '') : ''] });
   var q = { hoja:'Programacion', fecha: fechaCO(fecha), tractor: cod + ' - ' + nombreDe(cod) };
   if (a){ q.action = 'write'; q.supervisor = estado.yo; q.labor = txtLabor(a.labor);
           q.lote = (a.lotes || []).join(', '); q.impl = a.implemento || ''; q.hora = ''; }
@@ -1435,6 +1474,7 @@ async function traerProgramacion(){
         lotes: String(row[7] == null ? '' : row[7]).split(',').map(function(x){ return x.trim(); }).filter(Boolean),
         implemento: String(row[8] || '').trim() || null,
         operario: String(row[9] || '').trim() || null,
+        operario2: String(row[12] || '').trim() || null,
         obs: String(row[10] || ''),
         programadoPor: String(row[11] || '')
       };
