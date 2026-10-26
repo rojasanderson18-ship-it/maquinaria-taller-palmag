@@ -530,12 +530,24 @@ function pHorometro(){
       function revisar(){
         F.hor = inp.value.trim(); valido();
         var n = num(F.hor), u = R.ultHor[F.cod];
-        $('#hor-aviso').innerHTML = (n != null && u && n < u.h)
-          ? '<div class="tarj alerta"><div class="vl">Es <b>menor</b> que el último registrado (' + fmtH(u.h) + '). Revise que esté bien escrito.</div></div>' : '';
+        $('#hor-aviso').innerHTML = ((n != null && u && n < u.h)
+          ? '<div class="tarj alerta"><div class="vl">Es <b>menor</b> que el último registrado (' + fmtH(u.h) + '). Revise que esté bien escrito.</div></div>' : '') +
+          avisoMtto(n);
       }
       inp.oninput = revisar; revisar(); setTimeout(function(){ inp.focus(); }, 100);
     }
   };
+}
+
+/* mantenimiento preventivo con el horómetro que escribió (Mtto en maestros.js) */
+function avisoMtto(n){
+  if (n == null) return '';
+  var m = Mtto.estado(F.cod, n);
+  if (m.nivel === 'vencido') return '<div class="tarj alerta"><div class="et">Mantenimiento vencido</div><div class="vl">Le tocaba a las <b>' + fmtH(m.proximo) +
+    '</b> (se pasó ' + fmtH(-m.faltan) + '). Avísele a Tulio.</div></div>';
+  if (m.nivel === 'proximo') return '<div class="tarj aviso-t"><div class="et">Mantenimiento próximo</div><div class="vl">Faltan <b>' + fmtH(m.faltan) +
+    '</b>: le toca a las ' + fmtH(m.proximo) + '.</div></div>';
+  return '';
 }
 
 /* ---------- 5. niveles ---------- */

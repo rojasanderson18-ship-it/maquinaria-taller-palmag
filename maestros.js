@@ -134,3 +134,86 @@
     }
   };
 })();
+
+/* =====================================================================
+   HORÓMETROS Y MANTENIMIENTO PREVENTIVO
+   - Horómetros: lo que registran los operarios en el Preoperativo
+     (PreopDiario, horómetro inicial) y en el Cierre (CierreJornada,
+     horómetro final y horas trabajadas). Copia en el celular sin señal.
+   - Mantenimiento: cada máquina tiene el horómetro de su último
+     mantenimiento (lo registra Tulio en el Taller) en la hoja Maestros,
+     tipo MTTO. Se avisa al acercarse y al pasarse del intervalo.
+   ===================================================================== */
+(function(){
+  var GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
+  var KEY = 'palma-horometros-v1';
+  function p2(n){ return ('0'+n).slice(-2); }
+  function isoLocal(d){ return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); }
+  function aIso(v){
+    var s = String(v==null?'':v).trim(); if (!s) return '';
+    var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return m[3]+'-'+p2(m[2])+'-'+p2(m[1]);
+    if (s.indexOf('T') > 0){ var d = new Date(s); if (!isNaN(d)) return isoLocal(d); }
+    return s.slice(0,10);
+  }
+  function num(v){ var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? null : n; }
+  /* "#05 - John Deere 2850", "05 - KUBOTA…", "FORD" → código de la flota */
+  function codDe(txt){
+    var t = String(txt || '').trim().toUpperCase();
+    var f = window.Maestros.flotaTodas().filter(function(x){ return t === x.cod.toUpperCase() || t.indexOf(x.cod.toUpperCase() + ' ') === 0; })[0];
+    if (f) return f.cod;
+    var m = t.match(/^#?\s*0*(\d{1,2})\b/); return m ? '#' + p2(+m[1]) : t;
+  }
+  var H = (function(){ try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ return null; } })() || { ultimo:{}, cierres:[] };
+
+  async function leer(hoja){
+    var r = await fetch(GS_URL + '?hoja=' + hoja + '&t=' + Date.now());
+    var d = await r.json();
+    if (!d || !d.ok || !Array.isArray(d.datos)) throw new Error('sin datos');
+    return d.datos;
+  }
+
+  window.Horometros = {
+    codDe: codDe,
+    /* último horómetro conocido por máquina: { cod: { h, fecha } } */
+    ultimo: function(){ return H.ultimo || {}; },
+    /* cierres de jornada: [{ cod, fecha, final, inicial, horas, operario }] */
+    cierres: function(){ return H.cierres || []; },
+    traer: async function(){
+      var res = await Promise.all([leer('PreopDiario'), leer('CierreJornada')].map(function(p){ return p.catch(function(){ return null; }); }));
+      if (!res[0] && !res[1]) return false;
+      var ult = {}, cierres = [];
+      function anotar(cod, f, h){
+        if (h == null || !cod || !f) return;
+        if (!ult[cod] || f > ult[cod].fecha || (f === ult[cod].fecha && h > ult[cod].h)) ult[cod] = { fecha:f, h:h };
+      }
+      (res[0] || []).forEach(function(r){ anotar(codDe(r[3]), aIso(r[0]), num(r[7])); });
+      (res[1] || []).forEach(function(r){
+        var cod = codDe(r[3]), f = aIso(r[0]), fin = num(r[4]), ini = num(r[5]), horas = num(r[6]);
+        if (horas == null && fin != null && ini != null && fin >= ini) horas = Math.round((fin - ini) * 10) / 10;
+        anotar(cod, f, fin);
+        if (cod && f) cierres.push({ cod:cod, fecha:f, final:fin, inicial:ini, horas:horas, operario:String(r[2]||'') });
+      });
+      H = { ultimo: ult, cierres: cierres, leido: new Date().toISOString() };
+      try { localStorage.setItem(KEY, JSON.stringify(H)); } catch(e){}
+      return true;
+    }
+  };
+
+  window.Mtto = {
+    INTERVALO: 250,     // horas entre mantenimientos, si la máquina no tiene otro
+    AVISO: 25,          // se avisa cuando faltan estas horas o menos
+    /* { cod: { hor, fecha, por, intervalo } } guardado en Maestros (tipo MTTO) */
+    datos: function(){ return window.Maestros.get('MTTO') || {}; },
+    /* estado del mantenimiento con el horómetro actual (o el último conocido) */
+    estado: function(cod, horActual){
+      var d = this.datos()[cod], u = window.Horometros.ultimo()[cod];
+      var actual = horActual != null ? horActual : (u ? u.h : null);
+      if (!d || d.hor == null) return { nivel:'sindato', actual:actual };
+      var intervalo = d.intervalo || this.INTERVALO, proximo = d.hor + intervalo;
+      if (actual == null) return { nivel:'sinhorometro', ultimo:d.hor, fecha:d.fecha, intervalo:intervalo, proximo:proximo };
+      var faltan = Math.round((proximo - actual) * 10) / 10;
+      return { nivel: faltan <= 0 ? 'vencido' : faltan <= this.AVISO ? 'proximo' : 'ok', actual:actual, ultimo:d.hor, fecha:d.fecha,
+               por:d.por, intervalo:intervalo, proximo:proximo, faltan:faltan };
+    }
+  };
+})();

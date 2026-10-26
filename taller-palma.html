@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Taller — Palma Grande</title>
 <meta name="theme-color" content="#16211C">
+<link rel="manifest" href="manifest-taller.json">
+<link rel="icon" href="icons/taller-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/taller-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Taller">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -26,6 +33,9 @@
   header .marca{font-size:11px;letter-spacing:.14em;color:#8FA79A;font-weight:600;text-transform:uppercase}
   header h1{font-size:19px;margin:0;font-weight:700;line-height:1.15}
   header .fecha{font-size:12px;color:#8FA79A}
+  header .inst-btn{margin-left:auto;font-size:13px;font-weight:600;color:#fff;background:var(--green);border:1px solid var(--green);border-radius:20px;padding:6px 12px;white-space:nowrap}
+  header .inst-btn[hidden]{display:none}
+  header .inst-btn:not([hidden]) + .maq-btn{margin-left:0}
   header .maq-btn{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#EDF0EE;background:#26352E;border:1px solid #34443C;border-radius:20px;padding:6px 13px;white-space:nowrap}
   header .maq-btn svg{width:15px;height:15px}
   header .yo[hidden]{display:none}
@@ -143,6 +153,12 @@
   .tarj{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px}
   .tarj.alerta{border-left:4px solid var(--red);background:#FFF9F8}
   .tarj.pend{border-left:4px solid var(--amber);background:#FFFBF4}
+  .eq-mt{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;width:100%;text-align:left;padding:10px 0;border-bottom:1px solid #EDEFEE;font-size:15px}
+  .eq-mt:last-child{border-bottom:none}
+  .eq-mt > span{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .eq-mt small{color:var(--steel);font-size:12.5px}
+  .tarj.mtto-v{border-left:4px solid var(--red);background:#FFF9F8}
+  .tarj.mtto-p{border-left:4px solid var(--amber);background:#FFFBF4}
   .tarj .et{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--steel);font-weight:600}
   .tarj .vl{font-size:16px;margin-top:2px}
   .tarj .vl.grande{font-size:21px;font-weight:700}
@@ -197,6 +213,7 @@
 <header><div class="fila">
   <a class="volver" href="https://rojasanderson18-ship-it.github.io/maquinaria-taller-palmag/" aria-label="Volver a la página principal">‹</a>
   <div><div class="marca">Palma Grande S.A.S.</div><h1>Taller de maquinaria</h1><div class="fecha" id="fecha-hoy"></div></div>
+  <button class="inst-btn" id="btn-instalar" hidden>Instalar app</button>
   <button class="maq-btn" id="btn-maquinas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Máquinas</button>
   <button class="yo" id="btn-yo" hidden>—</button>
 </div></header>
@@ -344,6 +361,14 @@ function pendientesDe(cod){
   return (estado.novedades || []).filter(function(n){ return n.equipo === cod && !n.cerrada; })
     .sort(function(a,b){ return (a.urgencia === 'urgente' ? 0 : 1) - (b.urgencia === 'urgente' ? 0 : 1) || (a.fecha < b.fecha ? -1 : 1); });
 }
+/* mantenimiento preventivo (Mtto en maestros.js) */
+function pillMtto(cod){
+  var m = Mtto.estado(cod);
+  if (m.nivel === 'vencido') return ' <span class="pill r">Mtto vencido</span>';
+  if (m.nivel === 'proximo') return ' <span class="pill a">Mtto en ' + fmtH(m.faltan) + '</span>';
+  return '';
+}
+function fmtH(n){ return n == null ? '—' : String(Math.round(n * 10) / 10).replace('.', ',') + ' h'; }
 function pillPend(lista){
   if (!lista.length) return '';
   var urg = lista.some(function(n){ return n.urgencia === 'urgente'; });
@@ -402,6 +427,18 @@ function pintar(){
     h += '<h2>Paradas</h2><div class="vacio">Ninguna máquina parada en este momento.</div>';
   }
 
+  /* mantenimiento preventivo vencido o próximo (las paradas ya están en el taller) */
+  var mtto = FLOTA.filter(function(f){ var n = Mtto.estado(f.cod).nivel; return !abiertoDe(f.cod) && (n === 'vencido' || n === 'proximo'); })
+    .map(function(f){ return { f:f, m:Mtto.estado(f.cod) }; }).sort(function(a, b){ return a.m.faltan - b.m.faltan; });
+  if (mtto.length){
+    h += '<h2 class="' + (mtto.some(function(x){ return x.m.nivel === 'vencido'; }) ? 'rojo' : 'ambar') + '">Mantenimiento preventivo <span class="cuenta">' + mtto.length + '</span></h2>' +
+      '<div class="tarj" style="padding:4px 14px">' + mtto.map(function(x){
+        return '<button class="eq-mt" data-mt="' + esc(x.f.cod) + '"><b class="mono">' + esc(x.f.cod) + '</b> ' + esc(x.f.nombre) +
+          '<span>' + (x.m.nivel === 'vencido' ? '<span class="pill r">Vencido hace ' + fmtH(-x.m.faltan) + '</span>' : '<span class="pill a">Faltan ' + fmtH(x.m.faltan) + '</span>') +
+          ' <small>horómetro ' + fmtH(x.m.actual) + ' · tocaba a las ' + fmtH(x.m.proximo) + '</small></span></button>';
+      }).join('') + '</div>';
+  }
+
   /* trabajando pero con algo pendiente que puede pararla */
   var conPend = libres.filter(function(v){ return pendientesDe(v.f.cod).length; });
   var sinPend = libres.filter(function(v){ return !pendientesDe(v.f.cod).length; });
@@ -413,7 +450,7 @@ function pintar(){
       return '<button class="eq pend" data-cod="' + esc(v.f.cod) + '">' + fotoHtml(v.f.cod) +
         '<span class="txt"><span class="cod">' + esc(v.f.cod) + '</span><span class="nom">' + esc(v.f.nombre) + '</span>' +
         '<span class="det">' + pl.map(function(n){ return esc(n.novedad); }).join(' · ') + '</span>' +
-        '<span class="estado"><span class="pill v">Trabajando</span>' + pillPend(pl) + '</span></span>' +
+        '<span class="estado"><span class="pill v">Trabajando</span>' + pillPend(pl) + pillMtto(v.f.cod) + '</span></span>' +
         '<span class="ir">›</span></button>';
     }).join('') + '</div>';
   }
@@ -422,7 +459,7 @@ function pintar(){
   h += sinPend.map(function(v){
     return '<button class="eq ok" data-cod="' + esc(v.f.cod) + '">' + fotoHtml(v.f.cod) +
       '<span class="txt"><span class="cod">' + esc(v.f.cod) + '</span><span class="nom">' + esc(v.f.nombre) + '</span>' +
-      '<span class="estado"><span class="pill v">Trabajando</span></span></span>' +
+      '<span class="estado"><span class="pill v">Trabajando</span>' + pillMtto(v.f.cod) + '</span></span>' +
       '<span class="ir">›</span></button>';
   }).join('') + '</div>';
 
@@ -440,12 +477,15 @@ function pintar(){
         '<span class="estado">' + (v.ab
           ? '<span class="pill ro">' + (d === 0 ? 'Parado desde hoy' : 'Parado hace ' + d + (d===1?' día':' días')) + '</span>' +
             (v.ab.tipo === 'mantenimiento' ? ' <span class="pill a">Mantenimiento</span>' : '')
-          : '<span class="pill v">Trabajando</span>' + pillPend(pl)) + '</span>' +
+          : '<span class="pill v">Trabajando</span>' + pillPend(pl) + pillMtto(v.f.cod)) + '</span>' +
         '</span><span class="ir">›</span></button>';
     }).join('') + '</div>';
   }
 
   $('#app').innerHTML = h;
+  Array.prototype.forEach.call($('#app').querySelectorAll('[data-mt]'), function(b){
+    b.onclick = function(){ verEquipo(b.dataset.mt); };
+  });
   Array.prototype.forEach.call($('#app').querySelectorAll('.eq'), function(b){
     b.onclick = function(){ verEquipo(b.dataset.cod); };
   });
@@ -461,6 +501,8 @@ function abrir(html, alMontar){
   $('#hoja').hidden = false;
   document.body.style.overflow = 'hidden';
   Array.prototype.forEach.call($('#panel').querySelectorAll('[data-cerrar]'), function(b){ b.onclick = cerrar; });
+  var mr = $('#mt-reg');
+  if (mr) mr.onclick = function(){ registrarMtto(mr.dataset.cod); };
   var cf = $('#cambiar-foto');
   if (cf){
     cf.onclick = function(){ $('#in-foto').click(); };
@@ -680,6 +722,8 @@ function verEquipo(cod){
       '<button class="accion gris" data-cerrar>Cerrar</button>';
   }
 
+  h += mttoHtml(cod);
+
   if (historial.length){
     h += '<h2 style="margin-top:22px">Últimas reparaciones</h2><div class="tarj">' +
       historial.slice(0, 8).map(function(e){
@@ -865,6 +909,65 @@ function fusionarNovedades(filas){
   });
   Object.keys(rem).forEach(function(id){ res.push(rem[id]); });
   estado.novedades = res;
+}
+
+/* =====================================================================
+   Mantenimiento preventivo: cada máquina tiene el horómetro de su último
+   mantenimiento (hoja Maestros, tipo MTTO). El horómetro actual sale de lo
+   que registran los operarios en el Preoperativo y el Cierre.
+   ===================================================================== */
+function mttoHtml(cod){
+  var m = Mtto.estado(cod), u = Horometros.ultimo()[cod];
+  var cl = m.nivel === 'vencido' ? ' mtto-v' : m.nivel === 'proximo' ? ' mtto-p' : '';
+  var h = '<h2 style="margin-top:22px">Mantenimiento preventivo</h2><div class="tarj' + cl + '">';
+  if (m.nivel === 'sindato'){
+    h += '<div class="vl">Todavía no se ha registrado el último mantenimiento de esta máquina.</div>' +
+      '<div class="nota" style="margin:6px 0 0">Regístrelo una vez y desde ahí el sistema avisa cada ' + Mtto.INTERVALO + ' horas.</div>';
+  } else {
+    var estadoTxt = m.nivel === 'vencido' ? '<b style="color:var(--red)">Vencido hace ' + fmtH(-m.faltan) + '</b>' :
+                    m.nivel === 'proximo' ? '<b style="color:var(--amber)">Faltan ' + fmtH(m.faltan) + '</b>' :
+                    m.nivel === 'ok' ? '<b style="color:var(--green)">Faltan ' + fmtH(m.faltan) + '</b>' : 'Sin horómetro registrado todavía';
+    h += '<div class="et">Próximo mantenimiento</div><div class="vl grande">' + estadoTxt + '</div>' +
+      '<div class="hist"><span class="f">Último</span><span>a las ' + fmtH(m.ultimo) + (m.fecha ? ' · ' + dcorta(m.fecha) : '') + (m.por ? ' · ' + esc(m.por) : '') + '</span></div>' +
+      '<div class="hist"><span class="f">Próximo</span><span>a las ' + fmtH(m.proximo) + ' (cada ' + m.intervalo + ' h)</span></div>';
+  }
+  h += '<div class="hist"><span class="f">Horómetro</span><span>' + (u ? fmtH(u.h) + ' · registrado el ' + dcorta(u.fecha) : 'sin registros del Preoperativo') + '</span></div>' +
+    '<button class="mini verde" id="mt-reg" data-cod="' + esc(cod) + '">Registrar mantenimiento hecho</button></div>';
+  return h;
+}
+function registrarMtto(cod){
+  var m = Mtto.estado(cod), u = Horometros.ultimo()[cod];
+  abrir(topeFicha(cod, '<span class="pill v">Mantenimiento hecho</span>') +
+    '<div class="cuerpo">' +
+      '<label class="campo"><span>Horómetro cuando se hizo el mantenimiento</span><input id="mt-hor" inputmode="decimal" value="' +
+        (u ? String(u.h).replace('.', ',') : '') + '" placeholder="1250" autocomplete="off"></label>' +
+      '<label class="campo"><span>Fecha</span><input type="date" id="mt-fecha" value="' + hoy() + '" max="' + hoy() + '"></label>' +
+      '<label class="campo"><span>Cada cuántas horas se le hace</span><input id="mt-int" inputmode="numeric" value="' +
+        (m.intervalo || Mtto.INTERVALO) + '" autocomplete="off"></label>' +
+      '<button class="accion verde" id="mt-ok">Guardar</button>' +
+      '<button class="accion gris" id="mt-volver">Volver</button>' +
+      '<p class="nota">Desde este horómetro se cuentan las horas para el próximo mantenimiento. Lo ven Programación, Preoperativo y Gerencia.</p>' +
+    '</div>',
+    function(){
+      $('#mt-volver').onclick = function(){ verEquipo(cod); };
+      $('#mt-ok').onclick = async function(){
+        var hor = parseFloat($('#mt-hor').value.replace(',', '.')), inter = parseInt($('#mt-int').value, 10), f = $('#mt-fecha').value || hoy();
+        if (isNaN(hor) || hor < 0){ aviso('Escriba el horómetro.'); return; }
+        if (isNaN(inter) || inter < 10){ aviso('Escriba cada cuántas horas (por ejemplo 250).'); return; }
+        if (f > hoy()){ aviso('La fecha no puede ser después de hoy.'); return; }
+        var datos = JSON.parse(JSON.stringify(Mtto.datos()));
+        datos[cod] = { hor: hor, fecha: f, por: estado.yo, intervalo: inter };
+        var x = Maestros.fila('MTTO', datos, estado.yo);
+        estado.cola = estado.cola.filter(function(c){ return c.id !== x.id; });
+        encolar(x.hoja, x.fila, x.encabezados, x.id);
+        await persistir(); pintar(); verEquipo(cod); enviar();
+        aviso('Mantenimiento de ' + cod + ' registrado. El próximo es a las ' + fmtH(hor + inter) + '.');
+      };
+    });
+}
+async function traerHorometros(){
+  if (!navigator.onLine) return;
+  try { if (await Horometros.traer() && $('#hoja').hidden) pintar(); } catch(e){}
 }
 
 function corregirFecha(cod){
@@ -1196,6 +1299,19 @@ function montarPin(){
    ===================================================================== */
 $('#btn-reportar').onclick = function(){ reportar(null); };
 $('#btn-maquinas').onclick = maquinas;
+
+/* instalar como app */
+if ('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/maquinaria-taller-palmag/sw.js').catch(function(){});
+}
+var pedidoInstalar = null;
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); pedidoInstalar = e; $('#btn-instalar').hidden = false; });
+$('#btn-instalar').onclick = async function(){
+  if (!pedidoInstalar) return;
+  pedidoInstalar.prompt(); try { await pedidoInstalar.userChoice; } catch(e){}
+  pedidoInstalar = null; $('#btn-instalar').hidden = true;
+};
+window.addEventListener('appinstalled', function(){ $('#btn-instalar').hidden = true; aviso('El Taller quedó instalado en el celular.'); });
 if (PERSONAS.length > 1) $('#btn-yo').onclick = function(){ elegirPersona(null); };
 else $('#btn-yo').style.cursor = 'default';
 
@@ -1221,9 +1337,10 @@ else $('#btn-yo').style.cursor = 'default';
   await traer();
   traerFotos();
   traerMaestros();
+  traerHorometros();
   window.addEventListener('online', async function(){ await enviar(); traer(); });
   setInterval(function(){ if (!estado.cola.length) traer(); else enviar(); }, 60000);
-  setInterval(function(){ traerFotos(); traerMaestros(); }, 10 * 60000);
+  setInterval(function(){ traerFotos(); traerMaestros(); traerHorometros(); }, 10 * 60000);
 })();
 </script>
 </body>
