@@ -166,7 +166,10 @@
      puede escoger; los pendientes se le muestran al operario.
    - Programación del día: hoja ProgMaquinaria (sugiere máquina y labor).
    - Se guarda en PreopDiario (preoperativo) y CierreJornada (cierre, mismas
-     columnas de siempre). Columna 4 = máquina: un registro por máquina y día.
+     columnas de siempre). Columna 4 = máquina y operario ("#04 · Jhon
+     Garnica"): el Apps Script reemplaza la fila de hoy con ese mismo valor,
+     así en doble turno cada operario tiene su registro, y si el mismo
+     operario lo repite, se corrige.
    - Si la máquina tiene novedad o queda varada, le llega a Tulio como
      PENDIENTE en la hoja Taller (urgente si no puede trabajar). Tulio decide.
    - El tanqueo ya no va aquí: lo registra almacén.
@@ -249,6 +252,17 @@ function codDe(txt){
   var m = t.match(/^#?\s*0*(\d{1,2})\b/); return m ? '#' + p2(+m[1]) : t;
 }
 
+/* preoperativo de hoy de esa máquina y ese operario (en doble turno hay dos) */
+function preopDe(cod, operario){
+  var k = cod + '|' + operario;
+  return estado.hoy.preop[k] || R.preopHoy[k] || null;
+}
+function preopsHoy(){
+  var t = {};
+  [R.preopHoy, estado.hoy.preop].forEach(function(o){ Object.keys(o).forEach(function(k){ t[k] = o[k]; }); });
+  return Object.keys(t).map(function(k){ return t[k]; });
+}
+
 /* ---------- almacenamiento ---------- */
 function persistir(){ try { localStorage.setItem(KEY, JSON.stringify(estado)); return true; } catch(e){ return false; } }
 function cargarLocal(){
@@ -257,7 +271,11 @@ function cargarLocal(){
   if (!estado.porConfirmar) estado.porConfirmar = [];
   if (!estado.hoy || estado.hoy.fecha !== hoy()) estado.hoy = { fecha: hoy(), preop: {} };
   try { var r = JSON.parse(localStorage.getItem(KEY_REMOTO) || 'null'); if (r) R = r; } catch(e){}
-  if (R.fecha !== hoy()){ R.prog = {}; R.preopHoy = {}; }
+  if (R.fecha !== hoy()){ R.prog = {}; R.preopHoy = {}; R.cierreHoy = {}; }
+  if (!R.cierreHoy) R.cierreHoy = {};
+  // versión anterior: preopHoy por máquina sola
+  Object.keys(R.preopHoy).forEach(function(k){ if (k.indexOf('|') < 0) delete R.preopHoy[k]; });
+  Object.keys(estado.hoy.preop).forEach(function(k){ if (k.indexOf('|') < 0) delete estado.hoy.preop[k]; });
 }
 function pintarSync(){
   var s = $('#sync');
@@ -340,12 +358,20 @@ async function traerTodo(){
   if (preop){
     R.preopHoy = {};
     preop.forEach(function(r){
-      var f = aIso(r[0]), cod = codDe(r[3]), h = num(r[7]);
+      var f = aIso(r[0]), cod = codDe(r[3]), h = num(r[7]), op = String(r[2]||'').trim();
       anotar(cod, f, h);
-      if (f === hy) R.preopHoy[cod] = { operario:String(r[2]||''), hor:h, labor:String(r[5]||''), lotes:String(r[6]==null?'':r[6]) };
+      if (f === hy) R.preopHoy[cod + '|' + op] = { cod:cod, operario:op, hor:h, labor:String(r[5]||''), lotes:String(r[6]==null?'':r[6]) };
     });
   }
-  if (cierre) cierre.forEach(function(r){ anotar(codDe(r[3]), aIso(r[0]), num(r[4])); });
+  if (cierre){
+    R.cierreHoy = {};
+    cierre.forEach(function(r){
+      var f = aIso(r[0]), cod = codDe(r[3]), h = num(r[4]);
+      anotar(cod, f, h);
+      // el último cierre de hoy de cada máquina: en doble turno, de ahí arranca el segundo
+      if (f === hy && h != null && h > 0 && (R.cierreHoy[cod] == null || h > R.cierreHoy[cod])) R.cierreHoy[cod] = h;
+    });
+  }
   if (preopViejo) preopViejo.forEach(function(r){ anotar(codDe(r[3]), aIso(r[0]), num(r[6])); });   // Preoperativo anterior
   if (preop || cierre || preopViejo) R.ultHor = ult;
   if (confirmar({ PreopDiario: preop, CierreJornada: cierre, Taller: taller })) enviar();
@@ -389,14 +415,14 @@ var GRACIA_MS = 2 * 60000, MAX_INTENTOS = 3;
 function confirmar(hojas){
   var vistos = {};
   function marca(h, k){ vistos[h + '|' + k] = true; }
-  (hojas.PreopDiario || []).forEach(function(r){ marca('PreopDiario', aIso(r[0]) + '|' + codDe(r[3])); });
-  (hojas.CierreJornada || []).forEach(function(r){ marca('CierreJornada', aIso(r[0]) + '|' + codDe(r[3])); });
+  (hojas.PreopDiario || []).forEach(function(r){ marca('PreopDiario', aIso(r[0]) + '|' + codDe(r[3]) + '|' + String(r[2] || '').trim()); });
+  (hojas.CierreJornada || []).forEach(function(r){ marca('CierreJornada', aIso(r[0]) + '|' + codDe(r[3]) + '|' + String(r[2] || '').trim()); });
   (hojas.Taller || []).forEach(function(r){ marca('Taller', String(r[3] || '').trim()); });
   var enCola = {}, t = Date.now(), reenvio = false;
   estado.cola.forEach(function(x){ if (x.ref) enCola[x.ref] = true; });
   estado.porConfirmar = estado.porConfirmar.filter(function(c){
     if (!hojas[c.hoja]) return true;                                  // esa hoja no se pudo leer
-    var k = c.clave.id || (c.clave.fecha + '|' + c.clave.cod);
+    var k = c.clave.id || (c.clave.fecha + '|' + c.clave.cod + '|' + (c.clave.op || ''));
     return !vistos[c.hoja + '|' + k];                                 // llegó: se quita
   });
   estado.porConfirmar.forEach(function(c){
@@ -460,7 +486,8 @@ function iniciar(tipo){
 function inicio(){
   F = null;
   $('#nav').hidden = true; $('#progreso').hidden = true;
-  var hechos = Object.keys(estado.hoy.preop);
+  var hechos = Object.keys(estado.hoy.preop).map(function(k){ return estado.hoy.preop[k].cod; })
+    .filter(function(c, i, a){ return c && a.indexOf(c) === i; });
   $('#app').innerHTML =
     '<h2>¿Qué va a registrar?</h2><p class="ayuda">Escoja una opción.</p>' +
     '<div class="inicio">' +
@@ -522,14 +549,12 @@ function pMaquina(){
   var sug = '';
   Object.keys(R.prog).forEach(function(c){ if (R.prog[c].operario === F.operario) sug = c; });
   if (F.tipo === 'cierre'){
-    Object.keys(estado.hoy.preop).forEach(function(c){ if (estado.hoy.preop[c].operario === F.operario) sug = c; });
-    if (!sug) Object.keys(R.preopHoy).forEach(function(c){ if (R.preopHoy[c].operario === F.operario) sug = c; });
+    preopsHoy().forEach(function(l){ if (l.operario === F.operario) sug = l.cod; });
   }
   /* Una máquina en el Taller no se puede escoger. En el cierre, la única
      excepción es la que este operario usó hoy (se varó durante el día). */
   function usadaHoy(c){
-    var l = estado.hoy.preop[c] || R.preopHoy[c];
-    return !!l && l.operario === F.operario;
+    return !!preopDe(c, F.operario);
   }
   function bloqueada(c){ return !!R.paradas[c] && !(F.tipo === 'cierre' && usadaHoy(c)); }
   if (F.cod && bloqueada(F.cod)) F.cod = '';
@@ -735,18 +760,18 @@ function pEstado(){
 
 function enviarPreop(){
   var pr = problemas(), n = num(F.hor);
-  var fila = [fechaCO(hoy()), horaAhora(), F.operario, F.cod, nombreDe(F.cod), F.labor, F.lotes, n]
+  var fila = [fechaCO(hoy()), horaAhora(), F.operario, F.cod + ' · ' + F.operario, nombreDe(F.cod), F.labor, F.lotes, n]
     .concat(NIVELES.map(function(x){ return { bien:'Bien', bajo:'Bajo', muybajo:'Muy bajo' }[F.niveles[x.id]]; }))
     .concat(ITEMS.map(function(it){ return F.items[it.id] === 'problema' ? 'Problema' : 'Bien'; }))
     .concat([{ operativa:'Puede trabajar', novedad:'Con novedad', varada:'No puede trabajar' }[F.estado], F.obs.trim()]);
-  encolar('PreopDiario', fila, ENC_PREOP, { fecha:hoy(), cod:F.cod, txt:'Preoperativo de ' + F.cod + ' (' + F.operario + ')' });
+  encolar('PreopDiario', fila, ENC_PREOP, { fecha:hoy(), cod:F.cod, op:F.operario, txt:'Preoperativo de ' + F.cod + ' (' + F.operario + ')' });
   if (F.estado !== 'operativa' || pr.length){
     var txt = (F.estado === 'varada' ? 'NO PUEDE TRABAJAR (preoperativo)' : 'Preoperativo') +
       (pr.length ? ': ' + pr.map(function(x){ return x.txt; }).join(', ') : '') + (F.obs.trim() ? '. ' + F.obs.trim() : '');
     pendienteParaTulio(F.cod, txt, F.estado === 'varada', sistemaComun(pr), F.operario);
   }
   estado.ultimoOperario = F.operario;
-  estado.hoy.preop[F.cod] = { operario:F.operario, hor:n, labor:F.labor, lotes:F.lotes };
+  estado.hoy.preop[F.cod + '|' + F.operario] = { cod:F.cod, operario:F.operario, hor:n, labor:F.labor, lotes:F.lotes };
   R.ultHor[F.cod] = { fecha:hoy(), h:n };
   persistir(); enviar();
   terminar(F.estado, F.estado === 'operativa' ? 'Preoperativo enviado' : F.estado === 'novedad' ? 'Enviado con novedad' : 'Máquina reportada',
@@ -757,8 +782,10 @@ function enviarPreop(){
 
 /* ---------- cierre: horómetro final ---------- */
 function horInicialHoy(){
-  var l = estado.hoy.preop[F.cod] || R.preopHoy[F.cod];
-  return l && l.hor != null ? l.hor : null;
+  var l = preopDe(F.cod, F.operario);
+  if (l && l.hor != null) return l.hor;
+  // segundo turno sin preoperativo: arranca donde terminó el primero
+  return R.cierreHoy && R.cierreHoy[F.cod] != null ? R.cierreHoy[F.cod] : null;
 }
 function pHorFinal(){
   var ini = horInicialHoy();
@@ -808,7 +835,7 @@ function pEstadoFinal(){
 /* ---------- cierre: labor realizada ---------- */
 function pLaborFinal(){
   if (!F.labor){
-    var l = estado.hoy.preop[F.cod] || R.preopHoy[F.cod] || {}, p = R.prog[F.cod] || {};
+    var l = preopDe(F.cod, F.operario) || {}, p = R.prog[F.cod] || {};
     F.labor = l.labor || p.labor || ''; F.lotes = l.lotes || p.lotes || '';
     if (F.labor && F.lotes) F.labor += ' · lotes ' + F.lotes;
   }
@@ -829,15 +856,16 @@ function pLaborFinal(){
 function enviarCierre(){
   var n = num(F.hor), ini = horInicialHoy();
   var horas = ini != null && n != null && n >= ini && n - ini <= 24 ? Math.round((n - ini) * 10) / 10 : '';
-  encolar('CierreJornada', [fechaCO(hoy()), horaAhora(), F.operario, F.cod + ' - ' + nombreDe(F.cod), n, ini == null ? '' : ini, horas,
+  encolar('CierreJornada', [fechaCO(hoy()), horaAhora(), F.operario, F.cod + ' - ' + nombreDe(F.cod) + ' · ' + F.operario, n, ini == null ? '' : ini, horas,
     F.estado === 'varada' ? 'varado' : F.estado === 'novedad' ? 'novedad' : 'operativo', F.obs.trim(), F.labor.trim()], ENC_CIERRE,
-    { fecha:hoy(), cod:F.cod, txt:'Cierre de ' + F.cod + ' (' + F.operario + ')' });
+    { fecha:hoy(), cod:F.cod, op:F.operario, txt:'Cierre de ' + F.cod + ' (' + F.operario + ')' });
   if (F.estado !== 'operativa'){
     pendienteParaTulio(F.cod, (F.estado === 'varada' ? 'VARADA al terminar la jornada: ' : 'Cierre de jornada: ') + F.obs.trim(),
       F.estado === 'varada', '', F.operario);
   }
   estado.ultimoOperario = F.operario;
   R.ultHor[F.cod] = { fecha:hoy(), h:n };
+  if (n != null && (R.cierreHoy[F.cod] == null || n > R.cierreHoy[F.cod])) R.cierreHoy[F.cod] = n;
   persistir(); enviar();
   terminar(F.estado, F.estado === 'operativa' ? 'Cierre enviado' : F.estado === 'novedad' ? 'Cierre con novedad' : 'Máquina varada',
     (horas !== '' ? 'Trabajó ' + fmtH(horas) + ' hoy. ' : '') +
