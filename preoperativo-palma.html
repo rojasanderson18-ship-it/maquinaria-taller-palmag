@@ -421,7 +421,15 @@ function pMaquina(){
     Object.keys(estado.hoy.preop).forEach(function(c){ if (estado.hoy.preop[c].operario === F.operario) sug = c; });
     if (!sug) Object.keys(R.preopHoy).forEach(function(c){ if (R.preopHoy[c].operario === F.operario) sug = c; });
   }
-  if (!F.cod && sug && !R.paradas[sug]) F.cod = sug;
+  /* Una máquina en el Taller no se puede escoger. En el cierre, la única
+     excepción es la que este operario usó hoy (se varó durante el día). */
+  function usadaHoy(c){
+    var l = estado.hoy.preop[c] || R.preopHoy[c];
+    return !!l && l.operario === F.operario;
+  }
+  function bloqueada(c){ return !!R.paradas[c] && !(F.tipo === 'cierre' && usadaHoy(c)); }
+  if (F.cod && bloqueada(F.cod)) F.cod = '';
+  if (!F.cod && sug && !bloqueada(sug)) F.cod = sug;
   var lista = flota().slice().sort(function(a, b){ return (a.grupo === 'transporte') - (b.grupo === 'transporte'); });
   var p = R.prog[sug];
   var h = '<h2>¿Qué máquina ' + (F.tipo === 'preop' ? 'va a usar' : 'usó') + ' hoy?</h2><p class="ayuda">Toque la máquina.</p>';
@@ -431,16 +439,17 @@ function pMaquina(){
   }
   h += '<div class="rejilla maq">' + lista.map(function(m){
     var par = R.paradas[m.cod], pen = R.pendientes[m.cod];
-    var marca = par ? '<span class="marca-op rojo">En taller</span>' :
+    var marca = par ? '<span class="marca-op rojo">En taller' + (bloqueada(m.cod) ? '' : ' · la usó hoy') + '</span>' :
       m.cod === sug ? '<span class="marca-op verde">' + (F.tipo === 'preop' ? 'Programada para usted' : 'La de su preoperativo') + '</span>' :
       pen ? '<span class="marca-op ambar">⚠ Pendiente del taller</span>' : '';
-    return '<button class="op" data-m="' + esc(m.cod) + '" aria-pressed="' + (F.cod === m.cod) + '"' + (par && F.tipo === 'preop' ? ' disabled' : '') + '>' +
+    return '<button class="op" data-m="' + esc(m.cod) + '" aria-pressed="' + (F.cod === m.cod) + '"' + (bloqueada(m.cod) ? ' disabled' : '') + '>' +
       '<span class="cod">' + esc(m.cod) + '</span><small>' + esc(m.nombre) + '</small>' + marca + '</button>';
   }).join('') + '</div>' +
-  (F.tipo === 'preop' ? '<p class="nota">Las máquinas en taller no se pueden usar hasta que Tulio les dé el alta.</p>' : '');
+  '<p class="nota">' + (F.tipo === 'preop' ? 'Las máquinas en taller no se pueden usar hasta que Tulio les dé el alta.'
+    : 'Las máquinas en taller no tienen cierre, salvo la que usted usó hoy si se varó durante el día.') + '</p>';
   return {
     html: h,
-    listo: function(){ return !!F.cod; },
+    listo: function(){ return !!F.cod && !bloqueada(F.cod); },
     bind: function(valido){ elegir('[data-m]', 'data-m', function(v){ F.cod = v; valido(); setTimeout(siguiente, 180); }); }
   };
 }
