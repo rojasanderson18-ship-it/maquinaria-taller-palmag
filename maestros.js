@@ -205,7 +205,11 @@
     if (s.indexOf('T') > 0){ var d = new Date(s); if (!isNaN(d)) return isoLocal(d); }
     return s.slice(0,10);
   }
-  function num(v){ var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? null : n; }
+  function num(v){
+    var t = String(v == null ? '' : v).trim();
+    if (/^\d{4}-\d{2}-\d{2}T/.test(t)) return null;      // Sheets convirtió el número en fecha
+    var n = parseFloat(t.replace(',', '.')); return isNaN(n) ? null : n;
+  }
   /* "#05 - John Deere 2850", "05 - KUBOTA…", "FORD" → código de la flota */
   function codDe(txt){
     var t = String(txt || '').trim().toUpperCase();

@@ -42,6 +42,8 @@
   .lectura{background:var(--red);color:#fff;font-size:13.5px;padding:9px 16px;text-align:center;line-height:1.35}
   .lectura[hidden]{display:none}
   .lectura b{font-weight:700}
+  .nollego{background:#9a3412}
+  .nollego button{margin:6px 4px 0;background:#fff;color:#9a3412;border:0;border-radius:6px;padding:4px 12px;font:inherit;font-weight:700;cursor:pointer}
   .progreso{height:4px;background:#C9D2CD}
   .progreso i{display:block;height:100%;background:var(--green);transition:width .2s}
   .progreso[hidden]{display:none}
@@ -143,6 +145,7 @@
 </div></header>
 <div class="lectura" id="lectura" hidden></div>
 <div class="sync" id="sync" hidden></div>
+<div class="lectura nollego" id="nollego" hidden></div>
 <div class="progreso" id="progreso" hidden><i id="barra"></i></div>
 
 <div class="wrap" id="app"></div>
@@ -201,7 +204,7 @@ var ENC_TALLER = ['Fecha','Hora','Acción','ID','Equipo','Máquina','Tipo','Sist
                   'Fecha Parada','Trabajo','Alta por','Días Parada'];
 
 /* estado local: cola de envíos y lo que este celular registró hoy */
-var estado = { cola: [], ultimoOperario: '', hoy: { fecha: '', preop: {} } };
+var estado = { cola: [], ultimoOperario: '', hoy: { fecha: '', preop: {} }, porConfirmar: [] };
 /* lo que se lee de la hoja (con copia para trabajar sin señal) */
 var R = { paradas: {}, pendientes: {}, prog: {}, preopHoy: {}, ultHor: {} };
 
@@ -217,7 +220,11 @@ function horaAhora(){ var d = new Date(); return p2(d.getHours()) + ':' + p2(d.g
 function fechaCO(iso){ return new Date(iso + 'T12:00:00').toLocaleDateString('es-CO'); }
 function dcorta(iso){ var p = String(iso).split('-'); return p.length === 3 ? p[2] + '/' + p[1] : iso; }
 function nid(){ return 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
-function num(v){ var n = parseFloat(String(v == null ? '' : v).replace(',', '.')); return isNaN(n) ? null : n; }
+function num(v){
+  var t = String(v == null ? '' : v).trim();
+  if (/^\d{4}-\d{2}-\d{2}T/.test(t)) return null;      // Sheets convirtió el número en fecha
+  var n = parseFloat(t.replace(',', '.')); return isNaN(n) ? null : n;
+}
 function fmtH(n){ return n == null ? '—' : String(Math.round(n * 10) / 10).replace('.', ',') + ' h'; }
 function aIso(v){
   var s = String(v==null?'':v).trim(); if (!s) return '';
@@ -247,6 +254,7 @@ function persistir(){ try { localStorage.setItem(KEY, JSON.stringify(estado)); r
 function cargarLocal(){
   try { var g = JSON.parse(localStorage.getItem(KEY) || 'null'); if (g) estado = g; } catch(e){}
   if (!estado.cola) estado.cola = [];
+  if (!estado.porConfirmar) estado.porConfirmar = [];
   if (!estado.hoy || estado.hoy.fecha !== hoy()) estado.hoy = { fecha: hoy(), preop: {} };
   try { var r = JSON.parse(localStorage.getItem(KEY_REMOTO) || 'null'); if (r) R = r; } catch(e){}
   if (R.fecha !== hoy()){ R.prog = {}; R.preopHoy = {}; }
@@ -280,9 +288,10 @@ async function traerTodo(){
   if (!navigator.onLine){ R.tallerOk = false; R.intentado = true; pintarLectura(); return; }
   var hy = hoy();
   try { await Maestros.traer(); } catch(e){}
-  var res = await Promise.all([leer('Taller'), leer('ProgMaquinaria'), leer('PreopDiario'), leer('CierreJornada')].map(function(p){
+  var res = await Promise.all([leer('Taller'), leer('ProgMaquinaria'), leer('PreopDiario'), leer('CierreJornada'),
+    leer('Preoperativos'), leer('Programacion')].map(function(p){
     return p.catch(function(){ return null; }); }));
-  var taller = res[0], prog = res[1], preop = res[2], cierre = res[3];
+  var taller = res[0], prog = res[1], preop = res[2], cierre = res[3], preopViejo = res[4], progViejo = res[5];
   R.tallerOk = !!taller; R.intentado = true;
   if (taller){
     R.leidoTaller = new Date().toISOString();
@@ -316,8 +325,18 @@ async function traerTodo(){
     });
     R.prog = p;
   }
+  // la hoja Programacion de siempre: por si la programaron con la versión anterior
+  if (progViejo){
+    if (!prog) R.prog = {};
+    progViejo.forEach(function(r){
+      var cod = codDe(r[2]);
+      if (aIso(r[0]) !== hy || !maqDe(cod) || R.prog[cod] || !String(r[3] || '').trim()) return;
+      R.prog[cod] = { labor:String(r[3]), lotes:String(r[4] == null ? '' : r[4]), implemento:String(r[5] || ''), operario:'', obs:'',
+        programo:String(r[1] || '').split(' — ')[0] };
+    });
+  }
   var ult = {};
-  function anotar(cod, f, h){ if (h == null || !cod) return; if (!ult[cod] || f > ult[cod].fecha || (f === ult[cod].fecha && h > ult[cod].h)) ult[cod] = { fecha:f, h:h }; }
+  function anotar(cod, f, h){ if (h == null || h <= 0 || !cod || !maqDe(cod)) return; if (!ult[cod] || f > ult[cod].fecha || (f === ult[cod].fecha && h > ult[cod].h)) ult[cod] = { fecha:f, h:h }; }
   if (preop){
     R.preopHoy = {};
     preop.forEach(function(r){
@@ -327,7 +346,9 @@ async function traerTodo(){
     });
   }
   if (cierre) cierre.forEach(function(r){ anotar(codDe(r[3]), aIso(r[0]), num(r[4])); });
-  if (preop || cierre) R.ultHor = ult;
+  if (preopViejo) preopViejo.forEach(function(r){ anotar(codDe(r[3]), aIso(r[0]), num(r[6])); });   // Preoperativo anterior
+  if (preop || cierre || preopViejo) R.ultHor = ult;
+  if (confirmar({ PreopDiario: preop, CierreJornada: cierre, Taller: taller })) enviar();
   R.fecha = hy;
   try { localStorage.setItem(KEY_REMOTO, JSON.stringify(R)); } catch(e){}
   pintarLectura();
@@ -336,7 +357,12 @@ async function traerTodo(){
 /* =====================================================================
    Envío (cola: sin señal queda guardado y se manda al volver)
    ===================================================================== */
-function encolar(hoja, fila, encabezados){ estado.cola.push({ hoja:hoja, fila:fila, encabezados:encabezados }); }
+/* clave: cómo se reconoce la fila en la hoja para confirmar que llegó */
+function encolar(hoja, fila, encabezados, clave){
+  var x = { hoja:hoja, fila:fila, encabezados:encabezados, clave:clave || null, ref: nid() };
+  estado.cola.push(x);
+  if (clave) estado.porConfirmar.push({ ref:x.ref, hoja:hoja, fila:fila, encabezados:encabezados, clave:clave, enviadoEn:null, intentos:0 });
+}
 var enviando = false;
 async function enviar(){
   if (enviando || !estado.cola.length || !navigator.onLine){ pintarSync(); return; }
@@ -346,16 +372,77 @@ async function enviar(){
       var x = estado.cola[0];
       try { await fetch(GS_URL, { method:'POST', mode:'no-cors', body: JSON.stringify({ hoja:x.hoja, fila:x.fila, encabezados:x.encabezados }) }); }
       catch(e){ break; }
-      estado.cola.shift(); persistir();
+      estado.cola.shift();
+      estado.porConfirmar.forEach(function(c){ if (c.ref === x.ref) c.enviadoEn = Date.now(); });
+      persistir();
     }
   } finally { enviando = false; pintarSync(); }
   try { if (navigator.serviceWorker && navigator.serviceWorker.controller)
     navigator.serviceWorker.controller.postMessage({ type: 'SYNC_NOW' }); } catch(e){}
 }
+/* =====================================================================
+   Confirmación: el envío a Google no da respuesta (no-cors). Al leer la hoja
+   se busca cada registro; si no está, se reenvía hasta 3 veces y después se
+   avisa. Nada se borra sin que el operario lo decida.
+   ===================================================================== */
+var GRACIA_MS = 2 * 60000, MAX_INTENTOS = 3;
+function confirmar(hojas){
+  var vistos = {};
+  function marca(h, k){ vistos[h + '|' + k] = true; }
+  (hojas.PreopDiario || []).forEach(function(r){ marca('PreopDiario', aIso(r[0]) + '|' + codDe(r[3])); });
+  (hojas.CierreJornada || []).forEach(function(r){ marca('CierreJornada', aIso(r[0]) + '|' + codDe(r[3])); });
+  (hojas.Taller || []).forEach(function(r){ marca('Taller', String(r[3] || '').trim()); });
+  var enCola = {}, t = Date.now(), reenvio = false;
+  estado.cola.forEach(function(x){ if (x.ref) enCola[x.ref] = true; });
+  estado.porConfirmar = estado.porConfirmar.filter(function(c){
+    if (!hojas[c.hoja]) return true;                                  // esa hoja no se pudo leer
+    var k = c.clave.id || (c.clave.fecha + '|' + c.clave.cod);
+    return !vistos[c.hoja + '|' + k];                                 // llegó: se quita
+  });
+  estado.porConfirmar.forEach(function(c){
+    if (!hojas[c.hoja] || enCola[c.ref] || !c.enviadoEn || t - c.enviadoEn < GRACIA_MS || c.intentos >= MAX_INTENTOS) return;
+    reencolar(c); c.intentos++; reenvio = true;
+  });
+  persistir(); pintarNoLlego();
+  return reenvio;
+}
+function reencolar(c){
+  c.ref = nid(); c.enviadoEn = null;
+  estado.cola.push({ hoja:c.hoja, fila:c.fila, encabezados:c.encabezados, ref:c.ref });
+}
+function pintarNoLlego(){
+  var b = $('#nollego'), l = estado.porConfirmar.filter(function(c){ return c.intentos >= MAX_INTENTOS; });
+  if (!l.length){ b.hidden = true; return; }
+  b.hidden = false;
+  b.innerHTML = '<b>' + (l.length === 1 ? 'No llegó a la hoja: ' : 'No llegaron a la hoja: ') + '</b>' +
+    l.map(function(c){ return esc(c.clave.txt); }).join(', ') + '. Siguen guardados en este celular.<br>' +
+    '<button id="nl-reint">Volver a enviar</button><button id="nl-desc">Descartar</button>';
+  $('#nl-reint').onclick = function(){
+    l.forEach(function(c){ c.intentos = 0; reencolar(c); });
+    persistir(); pintarNoLlego(); enviar(); aviso('Se volvió a enviar.');
+  };
+  $('#nl-desc').onclick = function(){
+    if (!confirm('¿Descartar? Lo que no llegó a la hoja se pierde. Avísele a Tulio.')) return;
+    estado.porConfirmar = estado.porConfirmar.filter(function(c){ return l.indexOf(c) < 0; });
+    persistir(); pintarNoLlego();
+  };
+}
+
+function igual(a, b){
+  function n(x){ return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+  return n(a) === n(b);
+}
 /* la novedad le llega a Tulio como pendiente del taller (él decide si la para) */
 function pendienteParaTulio(cod, texto, urgente, sistema, operario){
-  encolar('Taller', [fechaCO(hoy()), horaAhora(), 'PENDIENTE', nid(), cod, nombreDe(cod), urgente ? 'urgente' : 'normal',
-    sistema ? SISTEMAS[sistema] : '', texto, operario, hoy(), '', '', ''], ENC_TALLER);
+  // si el taller ya tiene abierto ese mismo aviso de esa máquina, no se repite
+  // (pasaba todos los días con la misma novedad); si ahora es urgente, sí va
+  var ya = (R.pendientes[cod] || []).some(function(n){ return igual(n.txt, texto) && (n.urgente || !urgente); });
+  if (ya) return false;
+  var id = nid();
+  encolar('Taller', [fechaCO(hoy()), horaAhora(), 'PENDIENTE', id, cod, nombreDe(cod), urgente ? 'urgente' : 'normal',
+    sistema ? SISTEMAS[sistema] : '', texto, operario, hoy(), '', '', ''], ENC_TALLER, { id:id, txt:'Aviso al taller de ' + cod });
+  (R.pendientes[cod] = R.pendientes[cod] || []).push({ txt:texto, urgente:urgente });
+  return true;
 }
 
 /* =====================================================================
@@ -514,6 +601,16 @@ function pLabor(){
   };
 }
 
+/* Un horómetro que salta mucho casi siempre es un dígito de más o una coma
+   que faltó (1164,2 → 11642). No se bloquea: se pide revisar. */
+function avisoSalto(n, u){
+  if (n == null || !u || n <= u.h) return '';
+  var dias = Math.max(1, Math.round((new Date(hoy() + 'T12:00:00') - new Date(u.fecha + 'T12:00:00')) / 86400000));
+  if (n - u.h <= 24 * dias) return '';
+  return '<div class="tarj alerta"><div class="vl">Es <b>' + fmtH(Math.round((n - u.h) * 10) / 10) + ' más</b> que el último registrado (' + fmtH(u.h) +
+    ' el ' + dcorta(u.fecha) + '). Revise que no le sobre un número o le falte la coma.</div></div>';
+}
+
 /* ---------- 4. horómetro inicial ---------- */
 function infoHorometro(){
   var u = R.ultHor[F.cod];
@@ -532,7 +629,7 @@ function pHorometro(){
         var n = num(F.hor), u = R.ultHor[F.cod];
         $('#hor-aviso').innerHTML = ((n != null && u && n < u.h)
           ? '<div class="tarj alerta"><div class="vl">Es <b>menor</b> que el último registrado (' + fmtH(u.h) + '). Revise que esté bien escrito.</div></div>' : '') +
-          avisoMtto(n);
+          avisoSalto(n, u) + avisoMtto(n);
       }
       inp.oninput = revisar; revisar(); setTimeout(function(){ inp.focus(); }, 100);
     }
@@ -642,7 +739,7 @@ function enviarPreop(){
     .concat(NIVELES.map(function(x){ return { bien:'Bien', bajo:'Bajo', muybajo:'Muy bajo' }[F.niveles[x.id]]; }))
     .concat(ITEMS.map(function(it){ return F.items[it.id] === 'problema' ? 'Problema' : 'Bien'; }))
     .concat([{ operativa:'Puede trabajar', novedad:'Con novedad', varada:'No puede trabajar' }[F.estado], F.obs.trim()]);
-  encolar('PreopDiario', fila, ENC_PREOP);
+  encolar('PreopDiario', fila, ENC_PREOP, { fecha:hoy(), cod:F.cod, txt:'Preoperativo de ' + F.cod + ' (' + F.operario + ')' });
   if (F.estado !== 'operativa' || pr.length){
     var txt = (F.estado === 'varada' ? 'NO PUEDE TRABAJAR (preoperativo)' : 'Preoperativo') +
       (pr.length ? ': ' + pr.map(function(x){ return x.txt; }).join(', ') : '') + (F.obs.trim() ? '. ' + F.obs.trim() : '');
@@ -678,10 +775,12 @@ function pHorFinal(){
         var n = num(F.hor), box = $('#hor-aviso'), u = R.ultHor[F.cod];
         if (n != null && ini == null && u && n < u.h){
           box.innerHTML = '<div class="tarj alerta"><div class="vl">Es <b>menor</b> que el último registrado (' + fmtH(u.h) + '). Revise que esté bien escrito.</div></div>'; return; }
-        if (n == null || ini == null){ box.innerHTML = ''; return; }
+        if (n == null || ini == null){ box.innerHTML = ini == null ? avisoSalto(n, u) : ''; return; }
         var dif = Math.round((n - ini) * 10) / 10;
         box.innerHTML = dif < 0
           ? '<div class="tarj alerta"><div class="vl">Es <b>menor</b> que el inicial (' + fmtH(ini) + '). Revise que esté bien escrito.</div></div>'
+          : dif > 16
+          ? '<div class="tarj alerta"><div class="vl">Serían <b>' + fmtH(dif) + '</b> trabajadas hoy (inicial ' + fmtH(ini) + '). Revise que no le sobre un número o le falte la coma.</div></div>'
           : '<div class="tarj prog"><div class="et">Horas trabajadas hoy</div><div class="vl grande mono">' + fmtH(dif) + '</div></div>';
       }
       inp.oninput = revisar; revisar(); setTimeout(function(){ inp.focus(); }, 100);
@@ -729,9 +828,10 @@ function pLaborFinal(){
 
 function enviarCierre(){
   var n = num(F.hor), ini = horInicialHoy();
-  var horas = ini != null && n != null && n >= ini ? Math.round((n - ini) * 10) / 10 : '';
+  var horas = ini != null && n != null && n >= ini && n - ini <= 24 ? Math.round((n - ini) * 10) / 10 : '';
   encolar('CierreJornada', [fechaCO(hoy()), horaAhora(), F.operario, F.cod + ' - ' + nombreDe(F.cod), n, ini == null ? '' : ini, horas,
-    F.estado === 'varada' ? 'varado' : F.estado === 'novedad' ? 'novedad' : 'operativo', F.obs.trim(), F.labor.trim()], ENC_CIERRE);
+    F.estado === 'varada' ? 'varado' : F.estado === 'novedad' ? 'novedad' : 'operativo', F.obs.trim(), F.labor.trim()], ENC_CIERRE,
+    { fecha:hoy(), cod:F.cod, txt:'Cierre de ' + F.cod + ' (' + F.operario + ')' });
   if (F.estado !== 'operativa'){
     pendienteParaTulio(F.cod, (F.estado === 'varada' ? 'VARADA al terminar la jornada: ' : 'Cierre de jornada: ') + F.obs.trim(),
       F.estado === 'varada', '', F.operario);
