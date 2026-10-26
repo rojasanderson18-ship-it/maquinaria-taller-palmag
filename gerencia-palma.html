@@ -267,7 +267,8 @@ var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
 var EVENTOS = null, D = null;
 var INICIO_DATOS = null;          // primer día registrado en la hoja Taller
 var PENDIENTES = [];              // pendientes abiertos: la máquina trabaja, pero algo puede pararla
-var PROG = null, INICIO_PROG = null;   // programación por fecha → máquina → asignación
+var PROG = null, INICIO_PROG = null;
+var FALTAN = [];                  // hojas que no se pudieron leer (cifras incompletas)   // programación por fecha → máquina → asignación
 var HIST = [];                    // los últimos 6 meses hasta el elegido
 var MESES_HIST = 6, VENTANA_REPETIDAS = 90;
 var BASE_TEND = 50;   // la gráfica de tendencia arranca en 50 % para que se noten las diferencias
@@ -374,7 +375,7 @@ async function leerHoja(h){
 }
 async function traerProgramacion(){
   var res = await Promise.all(['ProgMaquinaria', 'Programacion'].map(function(h){ return leerHoja(h).catch(function(){ return null; }); }));
-  if (!res[0] && !res[1]) return;
+  if (!res[0] && !res[1]){ FALTAN.push('la programación'); return; }
   var dias = {}, ini = null;
   function fecha(f){ if (!ini || f < ini) ini = f; }
   (res[0] || []).forEach(function(row){
@@ -482,18 +483,25 @@ function calcular(eventos, anio, mes){
 /* ---------- uso de la maquinaria (cruce con Programación) ---------- */
 /* Utilización = días disponibles en que la máquina tuvo labor asignada ÷ días
    disponibles. Solo cuenta desde que hay programación guardada. */
+/* Un día cuenta como usado si la máquina tenía labor en la Programación o
+   si el operario hizo preoperativo o cierre ese día (trabajó aunque nadie
+   la haya programado). */
 function utilizacion(R){
-  if (!PROG || !INICIO_PROG || R.corte < INICIO_PROG) return null;
-  var dias = R.prog.filter(function(d){ return d >= INICIO_PROG; });
+  var USOS = Horometros.usos ? Horometros.usos() : {}, ini = INICIO_PROG;
+  Object.keys(USOS).forEach(function(k){ var f = k.split('|')[1]; if (!ini || f < ini) ini = f; });
+  if (!ini || R.corte < ini) return null;
+  var dias = R.prog.filter(function(d){ return d >= ini; });
   if (!dias.length) return null;
-  var porLabor = {}, U = { disponibles:0, conLabor:0 };
+  var porLabor = {}, U = { disponibles:0, conLabor:0, sinProgramar:0 };
   var equipos = R.maquinaria.map(function(e){
     var disp = 0, usados = 0;
     dias.forEach(function(d){
-      var lab = PROG[d] && PROG[d][e.equipo];
+      var lab = PROG && PROG[d] && PROG[d][e.equipo], uso = USOS[e.equipo + '|' + d];
       if (lab) porLabor[lab] = (porLabor[lab] || 0) + 1;
       if (e.perdido[d]) return;
-      disp++; if (lab) usados++;
+      disp++;
+      if (lab || uso) usados++;
+      if (uso && !lab) U.sinProgramar++;
     });
     U.disponibles += disp; U.conLabor += usados;
     return { equipo:e.equipo, nombre:e.nombre, disponibles:disp, conLabor:usados, ociosos:disp - usados,
@@ -686,6 +694,8 @@ function pintar(){
     ? 'Mes en curso: van <strong>' + D.diasProgramados + ' de ' + D.laboralesMes + ' días laborales</strong> (hasta hoy, ' + dcorta(D.corte) +
       '). El mes completo se calcula cuando termine, porque los días que faltan todavía no se pueden medir.'
     : MESES[D.mes - 1].charAt(0).toUpperCase() + MESES[D.mes - 1].slice(1) + ' ' + D.anio + ' completo · ' + D.laboralesMes + ' días laborales.';
+  if (FALTAN.length) $('#corte').innerHTML += ' <strong style="color:var(--red)">No se pudo leer ' + FALTAN.join(' ni ') +
+    ': utilización, horas o mantenimiento pueden estar incompletos. Pulse "Actualizar".</strong>';
 
   /* ---------- piezas ---------- */
   function titulo(t, hint, irA){
@@ -717,11 +727,15 @@ function pintar(){
       ' días-máquina · meta ' + META + '% · sin camiones</div>' + (P ? delta(T.disponibilidad, P.disponibilidad, ' pts', false, true) : '') + '</div>' +
     '<div class="kpi ' + (U ? (U.totales.utilizacion >= 80 ? 'ok' : U.totales.utilizacion >= 60 ? 'al' : 'ma') : '') + '"><div class="n">' +
       (U ? pct(U.totales.utilizacion) : '—') + '</div><div class="t">Utilización</div><div class="x">' +
-      (U ? U.totales.conLabor + ' de ' + U.totales.disponibles + ' días disponibles con labor' : 'sin programación guardada en el mes') + '</div></div>' +
+      (U ? U.totales.conLabor + ' de ' + U.totales.disponibles + ' días disponibles trabajados' +
+        (U.totales.sinProgramar ? ' · ' + U.totales.sinProgramar + ' sin programar' : '') : 'sin programación ni preoperativos en el mes') + '</div></div>' +
     '<div class="kpi"><div class="n">' + T.fallas + '</div><div class="t">Fallas en el mes</div>' +
       '<div class="x">en ' + T.conFallas + ' de ' + T.equipos + ' máquinas</div>' + (P ? delta(T.fallas, P.fallas, '', true) : '') + '</div>' +
     '<div class="kpi"><div class="n">' + n1(T.diasPorFalla) + '</div><div class="t">MTTR · días promedio de reparación</div>' +
-      '<div class="x">de la parada hasta el alta</div>' + (P ? delta(T.diasPorFalla, P.diasPorFalla, ' días', true, true) : '') + '</div>' +
+      '<div class="x">' + (function(){
+        var ab = D.abiertos.filter(function(e){ return e.tipo === 'falla' && e.inicio >= D.desde && !esCamion(e.equipo); }).length;
+        return ab ? 'incluye ' + ab + (ab === 1 ? ' sin alta, que cuenta' : ' sin alta, que cuentan') + ' hasta hoy' : 'de la parada hasta el alta';
+      })() + '</div>' + (P ? delta(T.diasPorFalla, P.diasPorFalla, ' días', true, true) : '') + '</div>' +
     '</div><div class="kpis sec">' +
     '<div class="kpi ' + (T.diasFalla ? 'ma' : 'ok') + '"><div class="n">' + T.diasFalla + '</div>' +
       '<div class="t">Días-máquina perdidos por falla</div><div class="x">equivale a ' +
@@ -766,7 +780,11 @@ function pintar(){
       }).join('') + '</tbody></table></div>'
     : '<div class="vacio">Todavía no hay cierres de jornada con horómetro en este mes.</div>';
 
-  var secMtto = '<div class="tabla"><table><thead><tr><th>Máquina</th><th>Estado</th><th class="num">Horómetro</th>' +
+  var sinReg = MT.filter(function(m){ return m.nivel === 'sindato'; }).length;
+  var secMtto = (sinReg ? '<p class="mod" style="margin:0 0 8px">' + (sinReg === MT.length
+      ? 'Todavía no hay mantenimientos registrados, así que no hay alertas. Tulio los registra en el Taller (ficha de cada máquina → "Registrar mantenimiento hecho").'
+      : sinReg + (sinReg === 1 ? ' máquina sin' : ' máquinas sin') + ' mantenimiento registrado: no tienen alerta hasta que Tulio lo registre en el Taller.') + '</p>' : '') +
+    '<div class="tabla"><table><thead><tr><th>Máquina</th><th>Estado</th><th class="num">Horómetro</th>' +
     '<th class="num">Último mtto.</th><th class="num">Próximo</th><th class="num">Faltan</th></tr></thead><tbody>' +
     MT.map(function(m){
       var est = m.nivel === 'vencido' ? '<span class="pill ma">Vencido</span>' : m.nivel === 'proximo' ? '<span class="pill al">Próximo</span>' :
@@ -826,7 +844,7 @@ function pintar(){
   } else {
     var maxL = U.porLabor.length ? U.porLabor[0].dias : 1;
     secUso = '<div class="dos"><div class="tabla"><table><thead><tr><th>Máquina</th>' +
-      '<th class="num">Disp.</th><th class="num">Con labor</th><th class="num">Ociosos</th><th class="num">Utilización</th></tr></thead><tbody>' +
+      '<th class="num">Disp.</th><th class="num">Trabajó</th><th class="num">Ociosos</th><th class="num">Utilización</th></tr></thead><tbody>' +
       U.equipos.slice().sort(function(a,b){ return (a.utilizacion == null ? 999 : a.utilizacion) - (b.utilizacion == null ? 999 : b.utilizacion); })
         .map(function(e){
           var cl = e.utilizacion == null ? 'na' : e.utilizacion >= 80 ? 'ok' : e.utilizacion >= 60 ? 'al' : 'ma';
@@ -903,7 +921,7 @@ function pintar(){
     '<li><b>Camiones:</b> se calculan aparte; los indicadores, la gráfica y las fallas por sistema son solo de la maquinaria.</li>' +
     '<li><b>MTTR (días/falla):</b> promedio de días desde la parada hasta el alta de las fallas que empezaron en el mes.</li>' +
     '<li><b>MTBF:</b> días disponibles ÷ fallas, sumando los últimos meses con datos. Una máquina sin fallas no tiene MTBF.</li>' +
-    '<li><b>Utilización:</b> días con labor asignada en la Programación ÷ días disponibles. Solo maquinaria; cuenta desde que se empezó a guardar la programación.</li>' +
+    '<li><b>Utilización:</b> días en que la máquina trabajó (tenía labor en la Programación, o el operario hizo preoperativo o cierre) ÷ días disponibles. Solo maquinaria.</li>' +
     '<li><b>Tendencia:</b> los meses antes del primer registro del Taller salen "sin datos" en vez de 100 %.</li>' +
     '<li><b>Horas trabajadas:</b> horómetro final menos inicial de cada cierre de jornada del Preoperativo.</li>' +
     '<li><b>Mantenimiento preventivo:</b> vencido cuando el horómetro pasa el último mantenimiento más el intervalo (' + Mtto.INTERVALO + ' h por defecto); próximo cuando faltan ' + Mtto.AVISO + ' h o menos.</li>' +
@@ -928,8 +946,9 @@ function pintar(){
       '<div>' + titulo('Fallas repetidas', 'Misma máquina y mismo sistema 2 o más veces en ' + VENTANA_REPETIDAS + ' días: la reparación no quedó bien.') + secRepetidas + '</div></div>' +
       titulo('Pendientes del taller', 'Máquinas que siguen trabajando con algo anotado por Tulio: no baja la disponibilidad, pero si no se atiende puede convertirse en una parada.') + secPendientes +
       titulo('Mantenimiento preventivo', 'Según el horómetro que registran los operarios y el último mantenimiento que registra Tulio en el Taller (cada ' + Mtto.INTERVALO + ' h si no se indica otro intervalo).') + secMtto,
-    uso: titulo('Uso de la maquinaria', 'De los días en que cada máquina estuvo disponible, en cuántos tuvo labor asignada en la Programación' +
-      (U && U.desde > D.desde ? ' (desde el ' + dcorta(U.desde) + ', cuando empezó a guardarse la programación)' : '') + '. Los días ociosos son capacidad que no se usó.') + secUso +
+    uso: titulo('Uso de la maquinaria', 'De los días en que cada máquina estuvo disponible, en cuántos trabajó: tenía labor en la Programación o el operario hizo preoperativo o cierre' +
+      (U && U.desde > D.desde ? ' (desde el ' + dcorta(U.desde) + ', cuando empezó a haber registros)' : '') + '. Los días ociosos son capacidad que no se usó.' +
+      (U && U.totales.sinProgramar ? ' Hubo ' + U.totales.sinProgramar + ' días-máquina trabajados que nadie programó: la Programación no se está registrando completa.' : '')) + secUso +
       titulo('Horas trabajadas', 'Horómetro final menos inicial, del Cierre de jornada que registran los operarios en el Preoperativo.') + secHoras,
     conf: '<div class="dos"><div>' + titulo('MTBF por máquina', 'Cuántos días disponibles pasan en promedio entre una falla y otra (más es mejor), con los últimos ' +
         C.meses + (C.meses === 1 ? ' mes' : ' meses') + ' con datos.') + secMtbf + '</div>' +
@@ -958,8 +977,10 @@ async function cargar(forzar){
     $('#app').innerHTML = '<div class="cargando">Consultando la hoja Taller…</div>';
     try { await Maestros.traer(); } catch(e){}   // si falla se usa la copia guardada
     FLOTA = Maestros.flotaTodas();
+    FALTAN = [];
     var progListo = traerProgramacion();
-    var horListo = Horometros.traer().catch(function(){});
+    var horListo = Horometros.traer().then(function(ok){ if (!ok) FALTAN.push('los horómetros'); })
+      .catch(function(){ FALTAN.push('los horómetros'); });
     try { EVENTOS = await traer(); }
     catch(e){
       $('#app').innerHTML = '<div class="err"><strong>No se pudo leer la hoja Taller.</strong> Revise la conexión e intente con "Actualizar". (' + esc(e.message) + ')</div>';
@@ -1094,7 +1115,7 @@ function informe(){
 
   /* 6. uso y 7. confiabilidad */
   h += '<div class="dos"><div>' + sec('Uso de la maquinaria', U && U.desde > D.desde ? 'desde el ' + dcorta(U.desde) : 'Programación');
-  h += U ? '<table><thead><tr><th>Máquina</th><th class="n">Disp.</th><th class="n">Con labor</th><th class="n">Ociosos</th><th class="n">Utiliz.</th></tr></thead><tbody>' +
+  h += U ? '<table><thead><tr><th>Máquina</th><th class="n">Disp.</th><th class="n">Trabajó</th><th class="n">Ociosos</th><th class="n">Utiliz.</th></tr></thead><tbody>' +
       U.equipos.map(function(e){ return fila([esc(e.equipo), e.disponibles, e.conLabor, e.ociosos, pct(e.utilizacion)]).replace(/<td>([0-9—][^<]*%)/, '<td class="n">$1'); }).join('') +
       fila(['<b>Total</b>', U.totales.disponibles, U.totales.conLabor, U.totales.disponibles - U.totales.conLabor, '<b>' + pct(U.totales.utilizacion) + '</b>']).replace(/<td><b>([0-9])/, '<td class="n"><b>$1') +
       '</tbody></table>' : '<p>Sin programación guardada en el mes.</p>';
