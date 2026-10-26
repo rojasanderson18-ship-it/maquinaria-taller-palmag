@@ -339,7 +339,7 @@ async function traerTodo(){
       var cod = String(r[5]||'').trim(), acc = String(r[2]||'').trim().toUpperCase();
       if (acc === 'QUITAR'){ delete p[cod]; return; }
       if (acc === 'ASIGNAR') p[cod] = { labor:String(r[6]||''), lotes:String(r[7]==null?'':r[7]), implemento:String(r[8]||''),
-        operario:String(r[9]||''), obs:String(r[10]||''), programo:String(r[11]||'') };
+        operario:String(r[9]||''), operario2:String(r[12]||''), obs:String(r[10]||''), programo:String(r[11]||'') };
     });
     R.prog = p;
   }
@@ -547,7 +547,8 @@ function pOperario(){
 function pMaquina(){
   // sugerida: la que le programaron hoy, o en el cierre la del preoperativo de hoy
   var sug = '';
-  Object.keys(R.prog).forEach(function(c){ if (R.prog[c].operario === F.operario) sug = c; });
+  // la máquina programada para este operario (turno 1, o turno 2 si hay doble turno)
+  Object.keys(R.prog).forEach(function(c){ if (R.prog[c].operario === F.operario || R.prog[c].operario2 === F.operario) sug = c; });
   if (F.tipo === 'cierre'){
     preopsHoy().forEach(function(l){ if (l.operario === F.operario) sug = l.cod; });
   }
@@ -568,7 +569,7 @@ function pMaquina(){
       'Antes de usar una máquina, confirme con Tulio que no esté parada.</div></div>';
   }
   if (sug && p && F.tipo === 'preop'){
-    h += '<div class="tarj prog"><div class="et">Su programación de hoy</div><div class="vl grande">' + esc(sug) + ' · ' + esc(nombreDe(sug)) + '</div>' +
+    h += '<div class="tarj prog"><div class="et">Su programación de hoy' + (p.operario2 === F.operario ? ' · turno 2' : '') + '</div><div class="vl grande">' + esc(sug) + ' · ' + esc(nombreDe(sug)) + '</div>' +
       '<div class="vl">' + esc(p.labor) + (p.lotes ? ' · lotes ' + esc(p.lotes) : '') + '</div></div>';
   }
   h += '<div class="rejilla maq">' + lista.map(function(m){
