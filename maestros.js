@@ -38,6 +38,9 @@
   function guardarLocal(m){ try { localStorage.setItem(KEY, JSON.stringify(m)); return true; } catch(e){ return false; } }
 
   var M = leerLocal();
+  var avisos = [], GRACIA_MS = 2 * 60000, MAX_INTENTOS = 3;
+  var NOMBRES = { FLOTA:'la lista de máquinas', MTTO:'los mantenimientos', OPERARIOS:'los tractoristas',
+    SUPERVISORES:'los supervisores', LOTES:'los lotes', FINCAS:'las fincas', IMPL:'los implementos' };
 
   window.Maestros = {
     GRUPOS: GRUPOS,
@@ -49,35 +52,80 @@
     /* solo las activas */
     flota: function(){ return this.flotaTodas().filter(function(f){ return f.activa !== false; }); },
     /* Guarda la lista en el celular y devuelve la fila para la cola de envío
-       de cada página: {hoja, fila, encabezados, id}. */
+       de cada página: {hoja, fila, encabezados, id}. Queda "sin confirmar"
+       hasta que la fila aparezca en la hoja (el envío no da respuesta). */
     fila: function(tipo, datos, persona){
       var d = new Date(), id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      M[tipo] = { id: id, datos: copia(datos) };
-      guardarLocal(M);
-      return { hoja: 'Maestros', id: 'maestro:' + tipo, encabezados: ENC,
+      var x = { hoja: 'Maestros', id: 'maestro:' + tipo, encabezados: ENC,
         fila: [d.toLocaleDateString('es-CO'), p2(d.getHours()) + ':' + p2(d.getMinutes()), tipo, id, JSON.stringify(datos), persona || ''] };
+      var base = M[tipo] ? (M[tipo].pendiente ? M[tipo].base : M[tipo].id) : null;
+      M[tipo] = { id: id, datos: copia(datos), pendiente: true, base: base || null, fila: x.fila, creado: Date.now(), intentos: 0 };
+      guardarLocal(M);
+      return x;
     },
     /* Lee la hoja; "pendientes" son los tipos que este celular todavía no
-       ha enviado (no se pisan con lo de la hoja). Devuelve true si cambió algo. */
+       ha enviado (no se pisan con lo de la hoja). Devuelve true si cambió algo.
+       Un cambio enviado que no aparece en la hoja no se pierde: se queda en
+       el celular para reenviarlo, salvo que otro lo haya cambiado después. */
     traer: async function(pendientes){
       pendientes = pendientes || {};
       var r = await fetch(GS_URL + '?hoja=Maestros&t=' + Date.now());
       var d = await r.json();
       if (!d || !d.ok || !Array.isArray(d.datos)) return false;
-      var ult = {};
+      var ult = {}, vistos = {};
       d.datos.forEach(function(row){
         var tipo = String(row[2] || '').trim(), id = String(row[3] || '').trim();
         if (!tipo || !id) return;
+        vistos[id] = true;
         try { ult[tipo] = { id: id, datos: JSON.parse(String(row[4] || '')) }; } catch(e){}
       });
       var cambio = false;
+      Object.keys(M).forEach(function(t){
+        var m = M[t];
+        if (pendientes[t] || !m.pendiente) return;
+        if (vistos[m.id]){ M[t] = { id: m.id, datos: m.datos }; cambio = true; return; }   // llegó
+        var remota = ult[t] ? ult[t].id : null;
+        if (remota !== (m.base || null)){                // otro lo cambió después: manda la hoja
+          avisos.push('Un cambio en ' + (NOMBRES[t] || t) + ' no llegó a la hoja y otra persona ya la había cambiado; quedó lo de la hoja.');
+          delete M[t]; cambio = true;
+        }
+      });
       Object.keys(ult).forEach(function(t){
-        if (pendientes[t]) return;
+        if (pendientes[t] || (M[t] && M[t].pendiente)) return;
         if (!M[t] || M[t].id !== ult[t].id){ M[t] = ult[t]; cambio = true; }
       });
       if (cambio) guardarLocal(M);
       return cambio;
-    }
+    },
+    /* Filas que hay que volver a enviar porque no aparecieron en la hoja
+       (hasta 3 intentos). "pendientes" = tipos que aún están en la cola. */
+    reenviar: function(pendientes){
+      pendientes = pendientes || {};
+      var out = [];
+      Object.keys(M).forEach(function(t){
+        var m = M[t];
+        if (!m.pendiente || pendientes[t] || !m.fila || (m.intentos || 0) >= MAX_INTENTOS) return;
+        if (Date.now() - (m.enviado || m.creado || 0) < GRACIA_MS) return;
+        m.intentos = (m.intentos || 0) + 1; m.enviado = Date.now();
+        out.push({ hoja: 'Maestros', id: 'maestro:' + t, encabezados: ENC, fila: m.fila });
+      });
+      if (out.length) guardarLocal(M);
+      return out;
+    },
+    /* tipos que ya se reenviaron 3 veces y siguen sin aparecer */
+    sinLlegar: function(){
+      return Object.keys(M).filter(function(t){ return M[t].pendiente && (M[t].intentos || 0) >= MAX_INTENTOS; })
+        .map(function(t){ return { tipo: t, nombre: NOMBRES[t] || t }; });
+    },
+    reintentar: function(t){
+      if (!M[t] || !M[t].pendiente) return null;
+      M[t].intentos = 0; M[t].enviado = Date.now(); guardarLocal(M);
+      return { hoja: 'Maestros', id: 'maestro:' + t, encabezados: ENC, fila: M[t].fila };
+    },
+    /* deja lo que tenga la hoja (se recupera en la próxima lectura) */
+    descartar: function(t){ delete M[t]; guardarLocal(M); },
+    /* mensajes para mostrar una vez */
+    avisos: function(){ return avisos.splice(0); }
   };
 })();
 

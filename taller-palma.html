@@ -45,6 +45,8 @@
   .lectura{background:var(--red);color:#fff;font-size:13.5px;padding:9px 16px;text-align:center;line-height:1.35}
   .lectura[hidden]{display:none}
   .lectura b{font-weight:700}
+  .nollego{background:#9a3412}
+  .nollego button{margin-left:8px;background:#fff;color:#9a3412;border:0;border-radius:6px;padding:3px 10px;font:inherit;font-weight:700;cursor:pointer}
 
   .wrap{max-width:1080px;margin:0 auto;padding:16px 16px 110px}
   .resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:6px}
@@ -219,6 +221,7 @@
 </div></header>
 <div class="lectura" id="lectura" hidden></div>
 <div class="sync" id="sync" hidden></div>
+<div class="lectura nollego" id="nollego" hidden></div>
 
 
 <div class="wrap" id="app"></div>
@@ -297,7 +300,7 @@ var KEY = 'taller-palma-v1';
 var KEY_FOTOS = 'taller-palma-fotos-v1';
 var ENC_FOTOS = ['Fecha','Hora','Máquina','Equipo','Foto','Subió'];
 var fotos = {};   // código → data URL de la foto subida desde el Taller
-var estado = { eventos: [], novedades: [], yo: '', cola: [] };
+var estado = { eventos: [], novedades: [], yo: '', cola: [], porConfirmar: {} };
 
 /* ---------- almacenamiento ---------- */
 /* window.storage solo existe dentro de Claude; en GitHub Pages se usa localStorage */
@@ -775,8 +778,7 @@ function verEquipo(cod){
       ab.trabajo = ($('#trab').value || '').trim();
       ab.cerradoEn = ahora();
       var dias = diasEntre(ab.fechaReporte, ab.fechaAlta), hora = horaAhora();
-      encolar(HOJA, [fechaCO(ab.fechaAlta), hora, 'ALTA', ab.id, ab.equipo, nombreDe(ab.equipo), ab.tipo,
-        txtSistema(ab.sistema), ab.novedad, ab.reportadoPor, ab.fechaReporte, ab.trabajo, ab.altaPor, dias], ENC_TALLER, ab.id);
+      encolarAlta(ab, hora);
       encolar('Altas', [fechaCO(ab.fechaAlta), '—', ab.equipo + ' ' + nombreDe(ab.equipo), ab.reportadoPor || '—',
         ab.altaPor, '—', hora, '—', txtSistema(ab.sistema) + (ab.trabajo ? ' — ' + ab.trabajo : '')], ENC_ALTAS, ab.id);
       await persistir();
@@ -807,6 +809,7 @@ function encolarNovedad(n){
   encolar(HOJA, [fechaCO(hoy()), horaAhora(), n.cerrada ? 'RESUELTO' : 'PENDIENTE', n.id, n.equipo, nombreDe(n.equipo),
     n.urgencia, n.sistema ? txtSistema(n.sistema) : '', n.novedad, n.reportadoPor, n.fecha,
     n.trabajo || '', n.cerradoPor || '', n.cerrada ? diasEntre(n.fecha, n.fechaCierre) : ''], ENC_TALLER, n.id);
+  porConfirmar(n.id, 'nov');
 }
 function anotarPendiente(cod){
   var sel = { urgencia: 'normal', sistema: null };
@@ -902,10 +905,15 @@ function fusionarNovedades(filas){
   estado.cola.forEach(function(x){ enCola[x.id] = true; });
   var res = [];
   estado.novedades.forEach(function(l){
-    var r = rem[l.id];
-    if (!r){ if (enCola[l.id] || hace24h(l.cerradoEn || l.registradoEn)) res.push(l); return; }
-    res.push(enCola[l.id] || (l.cerrada && !r.cerrada && hace24h(l.cerradoEn)) ? l : r);
+    var r = rem[l.id], pc = estado.porConfirmar[l.id];
     delete rem[l.id];
+    if (enCola[l.id]){ res.push(l); return; }
+    if (pc){
+      if (r && (!l.cerrada || r.cerrada)){ delete estado.porConfirmar[l.id]; res.push(r); } else res.push(l);
+      return;
+    }
+    if (!r){ if (hace24h(l.cerradoEn || l.registradoEn)) res.push(l); return; }
+    res.push(l.cerrada && !r.cerrada && hace24h(l.cerradoEn) ? l : r);
   });
   Object.keys(rem).forEach(function(id){ res.push(rem[id]); });
   estado.novedades = res;
@@ -984,6 +992,7 @@ function corregirFecha(cod){
       $('#ok-fecha').onclick = async function(){
         ab.fechaReporte = nueva;
         encolarParada(ab);
+        estado.porConfirmar[ab.id].fecha = true;   // corrección: debe llegar con esta fecha
         await persistir();
         verEquipo(cod); pintar();
         aviso(cod + ': parada desde el ' + dcorta(nueva) + '.');
@@ -1098,6 +1107,12 @@ async function traerMaestros(){
   estado.cola.forEach(function(x){ if (String(x.id).indexOf('maestro:') === 0) pend[x.id.slice(8)] = true; });
   try {
     if (await Maestros.traer(pend)){ FLOTA = Maestros.flota(); if ($('#hoja').hidden) pintar(); }
+    if (!Maestros.reenviar) return;   // maestros.js viejo en caché
+    Maestros.avisos().forEach(function(m){ aviso(m); });
+    var re = Maestros.reenviar(pend);
+    re.forEach(function(x){ encolar(x.hoja, x.fila, x.encabezados, x.id); });
+    if (re.length){ await persistir(); enviar(); }
+    pintarNoLlego();
   } catch(e){}
 }
 
@@ -1109,6 +1124,14 @@ async function traerMaestros(){
 function encolarParada(ev){
   encolar(HOJA, [fechaCO(hoy()), horaAhora(), 'PARADA', ev.id, ev.equipo, nombreDe(ev.equipo),
     ev.tipo, '', ev.novedad, ev.reportadoPor, ev.fechaReporte, '', '', ''], ENC_TALLER, ev.id);
+  porConfirmar(ev.id, 'ev');
+}
+
+function encolarAlta(ab, hora){
+  encolar(HOJA, [fechaCO(ab.fechaAlta), hora || horaAhora(), 'ALTA', ab.id, ab.equipo, nombreDe(ab.equipo), ab.tipo,
+    txtSistema(ab.sistema), ab.novedad, ab.reportadoPor, ab.fechaReporte, ab.trabajo, ab.altaPor,
+    diasEntre(ab.fechaReporte, ab.fechaAlta)], ENC_TALLER, ab.id);
+  porConfirmar(ab.id, 'ev');
 }
 
 function encolar(hoja, fila, encabezados, id){
@@ -1127,6 +1150,7 @@ async function enviar(){
           body: JSON.stringify({ hoja: x.hoja, fila: x.fila, encabezados: x.encabezados }) });
       } catch(e){ break; }           // sin señal: queda en la cola para el próximo intento
       estado.cola.shift();
+      if (estado.porConfirmar[x.id]) estado.porConfirmar[x.id].enviadoEn = Date.now();
       await persistir();
     }
   } finally { enviando = false; pintarSync(); }
@@ -1160,14 +1184,129 @@ function fusionar(filas){
   estado.cola.forEach(function(x){ enCola[x.id] = true; });
   var res = [];
   estado.eventos.forEach(function(l){
-    var r = rem[l.id];
-    if (!r){ if (enCola[l.id] || hace24h(l.cerradoEn || l.registradoEn)) res.push(l); return; }
-    // la versión local va adelante si cerró y la hoja todavía no tiene el alta
-    res.push(enCola[l.id] || (l.fechaAlta && !r.fechaAlta && hace24h(l.cerradoEn)) ? l : r);
+    var r = rem[l.id], pc = estado.porConfirmar[l.id];
     delete rem[l.id];
+    if (enCola[l.id]){ res.push(l); return; }
+    if (pc){                       // se envió: solo vale la hoja cuando ya tiene lo que se mandó
+      if (r && llegoEvento(l, r, pc)){ delete estado.porConfirmar[l.id]; res.push(r); } else res.push(l);
+      return;
+    }
+    if (!r){ if (hace24h(l.cerradoEn || l.registradoEn)) res.push(l); return; }
+    // la versión local va adelante si cerró y la hoja todavía no tiene el alta
+    res.push(l.fechaAlta && !r.fechaAlta && hace24h(l.cerradoEn) ? l : r);
   });
   Object.keys(rem).forEach(function(id){ res.push(rem[id]); });
   estado.eventos = res;
+}
+
+/* =====================================================================
+   Confirmación de envíos. El envío a Google es "a ciegas" (no-cors): solo
+   al leer la hoja se sabe si la fila llegó. Lo que no aparece se reenvía
+   hasta 3 veces; si sigue sin llegar se avisa y Tulio decide. Nunca se
+   borra nada sin avisar.
+   ===================================================================== */
+var GRACIA_MS = 2 * 60000, MAX_INTENTOS = 3;
+function porConfirmar(id, tipo){ estado.porConfirmar[id] = { tipo: tipo, enviadoEn: null, intentos: 0 }; }
+/* la hoja ya tiene lo que se mandó (o algo más nuevo hecho en otro equipo).
+   Solo una corrección de fecha exige que la fecha coincida: si no, una
+   parada nueva pisaría la corrección que otro equipo hizo después. */
+function llegoEvento(l, r, pc){
+  if (l.fechaAlta) return !!r.fechaAlta;
+  return !!r.fechaAlta || !pc.fecha || r.fechaReporte === l.fechaReporte;
+}
+function reencolar(id, tipo){
+  if (tipo === 'ev'){
+    var e = estado.eventos.filter(function(x){ return x.id === id; })[0];
+    if (!e) return false;
+    if (e.fechaAlta) encolarAlta(e); else encolarParada(e);
+    return true;
+  }
+  if (tipo === 'nov'){ var n = novedadDe(id); if (!n) return false; encolarNovedad(n); return true; }
+  if (tipo === 'foto'){ var cod = id.slice(5); if (!fotos[cod]) return false; encolarFoto(cod); return true; }
+  return false;
+}
+function reenviarPendientes(tipos){
+  var enCola = {}, n = 0, t = Date.now();
+  estado.cola.forEach(function(x){ enCola[x.id] = true; });
+  Object.keys(estado.porConfirmar).forEach(function(id){
+    var pc = estado.porConfirmar[id];
+    if (tipos.indexOf(pc.tipo) < 0 || enCola[id] || !pc.enviadoEn || t - pc.enviadoEn < GRACIA_MS || pc.intentos >= MAX_INTENTOS) return;
+    if (!reencolar(id, pc.tipo)){ delete estado.porConfirmar[id]; return; }
+    estado.porConfirmar[id].intentos = pc.intentos + 1;
+    if (pc.fecha) estado.porConfirmar[id].fecha = true;
+    n++;
+  });
+  pintarNoLlego();
+  return n;
+}
+function noLlego(){
+  var lista = [];
+  Object.keys(estado.porConfirmar).forEach(function(id){
+    var pc = estado.porConfirmar[id];
+    if (pc.intentos < MAX_INTENTOS) return;
+    var txt;
+    if (pc.tipo === 'ev'){
+      var e = estado.eventos.filter(function(x){ return x.id === id; })[0];
+      txt = e ? (e.fechaAlta ? 'Alta de ' : 'Parada de ') + e.equipo + ' — ' + e.novedad : id;
+    } else if (pc.tipo === 'nov'){
+      var n = novedadDe(id);
+      txt = n ? (n.cerrada ? 'Pendiente resuelto de ' : 'Pendiente de ') + n.equipo + ' — ' + n.novedad : id;
+    } else txt = 'Foto de ' + id.slice(5);
+    lista.push({ id: id, txt: txt });
+  });
+  // con un maestros.js viejo en caché no existe sinLlegar
+  if (Maestros.sinLlegar) Maestros.sinLlegar().forEach(function(m){ lista.push({ id: 'maestro:' + m.tipo, txt: 'Cambio en ' + m.nombre }); });
+  return lista;
+}
+function pintarNoLlego(){
+  var b = $('#nollego'), l = noLlego();
+  if (!l.length){ b.hidden = true; return; }
+  b.hidden = false;
+  b.innerHTML = '<b>' + l.length + (l.length === 1 ? ' registro no ha llegado' : ' registros no han llegado') +
+    ' a la hoja de cálculo</b> después de 3 intentos.<button id="ver-nollego">Revisar</button>';
+  $('#ver-nollego').onclick = verNoLlego;
+}
+function verNoLlego(){
+  var l = noLlego();
+  if (!l.length){ cerrar(); return; }
+  abrir(tope('No llegaron a la hoja', 'Siguen guardados en este celular') +
+    '<div class="cuerpo">' +
+      '<p class="nota">Se enviaron 3 veces y no aparecen en la hoja de cálculo. Puede volver a intentarlo, o descartarlo ' +
+      'si ya no sirve (queda lo que tenga la hoja). Si vuelve a pasar, avísele a Anderson.</p>' +
+      l.map(function(x){
+        return '<div class="tarj"><div class="vl">' + esc(x.txt) + '</div>' +
+          '<button class="accion verde" data-reint="' + esc(x.id) + '">Volver a enviar</button>' +
+          '<button class="accion gris" data-desc="' + esc(x.id) + '">Descartar</button></div>';
+      }).join('') +
+      '<button class="accion gris" id="nl-cerrar">Cerrar</button></div>',
+    function(){
+      $('#nl-cerrar').onclick = cerrar;
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-reint]'), function(b){
+        b.onclick = async function(){
+          var id = b.dataset.reint;
+          if (id.indexOf('maestro:') === 0){ var x = Maestros.reintentar(id.slice(8)); if (x) encolar(x.hoja, x.fila, x.encabezados, x.id); }
+          else { var pc = estado.porConfirmar[id]; if (pc){ reencolar(id, pc.tipo); if (pc.fecha) estado.porConfirmar[id].fecha = true; } }
+          await persistir(); pintarNoLlego(); verNoLlego(); enviar();
+          aviso('Se volvió a enviar.');
+        };
+      });
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-desc]'), function(b){
+        b.onclick = async function(){
+          var id = b.dataset.desc;
+          if (!confirm('¿Descartar este registro? Se perderá lo que no llegó a la hoja.')) return;
+          if (id.indexOf('maestro:') === 0){ Maestros.descartar(id.slice(8)); FLOTA = Maestros.flota(); }
+          else {
+            var pc = estado.porConfirmar[id];
+            delete estado.porConfirmar[id];
+            if (pc && pc.tipo === 'ev') estado.eventos = estado.eventos.filter(function(x){ return x.id !== id; });
+            if (pc && pc.tipo === 'nov') estado.novedades = estado.novedades.filter(function(x){ return x.id !== id; });
+            if (pc && pc.tipo === 'foto'){ delete fotos[id.slice(5)]; guardarFotosLocal(); }
+          }
+          await persistir(); pintarNoLlego(); verNoLlego();
+          traer(); traerFotos(); traerMaestros();
+        };
+      });
+    });
 }
 
 /* Si no se puede leer la hoja, se dice claramente: lo que se ve puede no
@@ -1193,8 +1332,10 @@ async function traer(){
     if (!$('#hoja').hidden) return;
     fusionar(d.datos);
     fusionarNovedades(d.datos);
+    var n = reenviarPendientes(['ev', 'nov']);
     await persistir();
     pintar();
+    if (n) enviar();
   } catch(e){ pintarLectura(false); }
 }
 
@@ -1244,11 +1385,15 @@ async function subirFoto(cod, file){
   var anterior = fotos[cod];
   fotos[cod] = dataUrl;
   if (!guardarFotosLocal()){ if (anterior) fotos[cod] = anterior; else delete fotos[cod]; aviso('No cupo la foto en este celular.'); return; }
-  encolar('Fotos', [fechaCO(hoy()), horaAhora(), nombreDe(cod), cod, dataUrl, estado.yo], ENC_FOTOS, 'foto:' + cod);
+  encolarFoto(cod);
   await persistir();
   verEquipo(cod); pintar();
   aviso('Foto de ' + cod + ' guardada.');
   enviar();
+}
+function encolarFoto(cod){
+  encolar('Fotos', [fechaCO(hoy()), horaAhora(), nombreDe(cod), cod, fotos[cod], estado.yo], ENC_FOTOS, 'foto:' + cod);
+  porConfirmar('foto:' + cod, 'foto');
 }
 async function traerFotos(){
   if (!navigator.onLine) return;
@@ -1258,13 +1403,24 @@ async function traerFotos(){
     if (!d || !d.ok || !Array.isArray(d.datos)) return;
     var enCola = {};
     estado.cola.forEach(function(x){ enCola[x.id] = true; });
-    var cambio = false;
+    var cambio = false, ult = {};
     d.datos.forEach(function(row){
       var cod = String(row[3]||'').trim(), url = String(row[4]||'');
-      if (!cod || enCola['foto:' + cod] || url.indexOf('data:image/') !== 0) return;
-      if (fotos[cod] !== url){ fotos[cod] = url; cambio = true; }
+      if (cod && url.indexOf('data:image/') === 0) ult[cod] = url;
     });
-    if (cambio){ guardarFotosLocal(); if ($('#hoja').hidden) pintar(); }
+    Object.keys(estado.porConfirmar).forEach(function(id){       // la foto enviada ya está en la hoja
+      var cod = id.slice(5);
+      if (id.indexOf('foto:') === 0 && !enCola[id] && ult[cod] && ult[cod] === fotos[cod]) delete estado.porConfirmar[id];
+    });
+    Object.keys(ult).forEach(function(cod){
+      if (enCola['foto:' + cod] || estado.porConfirmar['foto:' + cod]) return;
+      if (fotos[cod] !== ult[cod]){ fotos[cod] = ult[cod]; cambio = true; }
+    });
+    if (cambio) guardarFotosLocal();
+    var n = reenviarPendientes(['foto']);
+    await persistir();
+    if ($('#hoja').hidden) pintar();
+    if (n) enviar();
   } catch(e){}
 }
 
@@ -1325,12 +1481,13 @@ else $('#btn-yo').style.cursor = 'default';
   if (!estado.eventos) estado.eventos = [];
   if (!estado.cola) estado.cola = [];
   if (!estado.novedades) estado.novedades = [];
+  if (!estado.porConfirmar) estado.porConfirmar = {};
   cargarFotosLocal();
   if (PERSONAS.indexOf(estado.yo) < 0) estado.yo = PERSONAS.length === 1 ? PERSONAS[0] : '';
   // limpia datos de ejemplo y campos de la primera versión
   estado.eventos = estado.eventos.filter(function(e){ return !e.ejemplo; });
   delete estado.ejemploCargado; delete estado.pendientes;
-  pintar();
+  pintar(); pintarNoLlego();
   // comprueba el almacenamiento guardando de verdad, no adivinando
   if (!(await DB.guardar(estado))) { sinGuardar = true; pintarSync(); }
   await enviar();
