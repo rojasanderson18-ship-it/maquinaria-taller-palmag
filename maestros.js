@@ -254,7 +254,13 @@
       (res[2] || []).forEach(function(r){ inicio(codDe(r[3]), aIso(r[0]), num(r[6]), String(r[2]||'').trim()); });   // Preoperativo anterior
       var filas = (res[1] || []).map(function(r){
         return { cod:codDe(r[3]), fecha:aIso(r[0]), final:num(r[4]), inicial:num(r[5]), horas:num(r[6]), operario:String(r[2]||'') };
-      }).filter(function(c){ return c.cod && /^\d{4}-\d{2}-\d{2}$/.test(c.fecha); })
+      }).filter(function(c){ return c.cod && /^\d{4}-\d{2}-\d{2}$/.test(c.fecha); });
+      // Un mismo cierre que llegó dos veces (se reintentó por falta de señal y
+      // el reintento cayó otro día) se cuenta una vez: vale la última fila de
+      // cada día + máquina + operario. Doble turno = otro operario, sí cuenta.
+      var unico = {};
+      filas.forEach(function(c){ unico[c.fecha + '|' + c.cod + '|' + c.operario.trim().toLowerCase()] = c; });
+      filas = Object.keys(unico).map(function(k){ return unico[k]; })
         .sort(function(a, b){ return a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : (a.final || 0) - (b.final || 0); });
       var previo = {};
       filas.forEach(function(c){
