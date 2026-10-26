@@ -43,6 +43,10 @@
   .lista-maq div{padding:9px 12px;border-bottom:1px solid #EDEFEE;font-size:14px}
   .lista-maq div:last-child{border-bottom:none}
   .sync[hidden]{display:none}
+  .btn-lib{display:block;margin-top:8px;background:#fff;color:var(--red);border:1px solid var(--red);border-radius:8px;padding:7px 12px;font:inherit;font-weight:700;cursor:pointer}
+  .nollego{background:#9a3412;color:#fff;font-size:13px;padding:8px 16px;text-align:center}
+  .nollego[hidden]{display:none}
+  .nollego button{margin:6px 4px 0;background:#fff;color:#9a3412;border:0;border-radius:6px;padding:4px 12px;font:inherit;font-weight:700;cursor:pointer}
 
   .wrap{max-width:900px;margin:0 auto;padding:14px 16px 120px}
 
@@ -157,7 +161,7 @@
 
   #print{display:none}
   @media print{
-    header,.wrap,.fab,.hoja,.aviso,.sync{display:none !important}
+    header,.wrap,.fab,.hoja,.aviso,.sync,.nollego{display:none !important}
     #print{display:block}
     body{background:#fff;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     @page{size:letter landscape;margin:8mm 9mm}
@@ -225,6 +229,7 @@
   </div>
 </div></header>
 <div class="sync" id="sync" hidden></div>
+<div class="nollego" id="nollego" hidden></div>
 
 <div class="wrap" id="app"></div>
 
@@ -336,7 +341,7 @@ var KEY_PEND = 'programacion-pendientes-v1';
 var pendTaller = {};   // código → pendientes abiertos del Taller (la máquina trabaja, pero hay que estar pendiente)
 function txtPend(cod){ return (pendTaller[cod] || []).map(function(n){ return (n.urgente ? 'URGENTE: ' : '') + n.txt; }).join(' · '); }
 
-var estado = { dias:{}, yo:'', cola:[], config:{ lotes:null, implementos:null, fincas:null, lotesConfirmados:false } };
+var estado = { dias:{}, yo:'', cola:[], porConfirmar:[], config:{ lotes:null, implementos:null, fincas:null, lotesConfirmados:false } };
 var varadas = {};
 var fechaSel = null;
 
@@ -424,15 +429,24 @@ function txtLotes(a){
 
 function dia(f){ if (!estado.dias[f]) estado.dias[f] = {}; return estado.dias[f]; }
 function asignacion(f, cod){ return (estado.dias[f] || {})[cod] || null; }
+/* Una máquina que entró al taller después de programada no cuenta para
+   hoy o días futuros: no sale en la hoja impresa y su operario e
+   implemento quedan libres. Los días pasados se dejan como fueron. */
+function enTallerEse(f, cod){ return !!varadas[cod] && f >= hoy(); }
 function asignados(f){
   var d = estado.dias[f] || {}, out = [];
-  cfgFlota().forEach(function(m){ if (d[m.cod]) out.push({ maq:m, a:d[m.cod] }); });
+  cfgFlota().forEach(function(m){ if (d[m.cod] && !enTallerEse(f, m.cod)) out.push({ maq:m, a:d[m.cod] }); });
   return out;
+}
+/* programadas que ahora están en el taller: hay que reasignar su gente */
+function programadasEnTaller(f){
+  var d = estado.dias[f] || {};
+  return cfgFlota().filter(function(m){ return d[m.cod] && enTallerEse(f, m.cod); });
 }
 function ocupados(f, exceptoCod){
   var d = estado.dias[f] || {}, mapa = {};
   Object.keys(d).forEach(function(cod){
-    if (cod === exceptoCod) return;
+    if (cod === exceptoCod || enTallerEse(f, cod)) return;
     if (d[cod] && d[cod].operario) mapa[d[cod].operario] = cod;
   });
   return mapa;
@@ -441,7 +455,7 @@ function ocupados(f, exceptoCod){
 function implOcupados(f, exceptoCod){
   var d = estado.dias[f] || {}, mapa = {};
   Object.keys(d).forEach(function(cod){
-    if (cod === exceptoCod) return;
+    if (cod === exceptoCod || enTallerEse(f, cod)) return;
     if (d[cod] && d[cod].implemento) mapa[d[cod].implemento] = cod;
   });
   return mapa;
@@ -467,7 +481,7 @@ function pintar(){
 
   var opsUsados = {}, cuenta = {}, implCuenta = {};
   Object.keys(d).forEach(function(cod){
-    var a = d[cod]; if (!a) return;
+    var a = d[cod]; if (!a || enTallerEse(fechaSel, cod)) return;
     if (a.operario){ opsUsados[a.operario] = true; cuenta[a.operario] = (cuenta[a.operario]||[]).concat([cod]); }
     if (a.implemento){ implCuenta[a.implemento] = (implCuenta[a.implemento]||[]).concat([cod]); }
   });
@@ -507,6 +521,14 @@ function pintar(){
       plural(tijTotal, 'tijera en uso', 'tijeras en uso') + '</div></div>' +
     '</div>';
 
+  var pTaller = programadasEnTaller(fechaSel);
+  if (pTaller.length){
+    h += '<div class="alerta"><b>' + (pTaller.length === 1 ? 'Una máquina programada entró al taller.' : pTaller.length + ' máquinas programadas entraron al taller.') +
+      '</b> ' + pTaller.map(function(m){ var a = d[m.cod];
+        return esc(m.cod) + ' tenía ' + esc(txtLabor(a.labor)) + (a.operario ? ' con ' + esc(a.operario) : ''); }).join('; ') +
+      '. ' + (pTaller.some(function(m){ return d[m.cod].operario; }) ? 'Ese operario quedó libre: asígnelo a otra máquina. ' : '') +
+      '<button class="btn-lib" id="liberar">Quitar de la programación</button></div>';
+  }
   if (dobles.length){
     h += '<div class="alerta"><b>Un operario no puede estar en dos máquinas.</b> ' +
       dobles.map(function(o){ return esc(o) + ' está en ' + cuenta[o].join(' y '); }).join('; ') + '.</div>';
@@ -570,6 +592,13 @@ function pintar(){
   $('#app').innerHTML = h;
   $('#fecha').onchange = function(e){ fechaSel = e.target.value || siguienteLaboral(); pintar(); };
   $('#ant').onclick = function(){ fechaSel = sumarDias(fechaSel, -1); pintar(); };
+  var lib = $('#liberar');
+  if (lib) lib.onclick = async function(){
+    if (!estado.yo){ elegirQuien(function(){ pintar(); }); return; }
+    programadasEnTaller(fechaSel).forEach(function(m){ delete estado.dias[fechaSel][m.cod]; registrar(fechaSel, m.cod, null); });
+    await persistir(); pintar(); enviar();
+    aviso('Listo. Las máquinas del taller salieron de la programación.');
+  };
   $('#sig').onclick = function(){ fechaSel = sumarDias(fechaSel, 1); pintar(); };
   $$('#app .cab').forEach(function(b){
     b.onclick = function(){
@@ -1268,7 +1297,67 @@ function registrar(fecha, cod, a){
   if (a){ q.action = 'write'; q.supervisor = estado.yo; q.labor = txtLabor(a.labor);
           q.lote = (a.lotes || []).join(', '); q.impl = a.implemento || ''; q.hora = ''; }
   else q.action = 'delete';
-  estado.cola.push({ id:'legado:' + nid(), url: GS_URL + '?' + new URLSearchParams(q).toString() });
+  var url = GS_URL + '?' + new URLSearchParams(q).toString();
+  estado.cola[estado.cola.length - 1].legado = url;
+  estado.cola.push({ id:'legado:' + nid(), url: url });
+}
+
+/* =====================================================================
+   Confirmación: el envío no da respuesta (no-cors). Lo enviado queda por
+   confirmar hasta que su fila (ID único) aparece en ProgMaquinaria; mientras
+   tanto se sigue mostrando. Si no aparece se reenvía hasta 3 veces y luego
+   se avisa. Si otro supervisor programó esa máquina ese día, manda la hoja.
+   ===================================================================== */
+var GRACIA_MS = 2 * 60000, MAX_INTENTOS = 3;
+function confirmarProg(filas){
+  var vistos = {}, otros = {}, t = Date.now(), reenvio = false, perdidos = [];
+  filas.forEach(function(r){
+    vistos[String(r[3] || '').trim()] = true;
+    var k = aIso(r[4]) + '|' + String(r[5] || '').trim();
+    (otros[k] = otros[k] || []).push(String(r[11] || '').trim());
+  });
+  var enCola = {}, ultimo = {};
+  function clave(e){ return e.fecha + '|' + e.cod; }
+  estado.porConfirmar.forEach(function(c){ ultimo[clave(c.efecto)] = c.fila[3]; });
+  estado.cola.forEach(function(x){ if (x.fila){ enCola[x.fila[3]] = true; if (x.efecto) ultimo[clave(x.efecto)] = x.fila[3]; } });
+  // un cambio que ya tiene otro más nuevo de la misma máquina y día no se reenvía
+  // (si no, el viejo podría quedar de último en la hoja)
+  estado.porConfirmar = estado.porConfirmar.filter(function(c){ return ultimo[clave(c.efecto)] === c.fila[3]; });
+  estado.porConfirmar = estado.porConfirmar.filter(function(c){
+    if (vistos[c.fila[3]]) return false;                              // llegó
+    var de = (otros[c.efecto.fecha + '|' + c.efecto.cod] || []).filter(function(n){ return n && n !== c.fila[11]; });
+    if (de.length && !enCola[c.fila[3]]){ perdidos.push(c.efecto.cod + ' del ' + dcorta(c.efecto.fecha) + ' (lo programó ' + de[de.length - 1] + ')'); return false; }
+    return true;
+  });
+  estado.porConfirmar.forEach(function(c){
+    if (enCola[c.fila[3]] || !c.enviadoEn || t - c.enviadoEn < GRACIA_MS || c.intentos >= MAX_INTENTOS) return;
+    reencolarProg(c); c.intentos++; reenvio = true;
+  });
+  if (perdidos.length) aviso('No llegó su cambio de ' + perdidos.join(', ') + '. Quedó lo de la hoja: revíselo.');
+  pintarNoLlego();
+  return reenvio;
+}
+function reencolarProg(c){
+  c.enviadoEn = null;
+  estado.cola.push({ id:'prog:' + nid(), efecto:c.efecto, hoja:HOJA_PROG, encabezados:ENC_PROG, fila:c.fila, legado:c.legado });
+  if (c.legado) estado.cola.push({ id:'legado:' + nid(), url:c.legado });
+}
+function pintarNoLlego(){
+  var b = $('#nollego'), l = estado.porConfirmar.filter(function(c){ return c.intentos >= MAX_INTENTOS; });
+  if (!l.length){ b.hidden = true; return; }
+  b.hidden = false;
+  b.innerHTML = '<b>No llegó a la hoja:</b> ' + l.map(function(c){
+      return esc(c.efecto.cod) + ' del ' + dcorta(c.efecto.fecha) + (c.efecto.a ? '' : ' (quitar)'); }).join(', ') +
+    '. Sigue guardado en este celular.<br><button id="nl-reint">Volver a enviar</button><button id="nl-desc">Descartar</button>';
+  $('#nl-reint').onclick = async function(){
+    l.forEach(function(c){ c.intentos = 0; reencolarProg(c); });
+    await persistir(); pintarNoLlego(); enviar(); aviso('Se volvió a enviar.');
+  };
+  $('#nl-desc').onclick = async function(){
+    if (!confirm('¿Descartar? Queda lo que tenga la hoja.')) return;
+    estado.porConfirmar = estado.porConfirmar.filter(function(c){ return l.indexOf(c) < 0; });
+    await persistir(); pintarNoLlego(); traerProgramacion();
+  };
 }
 
 /* lotes, fincas e implementos se comparten en la hoja Maestros */
@@ -1313,6 +1402,11 @@ async function enviar(){
           body: JSON.stringify({ hoja:x.hoja, fila:x.fila, encabezados:x.encabezados }) });
       } catch(e){ break; }      // sin señal: sigue en la cola
       estado.cola.shift();
+      if (x.efecto){
+        var pc = estado.porConfirmar.filter(function(c){ return c.fila[3] === x.fila[3]; })[0];
+        if (pc) pc.enviadoEn = Date.now();
+        else estado.porConfirmar.push({ efecto:x.efecto, fila:x.fila, legado:x.legado || null, enviadoEn:Date.now(), intentos:0 });
+      }
       await persistir();
     }
   } finally { enviando = false; pintarSync(); }
@@ -1345,16 +1439,19 @@ async function traerProgramacion(){
         programadoPor: String(row[11] || '')
       };
     });
-    estado.cola.forEach(function(x){
-      if (!x.efecto) return;
-      var e = x.efecto;
-      if (e.a) (dias[e.fecha] = dias[e.fecha] || {})[e.cod] = e.a;
-      else if (dias[e.fecha]) delete dias[e.fecha][e.cod];
-    });
+    var reenvio = confirmarProg(d.datos);
+    // encima de la hoja: lo enviado sin confirmar y lo que está en la cola, en orden
+    estado.porConfirmar.map(function(c){ return c; }).concat(estado.cola.filter(function(x){ return x.efecto; }))
+      .forEach(function(x){
+        var e = x.efecto;
+        if (e.a) (dias[e.fecha] = dias[e.fecha] || {})[e.cod] = e.a;
+        else if (dias[e.fecha]) delete dias[e.fecha][e.cod];
+      });
     Object.keys(dias).forEach(function(f){ if (!Object.keys(dias[f]).length) delete dias[f]; });
     estado.dias = dias;
     await persistir();
     pintar();
+    if (reenvio) enviar();
   } catch(e){}
 }
 
@@ -1445,6 +1542,7 @@ window.addEventListener('appinstalled', function(){ $('#btn-instalar').hidden = 
   if (g && g.dias) estado = g;
   if (!estado.dias) estado.dias = {};
   if (!estado.cola) estado.cola = [];
+  if (!estado.porConfirmar) estado.porConfirmar = [];
   if (!estado.config) estado.config = { lotes:null, implementos:null, fincas:null, lotesConfirmados:false };
   delete estado.config.flota;               // la flota ahora es la compartida
   aplicarMaestros();
