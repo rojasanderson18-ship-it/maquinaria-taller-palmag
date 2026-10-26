@@ -32,6 +32,9 @@
   header .yo{margin-left:auto;font-size:13px;color:#C9D8D0;background:#26352E;border:1px solid #34443C;border-radius:20px;padding:6px 13px;white-space:nowrap;max-width:46%;overflow:hidden;text-overflow:ellipsis}
   .sync{background:var(--amber);color:#fff;font-size:13px;padding:7px 16px;text-align:center}
   .sync[hidden]{display:none}
+  .lectura{background:var(--red);color:#fff;font-size:13.5px;padding:9px 16px;text-align:center;line-height:1.35}
+  .lectura[hidden]{display:none}
+  .lectura b{font-weight:700}
 
   .wrap{max-width:1080px;margin:0 auto;padding:16px 16px 110px}
   .resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:6px}
@@ -197,6 +200,7 @@
   <button class="maq-btn" id="btn-maquinas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Máquinas</button>
   <button class="yo" id="btn-yo" hidden>—</button>
 </div></header>
+<div class="lectura" id="lectura" hidden></div>
 <div class="sync" id="sync" hidden></div>
 
 
@@ -1063,19 +1067,32 @@ function fusionar(filas){
   estado.eventos = res;
 }
 
+/* Si no se puede leer la hoja, se dice claramente: lo que se ve puede no
+   incluir lo registrado en otros celulares (nunca mostrar "todo bien" sin datos). */
+function pintarLectura(ok){
+  var b = $('#lectura');
+  if (ok){ estado.leidoEn = new Date().toISOString(); b.hidden = true; return; }
+  b.hidden = false;
+  b.innerHTML = estado.leidoEn
+    ? '<b>No se pudo actualizar desde la hoja de cálculo.</b> Lo que ve es lo último que se leyó, el ' +
+      dcorta(estado.leidoEn.slice(0, 10)) + ' a las ' + new Date(estado.leidoEn).toTimeString().slice(0, 5) + '. Revise la señal.'
+    : '<b>No se pudo leer la hoja de cálculo.</b> Lo que ve NO incluye lo registrado en otros celulares. ' +
+      'Revise la señal y no use ventanas privadas o de incógnito.';
+}
 async function traer(){
-  if (!navigator.onLine) return;
+  if (!navigator.onLine){ pintarLectura(false); return; }
   try {
     var r = await fetch(GS_URL + '?hoja=' + HOJA + '&t=' + Date.now());
     var d = await r.json();
-    if (!d || !d.ok || !Array.isArray(d.datos)) return;   // hoja aún no creada o error: se deja lo local
+    if (!d || !d.ok || !Array.isArray(d.datos)){ pintarLectura(false); return; }   // error del Apps Script: se deja lo local
+    pintarLectura(true);
     // con una hoja abierta no se reemplazan los eventos: el formulario tiene uno en la mano
     if (!$('#hoja').hidden) return;
     fusionar(d.datos);
     fusionarNovedades(d.datos);
     await persistir();
     pintar();
-  } catch(e){}
+  } catch(e){ pintarLectura(false); }
 }
 
 /* =====================================================================

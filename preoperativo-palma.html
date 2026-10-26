@@ -39,6 +39,9 @@
   header #btn-instalar{background:var(--green);border-color:var(--green);color:#fff;font-weight:600}
   .sync{background:var(--amber);color:#fff;font-size:13px;padding:7px 16px;text-align:center}
   .sync[hidden]{display:none}
+  .lectura{background:var(--red);color:#fff;font-size:13.5px;padding:9px 16px;text-align:center;line-height:1.35}
+  .lectura[hidden]{display:none}
+  .lectura b{font-weight:700}
   .progreso{height:4px;background:#C9D2CD}
   .progreso i{display:block;height:100%;background:var(--green);transition:width .2s}
   .progreso[hidden]{display:none}
@@ -138,6 +141,7 @@
   <div><div class="marca">Palma Grande S.A.S.</div><h1>Preoperativo</h1><div class="fecha" id="fecha-hoy"></div></div>
   <div class="der"><button id="btn-instalar" hidden>Instalar app</button></div>
 </div></header>
+<div class="lectura" id="lectura" hidden></div>
 <div class="sync" id="sync" hidden></div>
 <div class="progreso" id="progreso" hidden><i id="barra"></i></div>
 
@@ -262,14 +266,26 @@ async function leer(hoja){
   if (!d || !d.ok || !Array.isArray(d.datos)) throw new Error('sin datos');
   return d.datos;
 }
+/* Si no se pudo leer el Taller no se sabe qué máquinas están paradas: se avisa
+   arriba y en el paso de la máquina, en vez de mostrarlas todas como disponibles. */
+function pintarLectura(){
+  var b = $('#lectura');
+  if (R.tallerOk){ b.hidden = true; return; }
+  b.hidden = false;
+  b.innerHTML = R.leidoTaller
+    ? '<b>Sin conexión con la hoja de cálculo.</b> Las máquinas en taller son las de la última lectura (' + dcorta(R.leidoTaller.slice(0, 10)) + ').'
+    : '<b>No se pudo leer la hoja de cálculo.</b> No se sabe qué máquinas están en el taller. Revise la señal y no use ventanas privadas o de incógnito.';
+}
 async function traerTodo(){
-  if (!navigator.onLine) return;
+  if (!navigator.onLine){ R.tallerOk = false; R.intentado = true; pintarLectura(); return; }
   var hy = hoy();
   try { await Maestros.traer(); } catch(e){}
   var res = await Promise.all([leer('Taller'), leer('ProgMaquinaria'), leer('PreopDiario'), leer('CierreJornada')].map(function(p){
     return p.catch(function(){ return null; }); }));
   var taller = res[0], prog = res[1], preop = res[2], cierre = res[3];
+  R.tallerOk = !!taller; R.intentado = true;
   if (taller){
+    R.leidoTaller = new Date().toISOString();
     var ev = {}, nov = {};
     taller.forEach(function(r){
       var acc = String(r[2]||'').trim().toUpperCase(), id = String(r[3]||'').trim(), cod = String(r[4]||'').trim();
@@ -314,6 +330,7 @@ async function traerTodo(){
   if (preop || cierre) R.ultHor = ult;
   R.fecha = hy;
   try { localStorage.setItem(KEY_REMOTO, JSON.stringify(R)); } catch(e){}
+  pintarLectura();
 }
 
 /* =====================================================================
@@ -433,6 +450,11 @@ function pMaquina(){
   var lista = flota().slice().sort(function(a, b){ return (a.grupo === 'transporte') - (b.grupo === 'transporte'); });
   var p = R.prog[sug];
   var h = '<h2>¿Qué máquina ' + (F.tipo === 'preop' ? 'va a usar' : 'usó') + ' hoy?</h2><p class="ayuda">Toque la máquina.</p>';
+  if (R.intentado && !R.tallerOk){
+    h += '<div class="tarj alerta"><div class="vl"><b>No se pudo confirmar qué máquinas están en el taller.</b> ' +
+      (R.leidoTaller ? 'Se muestran las de la última lectura (' + dcorta(R.leidoTaller.slice(0, 10)) + '). ' : '') +
+      'Antes de usar una máquina, confirme con Tulio que no esté parada.</div></div>';
+  }
   if (sug && p && F.tipo === 'preop'){
     h += '<div class="tarj prog"><div class="et">Su programación de hoy</div><div class="vl grande">' + esc(sug) + ' · ' + esc(nombreDe(sug)) + '</div>' +
       '<div class="vl">' + esc(p.labor) + (p.lotes ? ' · lotes ' + esc(p.lotes) : '') + '</div></div>';
@@ -740,6 +762,7 @@ window.addEventListener('appinstalled', function(){ $('#btn-instalar').hidden = 
   var fh = new Date().toLocaleDateString('es-CO', { weekday:'long', day:'numeric', month:'long' });
   $('#fecha-hoy').textContent = fh.charAt(0).toUpperCase() + fh.slice(1);
   cargarLocal();
+  R.tallerOk = false; R.intentado = false;
   inicio(); pintarSync();
   await enviar();
   await traerTodo();
