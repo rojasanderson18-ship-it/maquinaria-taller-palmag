@@ -233,6 +233,7 @@
 <div class="lectura" id="lectura" hidden></div>
 <div class="sync" id="sync" hidden></div>
 <div class="lectura nollego" id="nollego" hidden></div>
+<div class="lectura nollego" id="viejo" hidden></div>
 
 
 <div class="wrap" id="app"></div>
@@ -845,11 +846,11 @@ function encolarNovedad(n){
     n.trabajo || '', n.cerradoPor || '', n.cerrada ? diasEntre(n.fecha, n.fechaCierre) : ''], ENC_TALLER, n.id);
   porConfirmar(n.id, 'nov');
 }
-function anotarPendiente(cod){
+function anotarPendiente(cod, pref){
   var sel = { urgencia: 'normal', sistema: null };
   abrir(topeFicha(cod, '<span class="pill a">Anotar un pendiente</span>') +
     '<div class="cuerpo">' +
-      '<label class="campo"><span>¿Qué tiene?</span><textarea id="pn-txt" placeholder="Bota un poco de aceite por el retén, ruido en la caja…"></textarea></label>' +
+      '<label class="campo"><span>¿Qué tiene?</span><textarea id="pn-txt" placeholder="Bota un poco de aceite por el retén, ruido en la caja…">' + esc(pref ? pref.txt : '') + '</textarea></label>' +
       '<p class="paso">¿Qué tan urgente es?</p><div class="rejilla">' +
         '<button class="op ancho" data-urg="normal" aria-pressed="true">Puede esperar unos días<small>Se atiende en el próximo espacio</small></button>' +
         '<button class="op ancho" data-urg="urgente" aria-pressed="false">Urgente<small>Si no se atiende pronto, la deja parada</small></button>' +
@@ -862,7 +863,7 @@ function anotarPendiente(cod){
       '<p class="nota">La máquina sigue trabajando y no baja la disponibilidad. El pendiente queda a la vista en el Taller y en la Programación hasta que se solucione.</p>' +
     '</div>',
     function(){
-      $('#pn-volver').onclick = function(){ verEquipo(cod); };
+      $('#pn-volver').onclick = function(){ if (pref) verViejo(); else verEquipo(cod); };
       Array.prototype.forEach.call($('#panel').querySelectorAll('[data-urg]'), function(b){
         b.onclick = function(){ sel.urgencia = b.dataset.urg;
           Array.prototype.forEach.call($('#panel').querySelectorAll('[data-urg]'), function(x){ x.setAttribute('aria-pressed', String(x === b)); }); };
@@ -878,7 +879,8 @@ function anotarPendiente(cod){
           fecha: hoy(), registradoEn: ahora(), cerrada: false, fechaCierre: null, cerradoPor: null, trabajo: '', cerradoEn: null };
         estado.novedades.push(n);
         encolarNovedad(n);
-        await persistir(); pintar(); verEquipo(cod); enviar();
+        if (pref){ vistoViejo(pref.id); }
+        await persistir(); pintar(); if (pref) verViejo(); else verEquipo(cod); enviar();
         aviso('Pendiente anotado en ' + cod + '.');
       };
     });
@@ -1311,6 +1313,69 @@ function pintarNoLlego(){
     ' a la hoja de cálculo</b> después de 3 intentos.<button id="ver-nollego">Revisar</button>';
   $('#ver-nollego').onclick = verNoLlego;
 }
+/* ---------- App de preoperativo anterior todavía en uso ----------
+   Lo que manda va a hojas que el Taller no lee (AppVieja en maestros.js).
+   Los daños se pasan aquí como pendientes; lo ya revisado no se vuelve a
+   mostrar en este celular. */
+var VIEJO = null;
+function vistosViejo(){ try { return JSON.parse(localStorage.getItem('taller_viejo_visto') || '{}') || {}; } catch(e){ return {}; } }
+function vistoViejo(id){ var v = vistosViejo(); v[id] = true; try { localStorage.setItem('taller_viejo_visto', JSON.stringify(v)); } catch(e){} pintarViejo(); }
+function pendViejo(){
+  if (!VIEJO) return { nov:[], usos:[] };
+  var v = vistosViejo();
+  return { nov: VIEJO.nov.filter(function(x){ return !v[x.id]; }),
+    usos: VIEJO.preop.concat(VIEJO.tanq).filter(function(x){ return !v[x.id]; }) };
+}
+async function traerViejo(){
+  if (!navigator.onLine || !window.AppVieja) return;
+  try { VIEJO = await AppVieja.traer(); } catch(e){ return; }
+  pintarViejo();
+}
+function pintarViejo(){
+  var b = $('#viejo'), p = pendViejo();
+  if (!p.nov.length && !p.usos.length){ b.hidden = true; return; }
+  b.hidden = false;
+  b.innerHTML = '<b>Alguien sigue usando el preoperativo viejo.</b> ' +
+    (p.nov.length ? (p.nov.length === 1 ? 'Reportó un daño que no está' : 'Reportó ' + p.nov.length + ' daños que no están') + ' en el Taller.' : 'Lo que manda no llega al Taller.') +
+    '<button id="ver-viejo">Revisar</button>';
+  $('#ver-viejo').onclick = verViejo;
+}
+function verViejo(){
+  var p = pendViejo();
+  if (!p.nov.length && !p.usos.length){ cerrar(); return; }
+  var gente = {};
+  p.nov.concat(p.usos).forEach(function(x){ var g = gente[x.op || 'Sin nombre'] = gente[x.op || 'Sin nombre'] || { cods:{}, ultima:'' }; g.cods[x.cod] = true; if (x.fecha > g.ultima) g.ultima = x.fecha; });
+  abrir(tope('Preoperativo viejo', 'Lo que mandó no está en el Taller') +
+    '<div class="cuerpo">' +
+      '<p class="nota">Estos celulares tienen guardada la app de preoperativo anterior (la abrieron sin señal). Lo que mandan va a otra hoja: ' +
+      'el Taller no lo ve. Pídales <b>abrir el Preoperativo con señal</b> una vez para que se actualice.</p>' +
+      Object.keys(gente).map(function(k){ return '<div class="tarj"><div class="vl"><b>' + esc(k) + '</b> · ' + Object.keys(gente[k].cods).map(esc).join(', ') +
+        ' · último uso ' + dcorta(gente[k].ultima) + '</div></div>'; }).join('') +
+      (p.nov.length ? '<p class="paso">Daños que reportaron ahí</p>' + p.nov.map(function(x){
+        return '<div class="tarj"><div class="vl"><b>' + esc(x.cod) + '</b> · ' + dcorta(x.fecha) + ' ' + esc(x.hora) + ' · ' + esc(x.op) + '</div>' +
+          '<div class="nota" style="margin:4px 0 8px">' + esc([x.items, x.txt].filter(Boolean).join('. ')) + '</div>' +
+          '<button class="accion ambar" data-vpend="' + esc(x.id) + '">Anotar como pendiente</button>' +
+          '<button class="accion gris" data-vvisto="' + esc(x.id) + '">Ya está en el Taller</button></div>';
+      }).join('') : '') +
+      (p.usos.length ? '<button class="accion gris" id="vj-avise">Ya les avisé (ocultar ' + p.usos.length + (p.usos.length === 1 ? ' registro' : ' registros') + ')</button>' : '') +
+      '<button class="accion gris" id="vj-cerrar">Cerrar</button></div>',
+    function(){
+      $('#vj-cerrar').onclick = cerrar;
+      if ($('#vj-avise')) $('#vj-avise').onclick = function(){ p.usos.forEach(function(x){ vistoViejo(x.id); }); verViejo(); };
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-vvisto]'), function(b){
+        b.onclick = function(){ vistoViejo(b.dataset.vvisto); verViejo(); };
+      });
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-vpend]'), function(b){
+        b.onclick = function(){
+          var x = p.nov.filter(function(n){ return n.id === b.dataset.vpend; })[0]; if (!x) return;
+          var cod = (FLOTA.filter(function(f){ return f.cod === x.cod; })[0] || {}).cod;
+          if (!cod){ aviso('La máquina ' + x.cod + ' no está en la lista de la flota.'); return; }
+          var go = function(){ anotarPendiente(cod, { id:x.id, txt: [x.items, x.txt].filter(Boolean).join('. ') + ' (lo reportó ' + (x.op || 'el operario') + ' el ' + dcorta(x.fecha) + ' en el preoperativo viejo)' }); };
+          if (!estado.yo) elegirPersona(go); else go();
+        };
+      });
+    });
+}
 function verNoLlego(){
   var l = noLlego();
   if (!l.length){ cerrar(); return; }
@@ -1543,9 +1608,10 @@ else $('#btn-yo').style.cursor = 'default';
   traerFotos();
   traerMaestros();
   traerHorometros();
+  traerViejo();
   window.addEventListener('online', async function(){ await enviar(); traer(); });
   setInterval(function(){ if (!estado.cola.length) traer(); else enviar(); }, 60000);
-  setInterval(function(){ traerFotos(); traerMaestros(); traerHorometros(); }, 10 * 60000);
+  setInterval(function(){ traerFotos(); traerMaestros(); traerHorometros(); traerViejo(); }, 10 * 60000);
 })();
 </script>
 </body>

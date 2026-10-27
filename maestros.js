@@ -303,6 +303,40 @@
     }
   };
 
+  /* La app de preoperativo anterior se reemplazó el 25 de octubre de 2026.
+     Un celular que la tenía guardada y la abre sin señal la sigue mostrando, y
+     lo que manda cae en hojas que ya no lee nadie (Preoperativos, Novedades,
+     Tanqueos): un daño reportado ahí no llega al Taller. Esto lo encuentra
+     para avisar quién sigue con la app vieja y qué daños reportó. */
+  function hhmm(v){
+    var s = String(v == null ? '' : v);
+    if (s.indexOf('1899-') === 0){ var d = new Date(s); return isNaN(d) ? '' : p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+    return s.replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  window.AppVieja = {
+    DESDE: '2026-10-26',
+    traer: async function(){
+      var res = await Promise.all([leer('Preoperativos'), leer('Novedades'), leer('Tanqueos')]
+        .map(function(p){ return p.catch(function(){ return null; }); }));
+      if (!res[0] && !res[1] && !res[2]) return null;
+      var desde = this.DESDE, out = { preop:[], nov:[], tanq:[], personas:[] }, gente = {};
+      function base(r, tipo){
+        var x = { fecha:aIso(r[0]), hora:hhmm(r[1]), op:String(r[2] || '').trim(), cod:codDe(r[3]) };
+        x.id = tipo + '|' + x.fecha + '|' + x.hora + '|' + x.cod + '|' + x.op;
+        if (x.fecha >= desde){ var g = gente[x.op || '—'] = gente[x.op || '—'] || { op:x.op, cods:{}, ultima:'' };
+          g.cods[x.cod] = true; if (x.fecha > g.ultima) g.ultima = x.fecha; }
+        return x;
+      }
+      (res[0] || []).forEach(function(r){ var x = base(r, 'pre'); if (x.fecha >= desde) out.preop.push(x); });
+      (res[1] || []).forEach(function(r){ var x = base(r, 'nov');
+        if (x.fecha >= desde){ x.items = String(r[4] || '').trim(); x.txt = String(r[5] || '').trim(); out.nov.push(x); } });
+      (res[2] || []).forEach(function(r){ var x = base(r, 'tan'), g = num(r[6]);
+        if (x.fecha >= desde && g > 0){ x.gal = g; out.tanq.push(x); } });
+      out.personas = Object.keys(gente).map(function(k){ var g = gente[k]; return { op:g.op, cods:Object.keys(g.cods), ultima:g.ultima }; });
+      return out;
+    }
+  };
+
   window.Mtto = {
     INTERVALO: 250,     // horas entre mantenimientos, si la máquina no tiene otro
     AVISO: 25,          // se avisa cuando faltan estas horas o menos
