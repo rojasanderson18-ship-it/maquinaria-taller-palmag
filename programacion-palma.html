@@ -205,10 +205,17 @@
     .pr .pr-casilla{border:1px solid #9AA59F;height:20px;border-radius:2px;background:#FAFBFA}
     .pr .pr-firma-op{border-bottom:1px solid #666;height:20px}
     .pr .pr-t2{font-size:8pt;margin-top:3px;color:#333}
-    .pr .pr-pend{background:#FBEEDC;color:#7A430A;padding:2px 5px;border-radius:2px;display:inline-block;margin-bottom:2px;font-weight:600}
+    .pr td.pr-obs div{margin-bottom:2px}
+    .pr td.pr-obs .pr-obs-t{color:#4A5B53;font-size:9px}
     .pr .pr-vacio{color:#999}
     /* bloques inferiores */
-    .pr-bloques{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:9px;page-break-inside:avoid}
+    .pr-bloques{display:grid;grid-template-columns:1.7fr 1fr;gap:8px;margin-top:9px;page-break-inside:avoid;align-items:start}
+    .pr-lado{display:grid;gap:8px}
+    .pr-mini{width:100%;border-collapse:collapse;font-size:9px}
+    .pr-mini td{padding:3px 6px;border-bottom:1px solid #E1E5E3;vertical-align:top}
+    .pr-mini tr:last-child td{border-bottom:0}
+    .pr-mini td.c{width:42px;font-family:'JetBrains Mono',monospace;white-space:nowrap}
+    .pr-mini td.d{width:62px;color:#666;white-space:nowrap}
     .pr-bloque{border:1px solid #9AA59F}
     .pr-bloque h5{margin:0;background:#EEF1EF;padding:4px 8px;font-size:9px;text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid #9AA59F}
     .pr-bloque.rojo h5{background:#F9E3E1;color:#9E2B21} .pr-bloque.ambar h5{background:#FBEEDC;color:#7A430A}
@@ -344,7 +351,8 @@ var KEY = 'programacion-palma-v3';
 var KEY_VARADAS = 'programacion-varadas-v1';
 var KEY_PEND = 'programacion-pendientes-v1';
 var pendTaller = {};   // código → pendientes abiertos del Taller (la máquina trabaja, pero hay que estar pendiente)
-function txtPend(cod){ return (pendTaller[cod] || []).map(function(n){ return (n.urgente ? 'URGENTE: ' : '') + n.txt; }).join(' · '); }
+/* observaciones del taller para una máquina que trabaja (sin alarmas: es información para el supervisor) */
+function txtPend(cod){ return (pendTaller[cod] || []).map(function(n){ return n.txt.replace(/^\s*(urgente|NO PUEDE TRABAJAR[^:]*)\s*:\s*/i, ''); }).join(' · '); }
 
 var estado = { dias:{}, yo:'', cola:[], porConfirmar:[], config:{ lotes:null, implementos:null, fincas:null, lotesConfirmados:false } };
 var varadas = {};
@@ -582,7 +590,7 @@ function pintar(){
       '<span class="cod mono">' + esc(m.cod) + '</span>' +
       '<span><span class="nom">' + esc(m.nombre) + '</span>' +
       '<span class="sub ' + clsSub + '">' + esc(sub) + '</span>' +
-      (!vr && pendTaller[m.cod] ? '<span class="sub pend">Pendiente del taller: ' + esc(txtPend(m.cod)) + '</span>' : '') + '</span>' +
+      (!vr && pendTaller[m.cod] ? '<span class="sub pend">Obs. del taller: ' + esc(txtPend(m.cod)) + '</span>' : '') + '</span>' +
       '<span class="ir">' + (vr ? '' : '›') + '</span></button></div>';
   }
 
@@ -701,7 +709,7 @@ function asignar(cod){
 
   var h = tope(cod + ' · ' + nombreDe(cod), fechaLarga(fechaSel)) + '<div class="cuerpo">';
   if (pendTaller[cod]){
-    h += '<div class="nota-a"><b>Pendiente del taller:</b> ' + esc(txtPend(cod)) +
+    h += '<div class="nota-a"><b>Observación del taller:</b> ' + esc(txtPend(cod)) +
       '. La máquina puede trabajar, pero avise al operario para que esté atento.</div>';
   }
 
@@ -1224,23 +1232,25 @@ function textoWhatsApp(){
     return ordenLabor(a.a.labor) - ordenLabor(b.a.labor) || a.maq.cod.localeCompare(b.maq.cod); });
   var p = fechaSel.split('-'), dSem = DIAS_SEM[new Date(+p[0], +p[1]-1, +p[2]).getDay()];
   var L = ['*PROGRAMACIÓN · ' + dSem.toUpperCase() + ' ' + (+p[2]) + ' DE ' + MESES[+p[1]-1].toUpperCase() + '*',
-           'Palma Grande S.A.S.' + (estado.yo ? ' · Programó: ' + conCargo(estado.yo) : ''), ''];
+           'Palma Grande S.A.S.' + (estado.yo ? '\nProgramó: ' + conCargo(estado.yo) : ''), ''];
   var lab = null;
   lista.forEach(function(x){
-    if (x.a.labor !== lab){ lab = x.a.labor; L.push('*' + txtLabor(lab) + '*'); }
-    var partes = [x.maq.cod + ' ' + modeloCorto(x.maq.cod)];
-    partes.push(x.a.operario ? x.a.operario + (x.a.operario2 ? ' / turno 2: ' + x.a.operario2 : '') : 'SIN OPERARIO');
+    if (x.a.labor !== lab){ lab = x.a.labor; L.push('━━━━━━━━━━━━', '*' + txtLabor(lab).toUpperCase() + '*', ''); }
+    L.push('*' + x.maq.cod + '* · ' + modeloCorto(x.maq.cod));
+    L.push('👷 ' + (x.a.operario || 'Sin operario') + (x.a.operario2 ? '  ·  turno 2: ' + x.a.operario2 : ''));
     // en el mensaje van todos los lotes (en pantalla se resumen cuando son muchos)
-    var lo = x.a.lotes || [];
-    if (lo.length) partes.push((lo.length === 1 ? 'lote ' : 'lotes ') + lo.join(', '));
-    if (x.a.implemento) partes.push(x.a.implemento);
-    L.push('▪️ ' + partes.join(' · '));
-    if (x.a.obs) L.push('   _' + x.a.obs + '_');
-    if (pendTaller[x.maq.cod]) L.push('   ⚠️ Taller: ' + corta(txtPend(x.maq.cod), 90));
+    var lo = x.a.lotes || [], dat = [];
+    if (lo.length) dat.push((lo.length === 1 ? 'Lote ' : 'Lotes ') + lo.join(', '));
+    if (x.a.implemento) dat.push(x.a.implemento);
+    if (dat.length) L.push('📍 ' + dat.join('  ·  '));
+    if (x.a.obs) L.push('📝 ' + x.a.obs);
+    if (pendTaller[x.maq.cod]) L.push('📝 Taller: ' + corta(txtPend(x.maq.cod), 90));
+    L.push('');
   });
   if (!lista.length) L.push('_Todavía no hay nada programado._');
   var enTaller = cfgFlota().filter(function(m){ return varadas[m.cod]; }).map(function(m){ return m.cod; });
-  if (enTaller.length) L.push('', '🔧 *En el taller (no usar):* ' + enTaller.join(', '));
+  L.push('━━━━━━━━━━━━');
+  if (enTaller.length) L.push('🔧 *En el taller (no usar):* ' + enTaller.join(', '));
   var usados = {};
   lista.forEach(function(x){ opsDe(x.a).forEach(function(o){ usados[o] = true; }); });
   var libres = operariosActivos().filter(function(o){ return !usados[o]; });
@@ -1300,7 +1310,7 @@ function imprimir(){
       '<div' + (sinOperario ? ' class="ambar"' : '') + '><b>' + Object.keys(opsUsados).length + '/' + operariosActivos().length + '</b><span>Operarios asignados' + (sinOperario ? ' · ' + sinOperario + ' sin operario' : '') + '</span></div>' +
       '<div><b>' + tijUsadas + '/' + tij.length + '</b><span>Tijeras de volteo en uso</span></div>' +
       '<div' + (varadasL.length ? ' class="rojo"' : '') + '><b>' + varadasL.length + '</b><span>En taller</span></div>' +
-      '<div' + (conPend.length ? ' class="ambar"' : '') + '><b>' + conPend.length + '</b><span>Con pendiente del taller</span></div>' +
+      '<div><b>' + conPend.length + '</b><span>Con observación del taller</span></div>' +
       '<div' + (sinProg.length ? ' class="ambar"' : '') + '><b>' + sinProg.length + '</b><span>Disponibles sin programar</span></div>' +
     '</div>' +
     /* tabla agrupada por labor */
@@ -1325,24 +1335,29 @@ function imprimir(){
       '<td class="mono">' + (esc(x.a.implemento) || '<span class="pr-vacio">—</span>') + '</td>' +
       '<td>' + (x.a.operario ? '<b>' + esc(x.a.operario) + '</b>' : '<div class="pr-firma-op"></div>') +
         (x.a.operario2 ? '<div class="pr-t2">Turno 2: <b>' + esc(x.a.operario2) + '</b></div>' : '') + '</td>' +
-      '<td>' + (pendTaller[x.maq.cod] ? '<span class="pr-pend">⚠ Taller: ' + esc(txtPend(x.maq.cod)) + '</span><br>' : '') + esc(x.a.obs || '') + '</td>' +
+      '<td class="pr-obs">' + (x.a.obs ? '<div>' + esc(x.a.obs) + '</div>' : '') +
+        (pendTaller[x.maq.cod] ? '<div class="pr-obs-t"><b>Taller:</b> ' + esc(corta(txtPend(x.maq.cod), 90)) + '</div>' : '') +
+        (!x.a.obs && !pendTaller[x.maq.cod] ? '<span class="pr-vacio">—</span>' : '') + '</td>' +
       '<td><div class="pr-casilla"></div></td><td><div class="pr-casilla"></div></td><td><div class="pr-firma-op"></div></td></tr>';
   });
   h += '</tbody></table>';
 
   /* bloques: taller, pendientes y recursos libres */
   h += '<div class="pr-bloques">' +
-    '<div class="pr-bloque rojo"><h5>En el taller · no se programan</h5>' +
-      (varadasL.length ? '<ul>' + varadasL.map(function(m){ return '<li><b>' + esc(m.cod) + '</b> ' + esc(m.nombre) + ' — ' + esc(corta(varadas[m.cod], 80)) + '</li>'; }).join('') + '</ul>'
+    '<div class="pr-bloque pr-taller"><h5>En el taller · no se programan</h5>' +
+      (varadasL.length ? '<table class="pr-mini"><tbody>' + varadasL.map(function(m){
+          var v = String(varadas[m.cod] || ''), d = v.match(/\(desde el ([^)]*)\)\s*$/);
+          return '<tr><td class="c"><b>' + esc(m.cod) + '</b></td><td class="d">' + (d ? esc(d[1]) : '') + '</td><td>' +
+            esc(corta(v.replace(/\s*\(desde el [^)]*\)\s*$/, ''), 75)) + '</td></tr>'; }).join('') + '</tbody></table>'
                        : '<p>Ninguna máquina en el taller.</p>') + '</div>' +
-    '<div class="pr-bloque ambar"><h5>Trabajan con pendiente del taller</h5>' +
-      (conPend.length ? '<ul>' + conPend.map(function(m){ return '<li><b>' + esc(m.cod) + '</b> — ' + esc(corta(txtPend(m.cod), 90)) + '</li>'; }).join('') + '</ul>'
-                      : '<p>Sin pendientes.</p>') + '</div>' +
+    '<div class="pr-lado"><div class="pr-bloque"><h5>Observaciones del taller</h5>' +
+      (conPend.length ? '<ul>' + conPend.map(function(m){ return '<li><b>' + esc(m.cod) + '</b> ' + esc(corta(txtPend(m.cod), 80)) + '</li>'; }).join('') + '</ul>'
+                      : '<p>Ninguna.</p>') + '</div>' +
     '<div class="pr-bloque"><h5>Recursos sin asignar</h5><p>' +
       '<b>Máquinas:</b> ' + (sinProg.length ? sinProg.map(function(m){ return esc(m.cod); }).join(', ') : 'ninguna') + '<br>' +
       '<b>Operarios:</b> ' + (opsLibres.length ? opsLibres.map(esc).join(', ') : 'ninguno') + '<br>' +
       '<b>Implementos:</b> ' + (implLibres.length ? implLibres.map(function(i){ return esc(i.cod); }).join(', ') : 'ninguno') +
-    '</p></div>' +
+    '</p></div></div>' +
   '</div>';
 
   h += '<div class="pr-firmas">' +
