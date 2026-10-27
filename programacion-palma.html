@@ -1236,14 +1236,18 @@ function textoWhatsApp(){
     if (x.a.implemento) dat.push(x.a.implemento);
     if (dat.length) L.push('📍 ' + dat.join('  ·  '));
     if (x.a.obs) L.push('📝 ' + x.a.obs);
-    // lo del taller va como observación, sin "URGENTE"
-    if (pendTaller[x.maq.cod]) L.push('📝 Taller: ' + corta(obsTaller(x.maq.cod), 90));
     L.push('');
   });
   if (!lista.length) L.push('_Todavía no hay nada programado._');
   var enTaller = cfgFlota().filter(function(m){ return varadas[m.cod]; }).map(function(m){ return m.cod; });
   L.push('━━━━━━━━━━━━');
   if (enTaller.length) L.push('🔧 *En el taller (no usar):* ' + enTaller.join(', '));
+  // lo que anotó el taller en máquinas que trabajan, abajo y como observación (sin "URGENTE")
+  var conObs = cfgFlota().filter(function(m){ return pendTaller[m.cod] && !varadas[m.cod]; });
+  if (conObs.length){
+    L.push('📝 *Observaciones del taller:*');
+    conObs.forEach(function(m){ L.push('   ' + m.cod + ': ' + corta(obsTaller(m.cod), 90)); });
+  }
   var usados = {};
   lista.forEach(function(x){ opsDe(x.a).forEach(function(o){ usados[o] = true; }); });
   var libres = operariosActivos().filter(function(o){ return !usados[o]; });
