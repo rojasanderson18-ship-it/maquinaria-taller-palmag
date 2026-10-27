@@ -91,6 +91,9 @@
   .fab button{flex:1;max-width:300px;padding:16px;border-radius:var(--r);font-size:16px;font-weight:700}
   .fab .pri{background:var(--green);color:#fff}
   .fab .sec{background:var(--card);border:1px solid var(--line);color:var(--ink);font-weight:600}
+  .fab button{padding:15px 8px;font-size:15px}
+  .fab .wa{background:#1F8F4E;color:#fff;display:flex;align-items:center;justify-content:center;gap:7px}
+  .fab .wa svg{width:19px;height:19px;flex:none}
 
   .hoja{position:fixed;inset:0;background:rgba(14,22,18,.5);z-index:40;display:flex;align-items:flex-end;justify-content:center}
   .hoja[hidden]{display:none}
@@ -164,7 +167,7 @@
     header,.wrap,.fab,.hoja,.aviso,.sync,.nollego{display:none !important}
     #print{display:block}
     body{background:#fff;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    @page{size:letter landscape;margin:8mm 9mm}
+    @page{size:letter portrait;margin:8mm 8mm}
     .pr{color:#16211C;font-family:'Barlow',system-ui,sans-serif}
     .pr .mono{font-family:'JetBrains Mono',monospace}
     /* encabezado tipo formato */
@@ -236,7 +239,8 @@
 
 <div class="fab">
   <button class="sec" id="btn-copiar">Copiar día anterior</button>
-  <button class="pri" id="btn-imprimir">Imprimir programación</button>
+  <button class="pri" id="btn-imprimir">Imprimir</button>
+  <button class="wa" id="btn-whatsapp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 4 3.5 1.5.6 2 .7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.2-.3-.2-.5-.3z"/></svg>WhatsApp</button>
 </div>
 
 <div class="hoja" id="hoja" hidden><div class="panel" id="panel"></div></div>
@@ -424,7 +428,7 @@ function txtLabor(id){ var l = labor(id); return l ? l.txt : id; }
 function ordenLabor(id){ for (var i=0;i<LABORES.length;i++) if (LABORES[i].id===id) return i; return 99; }
 function txtLotes(a){
   if (!a.lotes || !a.lotes.length) return '';
-  if (a.lotes.length <= 3) return 'lote ' + a.lotes.join(', ');
+  if (a.lotes.length <= 3) return (a.lotes.length === 1 ? 'lote ' : 'lotes ') + a.lotes.join(', ');
   return a.lotes.length + ' lotes';
 }
 
@@ -1202,6 +1206,59 @@ function fincasDe(cods){
   return set.join(' / ');
 }
 
+/* En la hoja impresa las novedades largas se acortan (deja el "desde el …")
+   para que todo quepa en una sola hoja. */
+function corta(t, n){
+  t = String(t || '');
+  var m = t.match(/^(.*?)(\s*\(desde el [^)]*\))?$/), cuerpo = m[1], desde = m[2] || '';
+  return (cuerpo.length > n ? cuerpo.slice(0, n - 1).replace(/[\s,;.]+\S*$/, '') + '…' : cuerpo) + desde;
+}
+
+/* =====================================================================
+   Compartir por WhatsApp: la programación como mensaje de texto, que se
+   lee bien en el celular (negrillas con *…*). Con el menú de compartir del
+   celular si existe; si no, abre WhatsApp con el mensaje listo.
+   ===================================================================== */
+function textoWhatsApp(){
+  var lista = asignados(fechaSel).slice().sort(function(a, b){
+    return ordenLabor(a.a.labor) - ordenLabor(b.a.labor) || a.maq.cod.localeCompare(b.maq.cod); });
+  var p = fechaSel.split('-'), dSem = DIAS_SEM[new Date(+p[0], +p[1]-1, +p[2]).getDay()];
+  var L = ['*PROGRAMACIÓN · ' + dSem.toUpperCase() + ' ' + (+p[2]) + ' DE ' + MESES[+p[1]-1].toUpperCase() + '*',
+           'Palma Grande S.A.S.' + (estado.yo ? ' · Programó: ' + conCargo(estado.yo) : ''), ''];
+  var lab = null;
+  lista.forEach(function(x){
+    if (x.a.labor !== lab){ lab = x.a.labor; L.push('*' + txtLabor(lab) + '*'); }
+    var partes = [x.maq.cod + ' ' + modeloCorto(x.maq.cod)];
+    partes.push(x.a.operario ? x.a.operario + (x.a.operario2 ? ' / turno 2: ' + x.a.operario2 : '') : 'SIN OPERARIO');
+    // en el mensaje van todos los lotes (en pantalla se resumen cuando son muchos)
+    var lo = x.a.lotes || [];
+    if (lo.length) partes.push((lo.length === 1 ? 'lote ' : 'lotes ') + lo.join(', '));
+    if (x.a.implemento) partes.push(x.a.implemento);
+    L.push('▪️ ' + partes.join(' · '));
+    if (x.a.obs) L.push('   _' + x.a.obs + '_');
+    if (pendTaller[x.maq.cod]) L.push('   ⚠️ Taller: ' + corta(txtPend(x.maq.cod), 90));
+  });
+  if (!lista.length) L.push('_Todavía no hay nada programado._');
+  var enTaller = cfgFlota().filter(function(m){ return varadas[m.cod]; }).map(function(m){ return m.cod; });
+  if (enTaller.length) L.push('', '🔧 *En el taller (no usar):* ' + enTaller.join(', '));
+  var usados = {};
+  lista.forEach(function(x){ opsDe(x.a).forEach(function(o){ usados[o] = true; }); });
+  var libres = operariosActivos().filter(function(o){ return !usados[o]; });
+  if (libres.length && lista.length) L.push('👷 *Sin asignar:* ' + libres.join(', '));
+  L.push('', 'Antes de arrancar: preoperativo en la app. Al terminar: cierre de jornada.');
+  return L.join('\n');
+}
+function modeloCorto(cod){ var n = nombreDe(cod).split(' '); return n.length > 1 ? n.slice(1).join(' ') : n[0]; }
+async function compartir(){
+  if (!asignados(fechaSel).length){ aviso('No hay nada programado para compartir.'); return; }
+  var t = textoWhatsApp();
+  if (navigator.share){
+    try { await navigator.share({ text: t }); return; }
+    catch(e){ if (e && e.name === 'AbortError') return; }
+  }
+  window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank');
+}
+
 function imprimir(){
   var lista = asignados(fechaSel);
   if (!lista.length){ aviso('No hay nada programado para imprimir.'); return; }
@@ -1276,10 +1333,10 @@ function imprimir(){
   /* bloques: taller, pendientes y recursos libres */
   h += '<div class="pr-bloques">' +
     '<div class="pr-bloque rojo"><h5>En el taller · no se programan</h5>' +
-      (varadasL.length ? '<ul>' + varadasL.map(function(m){ return '<li><b>' + esc(m.cod) + '</b> ' + esc(m.nombre) + ' — ' + esc(varadas[m.cod]) + '</li>'; }).join('') + '</ul>'
+      (varadasL.length ? '<ul>' + varadasL.map(function(m){ return '<li><b>' + esc(m.cod) + '</b> ' + esc(m.nombre) + ' — ' + esc(corta(varadas[m.cod], 80)) + '</li>'; }).join('') + '</ul>'
                        : '<p>Ninguna máquina en el taller.</p>') + '</div>' +
     '<div class="pr-bloque ambar"><h5>Trabajan con pendiente del taller</h5>' +
-      (conPend.length ? '<ul>' + conPend.map(function(m){ return '<li><b>' + esc(m.cod) + '</b> — ' + esc(txtPend(m.cod)) + '</li>'; }).join('') + '</ul>'
+      (conPend.length ? '<ul>' + conPend.map(function(m){ return '<li><b>' + esc(m.cod) + '</b> — ' + esc(corta(txtPend(m.cod), 90)) + '</li>'; }).join('') + '</ul>'
                       : '<p>Sin pendientes.</p>') + '</div>' +
     '<div class="pr-bloque"><h5>Recursos sin asignar</h5><p>' +
       '<b>Máquinas:</b> ' + (sinProg.length ? sinProg.map(function(m){ return esc(m.cod); }).join(', ') : 'ninguna') + '<br>' +
@@ -1517,6 +1574,7 @@ $('#btn-yo').onclick = function(){ elegirQuien(null); };
 $('#btn-ajustes').onclick = ajustes;
 $('#btn-copiar').onclick = copiarAnterior;
 $('#btn-imprimir').onclick = imprimir;
+$('#btn-whatsapp').onclick = compartir;
 
 /* Las paradas sin alta de la hoja Taller (misma lectura que el Taller:
    filas PARADA y ALTA con el mismo ID). Si no hay señal, la última copia. */
