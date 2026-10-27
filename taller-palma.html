@@ -374,30 +374,6 @@ function reportesDe(filas){
   });
   return Object.keys(out).map(function(k){ return out[k]; });
 }
-/* Todo lo que ha pasado con la máquina, lo más reciente primero: paradas,
-   pendientes (y cómo se cerraron) y reportes repetidos de los operarios. */
-function historialDe(cod){
-  var l = [];
-  estado.eventos.filter(function(e){ return e.equipo === cod; }).forEach(function(e){
-    l.push({ fecha:e.fechaReporte, orden:e.fechaAlta || '9999', tipo:e.tipo === 'mantenimiento' ? 'Mantenimiento' : 'Parada', cl:e.tipo === 'mantenimiento' ? 'a' : 'r',
-      txt:(e.sistema ? txtSistema(e.sistema) + ' · ' : '') + (e.novedad || ''),
-      det:'Reportó ' + (e.reportadoPor || '—') + ' · ' + (e.fechaAlta
-        ? 'alta el ' + dcorta(e.fechaAlta) + ' por ' + (e.altaPor || '—') + ' (' + diasEntre(e.fechaReporte, e.fechaAlta) + ' días parada)' + (e.trabajo ? ' · ' + e.trabajo : '')
-        : 'sigue parada') });
-  });
-  (estado.novedades || []).filter(function(n){ return n.equipo === cod; }).forEach(function(n){
-    var cierre = !n.cerrada ? 'sigue abierto' : n.trabajo === 'Repetido' ? 'quitado por repetido el ' + dcorta(n.fechaCierre) + ' (' + (n.cerradoPor || '—') + ')'
-      : n.trabajo === 'Pasó a parada' ? 'pasó a parada el ' + dcorta(n.fechaCierre)
-      : 'solucionado el ' + dcorta(n.fechaCierre) + ' (' + (n.cerradoPor || '—') + ')' + (n.trabajo ? ' · ' + n.trabajo : '');
-    l.push({ fecha:n.fecha, orden:n.fechaCierre || '9999', tipo:n.trabajo === 'Repetido' ? 'Repetido' : 'Pendiente', cl:n.trabajo === 'Repetido' ? 'n' : 'a',
-      txt:n.novedad, det:'Anotó ' + (n.reportadoPor || '—') + ' · ' + cierre });
-  });
-  (estado.reportes || []).filter(function(x){ return x.equipo === cod; }).forEach(function(x){
-    l.push({ fecha:x.fecha, orden:x.fecha, tipo:'Reportado de nuevo', cl:'n', txt:x.txt,
-      det:x.por + (x.origen ? ' · ' + x.origen : '') + ' · el taller ya lo tenía anotado' });
-  });
-  return l.sort(function(a, b){ return a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : (a.orden < b.orden ? 1 : -1); });
-}
 function reportesDePend(id){ return (estado.reportes || []).filter(function(x){ return x.refs.indexOf(id) >= 0; }); }
 function pendientesDe(cod){
   return (estado.novedades || []).filter(function(n){ return n.equipo === cod && !n.cerrada; })
@@ -772,22 +748,23 @@ function verEquipo(cod){
 
   h += mttoHtml(cod);
 
-  var hist = historialDe(cod);
-  if (hist.length){
-    h += '<h2 style="margin-top:22px">Historial <span class="cuenta">' + hist.length + '</span></h2><div class="tarj" id="hist">' +
-      hist.map(function(x, i){
-        return '<div class="hist"' + (i >= 12 ? ' data-mas hidden' : '') + '><span class="f mono">' + dcorta(x.fecha) + '</span>' +
-          '<span><span class="pill ' + x.cl + '">' + esc(x.tipo) + '</span> ' + esc(x.txt) +
-          '<br><span style="color:var(--steel);font-size:13px">' + esc(x.det) + '</span></span></div>';
-      }).join('') +
-      (hist.length > 12 ? '<button class="mini" id="hist-mas">Ver todo (' + hist.length + ')</button>' : '') + '</div>';
+  if (historial.length){
+    h += '<h2 style="margin-top:22px">Últimas reparaciones</h2><div class="tarj">' +
+      historial.slice(0, 8).map(function(e){
+        return '<div class="hist"><span class="f mono">' + dcorta(e.fechaReporte) + '</span>' +
+          '<span>' + (e.sistema ? '<span class="pill ' + (e.tipo === 'mantenimiento' ? 'a' : 'r') + '">' +
+          esc(txtSistema(e.sistema)) + '</span> ' : '') +
+          (e.novedad ? esc(e.novedad) : '') +
+          '<br><span style="color:var(--steel);font-size:13px">' +
+          diasEntre(e.fechaReporte, e.fechaAlta) + ' días parada · alta por ' + esc(e.altaPor || '—') +
+          (e.trabajo ? ' · ' + esc(e.trabajo) : '') + '</span></span></div>';
+      }).join('') + '</div>';
   }
+  h += '<p class="nota" style="margin-top:12px">El historial completo de la máquina (paradas, pendientes y reportes repetidos) está en Gerencia → Historial (PDF).</p>';
 
   h += '</div>';
 
   abrir(h, function(){
-    var hm = $('#hist-mas');
-    if (hm) hm.onclick = function(){ Array.prototype.forEach.call($('#panel').querySelectorAll('[data-mas]'), function(x){ x.hidden = false; }); hm.remove(); };
     var a = $('#alta');
 
     // avisar si esa misma parte ya había fallado
