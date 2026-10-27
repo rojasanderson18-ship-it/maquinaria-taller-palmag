@@ -448,7 +448,10 @@ function pintar(){
         '<span class="txt"><span class="cod">' + esc(v.f.cod) + '</span><span class="nom">' + esc(v.f.nombre) + '</span>' +
         '<span class="det">' + (v.ab.novedad ? esc(v.ab.novedad) : 'Sin detalle') + ' · Reportó ' + esc(v.ab.reportadoPor || '—') + '</span>' +
         '<span class="estado"><span class="pill ro">' + (d === 0 ? 'Parada desde hoy' : 'Parada hace ' + d + (d===1?' día':' días')) + '</span>' +
-          (v.ab.tipo === 'mantenimiento' ? ' <span class="pill a">Mantenimiento</span>' : '') + '</span>' +
+          (v.ab.tipo === 'mantenimiento' ? ' <span class="pill a">Mantenimiento</span>' : '') +
+          (function(){ if (!window.Reparaciones) return ''; var t = Reparaciones.de(v.ab.id).taller;
+            if (!t) return ' <span class="pill r">Falta decir en qué va</span>';
+            return ' <span class="pill a">' + esc(Reparaciones.txtEstado(t.estado)) + (t.sale ? ' · sale ' + dcorta(t.sale) : '') + '</span>'; })() + '</span>' +
         '</span><span class="ir">›</span></button>';
     }).join('') + '</div>';
   } else {
@@ -621,7 +624,7 @@ function montarFecha(inicial, alCambiar){
    ===================================================================== */
 function reportar(codPre){
   if (!estado.yo) { elegirPersona(function(){ reportar(codPre); }); return; }
-  var sel = { equipo: codPre || null, tipo: 'falla', fecha: hoy() };
+  var sel = { equipo: codPre || null, tipo: 'falla', fecha: hoy(), sistema: null };
 
   var disponibles = FLOTA.filter(function(f){ return !abiertoDe(f.cod); });
   if (!disponibles.length){ aviso('Todas las máquinas ya están reportadas.'); return; }
@@ -641,12 +644,16 @@ function reportar(codPre){
 
       '<p class="paso">3. ¿Desde cuándo está parada?</p>' + htmlFecha() +
 
+      '<div id="g-causa"><p class="paso">4. ¿De qué sistema es el daño?</p><div class="rejilla">' +
+        SISTEMAS.map(function(x){ return '<button class="op" data-rsis="' + esc(x.id) + '" aria-pressed="false">' + esc(x.txt) + '</button>'; }).join('') +
+      '</div></div>' +
+
       '<label class="campo"><span>¿Qué le pasa? <i>— opcional</i></span>' +
         '<textarea id="nov" placeholder="Fuga, ruido, no arranca…"></textarea></label>' +
 
       '<button class="accion roja" id="guardar" disabled>Dejarla reportada</button>' +
       '<button class="accion gris" data-cerrar>Cancelar</button>' +
-      '<p class="nota">De qué sistema fue la falla se escoge después, al darle el alta, que es cuando ya se sabe.</p>' +
+      '<p class="nota">Si al repararla resulta ser de otro sistema, se corrige al darle el alta.</p>' +
     '</div>',
     function(){
       function refrescar(){
@@ -654,12 +661,18 @@ function reportar(codPre){
           b.setAttribute('aria-pressed', String(b.dataset.eq === sel.equipo)); });
         Array.prototype.forEach.call($('#panel').querySelectorAll('[data-tipo]'), function(b){
           b.setAttribute('aria-pressed', String(b.dataset.tipo === sel.tipo)); });
-        $('#guardar').disabled = !sel.equipo;
+        Array.prototype.forEach.call($('#panel').querySelectorAll('[data-rsis]'), function(b){
+          b.setAttribute('aria-pressed', String(b.dataset.rsis === sel.sistema)); });
+        $('#g-causa').hidden = sel.tipo !== 'falla';
+        // una falla no se guarda sin decir de qué sistema es (de ahí sale qué se está dañando)
+        $('#guardar').disabled = !sel.equipo || (sel.tipo === 'falla' && !sel.sistema);
       }
       Array.prototype.forEach.call($('#panel').querySelectorAll('[data-eq]'), function(b){
         b.onclick = function(){ sel.equipo = b.dataset.eq; refrescar(); }; });
       Array.prototype.forEach.call($('#panel').querySelectorAll('[data-tipo]'), function(b){
         b.onclick = function(){ sel.tipo = b.dataset.tipo; refrescar(); }; });
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-rsis]'), function(b){
+        b.onclick = function(){ sel.sistema = b.dataset.rsis; refrescar(); }; });
       montarFecha(sel.fecha, function(v){ sel.fecha = v; });
       refrescar();
 
@@ -670,7 +683,7 @@ function reportar(codPre){
           id: nid(),
           equipo: sel.equipo,
           tipo: sel.tipo,
-          sistema: null,                 // lo clasifica el mecánico al cerrar
+          sistema: sel.tipo === 'falla' ? sel.sistema : null,   // se puede corregir al dar el alta
           novedad: $('#nov').value.trim(),
           reportadoPor: estado.yo,
           fechaReporte: sel.fecha,
@@ -733,6 +746,7 @@ function verEquipo(cod){
         ' (' + (d === 0 ? 'hoy' : 'hace ' + d + (d===1?' día':' días')) + ')' +
         ' · <button id="corregir" style="text-decoration:underline;color:var(--ink)">Corregir fecha</button></div>' +
       '</div>';
+    h += reparacionHtml(ab);
     h += pendHtml;
 
     // El mecánico es quien sabe de qué fue: el operario reporta el síntoma, él clasifica
@@ -775,6 +789,7 @@ function verEquipo(cod){
   h += '</div>';
 
   abrir(h, function(){
+    if ($('#rp-editar')) $('#rp-editar').onclick = function(){ editarReparacion(cod); };
     var a = $('#alta');
 
     // avisar si esa misma parte ya había fallado
@@ -1168,9 +1183,72 @@ async function traerMaestros(){
    ===================================================================== */
 /* Una fila PARADA con el mismo ID reemplaza la fecha de parada al leer la hoja
    (gana la última fila); si es del mismo día, el Apps Script la sobrescribe. */
+/* ---------- En qué va la reparación (hoja Reparaciones, maestros.js) ----------
+   Tulio dice en qué va, qué repuesto necesita y cuándo sale; Compras pone el
+   costo, el proveedor y cuándo llega el repuesto (app de Compras). */
+function pesos(v){ return '$' + Math.round(v).toLocaleString('es-CO'); }
+function reparacionHtml(ab){
+  if (!window.Reparaciones) return '';
+  var R = Reparaciones.de(ab.id), t = R.taller, c = R.compras;
+  var costo = c && ((c.repuestos || 0) + (c.mano || 0));
+  var vencida = t && t.sale && t.sale < hoy();
+  return '<div class="tarj" style="border-left:4px solid ' + (t ? (vencida ? 'var(--red)' : 'var(--amber)') : 'var(--red)') + '">' +
+    '<div class="et">En qué va la reparación</div>' +
+    (t ? '<div class="vl grande">' + esc(Reparaciones.txtEstado(t.estado) || 'Sin decir') + '</div>' +
+        (t.repuesto ? '<div class="vl">Necesita: <b>' + esc(t.repuesto) + '</b></div>' : '') +
+        (t.sale ? '<div class="vl" style="' + (vencida ? 'color:var(--red);font-weight:700' : '') + '">Sale estimado: ' + dcorta(t.sale) + (vencida ? ' · ya pasó la fecha' : '') + '</div>' : '') +
+        '<div class="vl" style="color:var(--steel);font-size:13px">Actualizado el ' + dcorta(t.fecha) + (t.sinConfirmar ? ' · enviando…' : '') + '</div>'
+      : '<div class="vl" style="color:var(--red);font-weight:700">Todavía no se ha dicho en qué va.</div>') +
+    (c ? '<div class="vl" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Compras: ' +
+        (costo ? '<b>' + pesos(costo) + '</b>' : 'sin costo') + (c.proveedor ? ' · ' + esc(c.proveedor) : '') +
+        (c.llega ? ' · el repuesto llega el <b>' + dcorta(c.llega) + '</b>' : '') + (c.nota ? '<br><span style="color:var(--steel);font-size:13px">' + esc(c.nota) + '</span>' : '') + '</div>' : '') +
+    '<button class="mini ' + (t ? 'gris' : 'roja') + '" id="rp-editar" style="margin-top:10px">' + (t ? 'Actualizar en qué va' : 'Decir en qué va') + '</button></div>';
+}
+function editarReparacion(cod){
+  var ab = abiertoDe(cod); if (!ab) return;
+  if (!estado.yo){ elegirPersona(function(){ editarReparacion(cod); }); return; }
+  var t = (Reparaciones.de(ab.id).taller) || {}, sel = { estado: t.estado || null };
+  abrir(topeFicha(cod, '<span class="pill ro">En qué va la reparación</span>') +
+    '<div class="cuerpo">' +
+      '<p class="paso">¿En qué va?</p><div class="rejilla">' +
+        Reparaciones.ESTADOS.map(function(e){ return '<button class="op ancho" data-rpe="' + e.id + '" aria-pressed="' + (sel.estado === e.id) + '">' + esc(e.txt) + '<small>' + esc(e.d) + '</small></button>'; }).join('') +
+      '</div>' +
+      '<label class="campo" id="rp-rep-c"><span>¿Qué repuesto o trabajo necesita? <i id="rp-rep-i">— opcional</i></span>' +
+        '<textarea id="rp-rep" placeholder="Bomba de inyección, kit de empaques, rectificar culata…">' + esc(t.repuesto || '') + '</textarea></label>' +
+      '<label class="campo"><span>¿Cuándo calcula que sale? <i>— opcional</i></span>' +
+        '<input type="date" id="rp-sale" min="' + hoy() + '" value="' + esc(t.sale || '') + '"></label>' +
+      '<label class="campo"><span>Nota <i>— opcional</i></span><textarea id="rp-nota" placeholder="Lo que Compras o la gerencia deba saber">' + esc(t.nota || '') + '</textarea></label>' +
+      '<button class="accion verde" id="rp-ok" disabled>Guardar</button>' +
+      '<button class="accion gris" id="rp-volver">Volver</button>' +
+      '<p class="nota">El repuesto que anote le llega a Compras para cotizarlo. El costo lo pone Compras.</p>' +
+    '</div>',
+    function(){
+      function refrescar(){
+        Array.prototype.forEach.call($('#panel').querySelectorAll('[data-rpe]'), function(b){ b.setAttribute('aria-pressed', String(b.dataset.rpe === sel.estado)); });
+        var pide = sel.estado === 'repuesto';
+        $('#rp-rep-i').textContent = pide ? '— para que Compras lo cotice' : '— opcional';
+        $('#rp-ok').disabled = !sel.estado || (pide && !$('#rp-rep').value.trim());
+      }
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-rpe]'), function(b){ b.onclick = function(){ sel.estado = b.dataset.rpe; refrescar(); }; });
+      $('#rp-rep').oninput = refrescar;
+      $('#rp-volver').onclick = function(){ verEquipo(cod); };
+      refrescar();
+      $('#rp-ok').onclick = async function(){
+        Reparaciones.guardar('TALLER', ab.id, cod, { estado: sel.estado, repuesto: $('#rp-rep').value.trim(), sale: $('#rp-sale').value, nota: $('#rp-nota').value.trim() }, estado.yo);
+        verEquipo(cod); pintar(); pintarNoLlego();
+        aviso(cod + ': ' + Reparaciones.txtEstado(sel.estado).toLowerCase() + '.');
+        setTimeout(traerReparaciones, 6000);   // confirma en la hoja que llegó
+      };
+    });
+}
+async function traerReparaciones(){
+  if (!navigator.onLine || !window.Reparaciones) return;
+  try { if (await Reparaciones.traer() && $('#hoja').hidden) pintar(); pintarNoLlego(); } catch(e){}
+}
+
 function encolarParada(ev){
   encolar(HOJA, [fechaCO(hoy()), horaAhora(), 'PARADA', ev.id, ev.equipo, nombreDe(ev.equipo),
-    ev.tipo, '', ev.novedad, ev.reportadoPor, ev.fechaReporte, '', '', ''], ENC_TALLER, ev.id);
+    ev.tipo, ev.sistema ? txtSistema(ev.sistema) : '', ev.novedad, ev.reportadoPor, ev.fechaReporte, '', '', ''], ENC_TALLER, ev.id);
   porConfirmar(ev.id, 'ev');
 }
 
@@ -1220,6 +1298,7 @@ function fusionar(filas){
     if (r[8]) e.novedad = String(r[8]);
     if (r[9]) e.reportadoPor = String(r[9]);
     if (r[10]) e.fechaReporte = aIso(r[10]);
+    if (r[7]) e.sistema = idSistema(String(r[7]));      // desde la parada; el alta lo puede corregir
     if (acc === 'ALTA'){
       e.sistema = idSistema(String(r[7]||'')); e.trabajo = String(r[11]||''); e.altaPor = String(r[12]||'');
       // la fecha del alta sale de la parada + días, que no depende de cómo Sheets lea la columna Fecha
@@ -1303,6 +1382,7 @@ function noLlego(){
   });
   // con un maestros.js viejo en caché no existe sinLlegar
   if (Maestros.sinLlegar) Maestros.sinLlegar().forEach(function(m){ lista.push({ id: 'maestro:' + m.tipo, txt: 'Cambio en ' + m.nombre }); });
+  if (window.Reparaciones) Reparaciones.sinLlegar().forEach(function(x){ lista.push({ id: 'rep:' + x.envio, txt: 'En qué va la reparación de ' + x.cod + ' — ' + Reparaciones.txtEstado(x.datos.estado) }); });
   return lista;
 }
 function pintarNoLlego(){
@@ -1394,6 +1474,7 @@ function verNoLlego(){
       Array.prototype.forEach.call($('#panel').querySelectorAll('[data-reint]'), function(b){
         b.onclick = async function(){
           var id = b.dataset.reint;
+          if (id.indexOf('rep:') === 0){ await Reparaciones.reintentar(id.slice(4)); pintarNoLlego(); verNoLlego(); aviso('Se volvió a enviar.'); return; }
           if (id.indexOf('maestro:') === 0){ var x = Maestros.reintentar(id.slice(8)); if (x) encolar(x.hoja, x.fila, x.encabezados, x.id); }
           else { var pc = estado.porConfirmar[id]; if (pc){ reencolar(id, pc.tipo); if (pc.fecha) estado.porConfirmar[id].fecha = true; } }
           await persistir(); pintarNoLlego(); verNoLlego(); enviar();
@@ -1404,6 +1485,7 @@ function verNoLlego(){
         b.onclick = async function(){
           var id = b.dataset.desc;
           if (!confirm('¿Descartar este registro? Se perderá lo que no llegó a la hoja.')) return;
+          if (id.indexOf('rep:') === 0){ Reparaciones.descartar(id.slice(4)); pintar(); pintarNoLlego(); verNoLlego(); return; }
           if (id.indexOf('maestro:') === 0){ Maestros.descartar(id.slice(8)); FLOTA = Maestros.flota(); }
           else {
             var pc = estado.porConfirmar[id];
@@ -1609,9 +1691,10 @@ else $('#btn-yo').style.cursor = 'default';
   traerMaestros();
   traerHorometros();
   traerViejo();
+  traerReparaciones();
   window.addEventListener('online', async function(){ await enviar(); traer(); });
   setInterval(function(){ if (!estado.cola.length) traer(); else enviar(); }, 60000);
-  setInterval(function(){ traerFotos(); traerMaestros(); traerHorometros(); traerViejo(); }, 10 * 60000);
+  setInterval(function(){ traerFotos(); traerMaestros(); traerHorometros(); traerViejo(); traerReparaciones(); }, 10 * 60000);
 })();
 </script>
 </body>
