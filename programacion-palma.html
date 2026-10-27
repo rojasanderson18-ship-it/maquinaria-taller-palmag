@@ -1570,6 +1570,8 @@ window.addEventListener('beforeinstallprompt', function(e){
   e.preventDefault(); pedidoInstalar = e; $('#btn-instalar').hidden = false;
 });
 $('#btn-instalar').onclick = async function(){
+  var no = window.Instalar && Instalar.impedimento();
+  if (no){ alert(no); return; }
   if (!pedidoInstalar) return;
   pedidoInstalar.prompt();
   try { await pedidoInstalar.userChoice; } catch(e){}

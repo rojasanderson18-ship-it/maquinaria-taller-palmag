@@ -321,3 +321,22 @@
     }
   };
 })();
+
+/* =====================================================================
+   INSTALAR COMO APP — solo con Google Chrome en Android.
+   Otros navegadores (Edge, Samsung Internet, Opera, Brave, Firefox…)
+   arman la app con una versión vieja de Android y Google Play Protect la
+   bloquea como "app no segura". En esos casos se pide abrir la página en
+   Chrome en vez de instalar.
+   ===================================================================== */
+window.Instalar = {
+  /* null si se puede instalar aquí; si no, el mensaje para el usuario */
+  impedimento: function(){
+    var ua = navigator.userAgent || '';
+    if (!/Android/i.test(ua)) return null;
+    var otro = /EdgA|SamsungBrowser|OPR\/|Opera|Firefox|YaBrowser|MiuiBrowser|UCBrowser|HuaweiBrowser|DuckDuckGo|Vivaldi|; wv\)/i.test(ua) || !!navigator.brave;
+    if (!otro && /Chrome\//.test(ua)) return null;
+    return 'Para instalarla sin advertencias, abra esta misma página en Google Chrome y toque "Instalar app" allí.\n\n' +
+      'Desde este navegador Android la bloquea como "app no segura". Mientras tanto puede seguir usándola aquí normalmente.';
+  }
+};
