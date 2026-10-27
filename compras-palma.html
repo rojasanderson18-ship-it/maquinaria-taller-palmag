@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16211C">
+<title>Compras · Palma Grande</title>
+<link rel="manifest" href="manifest-compras.json">
+<link rel="apple-touch-icon" href="icons/compras-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDF0EE; --card:#fff; --ink:#16211C; --soft:#4A5B53; --steel:#7E8C86; --line:#D3DAD6;
+    --green:#1F5D3C; --green-s:#E2EDE6; --amber:#B0600D; --amber-s:#FBEEDC;
+    --red:#9E2B21; --red-s:#F9E3E1; --blue:#1D4E89; --blue-s:#E3ECF7; --r:4px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--paper);color:var(--ink);font-size:16px;line-height:1.4;min-height:100vh}
+  button{font:inherit;cursor:pointer;color:inherit}
+  .mono{font-family:'IBM Plex Mono',monospace}
+  header{background:var(--ink);color:#fff;padding:14px 16px 16px}
+  .top{display:flex;align-items:center;gap:10px;max-width:760px;margin:0 auto}
+  .volver{color:#fff;text-decoration:none;font-size:22px;line-height:1;padding:4px 6px 4px 0}
+  .tit b{display:block;font-size:18px}
+  .tit span{font-size:13px;opacity:.75}
+  .inst-btn{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:var(--r);padding:6px 10px;font-size:13px}
+  main{max-width:760px;margin:0 auto;padding:14px 16px 40px}
+  .resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
+  .res{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--steel);border-radius:var(--r);padding:10px}
+  .res .t{font-size:11.5px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.04em}
+  .res .n{font-size:22px;font-weight:700;margin-top:2px}
+  .res.r{border-top-color:var(--red)} .res.r .n{color:var(--red)}
+  .res.a{border-top-color:var(--amber)} .res.a .n{color:var(--amber)}
+  .res.v{border-top-color:var(--green)}
+  h2{font-size:15px;margin:22px 0 8px;display:flex;align-items:center;gap:8px}
+  h2 .cuenta{background:var(--ink);color:#fff;border-radius:20px;font-size:12px;padding:1px 8px}
+  h2.rojo{color:var(--red)} h2.rojo .cuenta{background:var(--red)}
+  h2.ambar{color:var(--amber)} h2.ambar .cuenta{background:var(--amber)}
+  .nota{font-size:13px;color:var(--steel);margin-top:6px}
+  .tarj{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:var(--r);padding:12px 14px;margin-bottom:8px}
+  .tarj.rojo{border-left-color:var(--red)} .tarj.ambar{border-left-color:var(--amber)} .tarj.verde{border-left-color:var(--green)}
+  .tarj .cab{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .tarj .cod{font-weight:700;font-size:17px}
+  .tarj .nom{color:var(--steel);font-size:13px}
+  .tarj .dias{font-size:12.5px;font-weight:700;color:var(--red);white-space:nowrap}
+  .fila{font-size:14px;margin-top:6px}
+  .fila .et{font-size:11.5px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.04em;display:block}
+  .pide{background:var(--amber-s);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:14.5px}
+  .compra{background:var(--blue-s);border-radius:var(--r);padding:8px 10px;margin-top:8px;font-size:14px}
+  .compra b{font-size:15px}
+  .pill{display:inline-block;font-size:12px;font-weight:600;border-radius:20px;padding:2px 9px;background:var(--paper);color:var(--soft)}
+  .pill.r{background:var(--red-s);color:var(--red)} .pill.a{background:var(--amber-s);color:var(--amber)} .pill.v{background:var(--green-s);color:var(--green)}
+  .btn{display:inline-block;margin-top:10px;padding:9px 14px;border-radius:var(--r);border:1px solid var(--blue);color:var(--blue);background:var(--card);font-weight:600;font-size:14px}
+  .btn.lleno{background:var(--blue);color:#fff}
+  .vacio{background:var(--card);border:1px dashed var(--line);border-radius:var(--r);padding:16px;color:var(--steel);font-size:14px;text-align:center}
+  .lectura{background:var(--red);color:#fff;font-size:13.5px;padding:9px 16px;text-align:center}
+  .lectura button{margin-left:8px;background:#fff;color:var(--red);border:0;border-radius:6px;padding:3px 10px;font-weight:700}
+  .aviso{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:14px;z-index:50;max-width:90vw}
+  /* hoja */
+  .hoja{position:fixed;inset:0;background:rgba(14,26,21,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+  .hoja[hidden]{display:none}
+  .panel{background:var(--paper);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:12px 12px 0 0;padding:16px 16px 26px}
+  .panel h3{font-size:18px;margin-bottom:2px}
+  .panel .sub{font-size:13px;color:var(--steel);margin-bottom:12px}
+  .campo{display:block;margin-top:12px}
+  .campo span{display:block;font-size:14px;font-weight:600;margin-bottom:5px}
+  .campo i{font-style:normal;font-weight:400;color:var(--steel)}
+  .campo input,.campo textarea{width:100%;padding:12px;border:1px solid var(--line);border-radius:var(--r);background:var(--card);font:inherit}
+  .campo textarea{min-height:64px;resize:vertical}
+  .dos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .accion{display:block;width:100%;margin-top:14px;padding:14px;border:0;border-radius:var(--r);font-weight:700;font-size:16px;background:var(--blue);color:#fff}
+  .accion.gris{background:transparent;color:var(--soft);border:1px solid var(--line);margin-top:8px}
+  .accion:disabled{opacity:.45}
+  .total{margin-top:10px;font-size:14px;color:var(--soft)}
+  /* PIN */
+  #pin{position:fixed;inset:0;background:var(--ink);z-index:60;display:flex;align-items:center;justify-content:center;color:#fff;text-align:center}
+  #pin input{margin-top:14px;font-size:28px;letter-spacing:12px;text-align:center;width:180px;padding:8px;border-radius:var(--r);border:0}
+  #pin p{opacity:.7;font-size:14px;margin-top:8px}
+  .pin-ok #pin,#pin[hidden]{display:none}
+  .embebido header .volver,.embebido #btn-instalar{display:none}
+</style>
+<script>
+  /* sin PIN si este equipo ya lo ingresó */
+  (function(){
+    var ok = false;
+    try { ok = localStorage.getItem('pin_ok_compras') === '1'; } catch(e){}
+    if (ok) document.documentElement.classList.add('pin-ok');
+  })();
+</script>
+</head>
+<body>
+<div id="pin"><div><b style="font-size:20px">Compras</b><p>Ingrese el PIN</p><input id="pin-in" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></div></div>
+<header><div class="top">
+  <a class="volver" href="./" aria-label="Volver">‹</a>
+  <div class="tit"><b>Compras · Repuestos del taller</b><span id="sub">Costos de las máquinas paradas</span></div>
+  <button class="inst-btn" id="btn-instalar" hidden>Instalar app</button>
+</div></header>
+<div class="lectura" id="nollego" hidden></div>
+<div class="lectura" id="sinhoja" hidden></div>
+<main id="app"><div class="vacio">Consultando el taller…</div></main>
+<div class="hoja" id="hoja" hidden><div class="panel" id="panel"></div></div>
+<div class="aviso" id="aviso" hidden></div>
+
+<script src="maestros.js"></script>
+<script>
+/* =====================================================================
+   COMPRAS — lo que cuesta poner a trabajar cada máquina parada.
+   Lee las paradas abiertas de la hoja Taller y lo que el Taller dice que
+   necesita (hoja Reparaciones). Compras anota el costo de repuestos, la
+   mano de obra o taller externo, el proveedor y cuándo llega el repuesto.
+   Se envía con Reparaciones (maestros.js): se confirma en la hoja y lo que
+   no llega se reintenta y queda a la vista.
+   ===================================================================== */
+var GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
+var PIN = '2027';
+var KEY = 'compras-palma-v1';
+var SISTEMAS = { motor:'Motor', hidraulico:'Hidráulico', electrico:'Eléctrico', transmision:'Transmisión', frenos:'Frenos',
+  llantas:'Llantas', implemento:'Implemento', otro:'Otro' };
+var PARADAS = null;   // paradas abiertas leídas de la hoja Taller
+var yo = '';
+
+function $(s){ return document.querySelector(s); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function p2(n){ return ('0' + n).slice(-2); }
+function iso(d){ return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
+function hoy(){ return iso(new Date()); }
+function aIso(v){
+  var s = String(v == null ? '' : v).trim(); if (!s) return '';
+  var m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return m[3] + '-' + p2(m[2]) + '-' + p2(m[1]);
+  if (s.indexOf('T') > 0){ var d = new Date(s); if (!isNaN(d)) return iso(d); }
+  return s.slice(0, 10);
+}
+function dias(a, b){ return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000); }
+function dcorta(f){ if (!f) return '—'; var p = f.split('-'); return p[2] + '/' + p[1]; }
+function pesos(v){ return '$' + Math.round(v).toLocaleString('es-CO'); }
+function numero(t){ var n = parseInt(String(t || '').replace(/[^\d]/g, ''), 10); return isNaN(n) ? null : n; }
+function aviso(m){ var a = $('#aviso'); a.textContent = m; a.hidden = false; clearTimeout(aviso.t); aviso.t = setTimeout(function(){ a.hidden = true; }, 3500); }
+function nombreDe(cod){ var e = Maestros.flotaTodas().filter(function(f){ return f.cod === cod; })[0]; return e ? e.nombre : ''; }
+function sistemaTxt(v){ v = String(v || '').trim(); return SISTEMAS[v] || v; }
+function guardar(){ try { localStorage.setItem(KEY, JSON.stringify({ yo:yo, paradas:PARADAS, leido:new Date().toISOString() })); } catch(e){} }
+
+/* paradas abiertas: igual que el Taller, vale la última fila de cada ID y el ALTA la cierra */
+function paradasDe(filas){
+  var ev = {};
+  filas.forEach(function(r){
+    var acc = String(r[2] || '').trim().toUpperCase(), id = String(r[3] || '').trim();
+    if (!id || (acc !== 'PARADA' && acc !== 'ALTA')) return;
+    var e = ev[id] = ev[id] || { id:id, cod:String(r[4] || '').trim(), tipo:'falla', sistema:'', novedad:'', desde:aIso(r[10] || r[0]), abierta:true };
+    if (r[6]) e.tipo = String(r[6]).trim();
+    if (r[7]) e.sistema = String(r[7]).trim();
+    if (r[8]) e.novedad = String(r[8]);
+    if (r[10]) e.desde = aIso(r[10]);
+    if (acc === 'ALTA') e.abierta = false;
+  });
+  return Object.keys(ev).map(function(k){ return ev[k]; }).filter(function(e){ return e.abierta; });
+}
+
+function pintar(){
+  if (!PARADAS){ return; }
+  var l = PARADAS.map(function(p){ var R = Reparaciones.de(p.id); return { p:p, t:R.taller, c:R.compras, d:dias(p.desde, hoy()) }; });
+  function costo(x){ return x.c ? (x.c.repuestos || 0) + (x.c.mano || 0) : 0; }
+  // por cotizar: el Taller pidió un repuesto y Compras no ha puesto costo
+  var porCotizar = l.filter(function(x){ return x.t && x.t.estado === 'repuesto' && !costo(x); });
+  var enCamino = l.filter(function(x){ return porCotizar.indexOf(x) < 0 && costo(x); });
+  var otras = l.filter(function(x){ return porCotizar.indexOf(x) < 0 && enCamino.indexOf(x) < 0; });
+  [porCotizar, enCamino, otras].forEach(function(g){ g.sort(function(a, b){ return b.d - a.d; }); });
+  var total = l.reduce(function(s, x){ return s + costo(x); }, 0);
+  var atrasados = enCamino.filter(function(x){ return x.c.llega && x.c.llega < hoy(); });
+
+  var h = '<div class="resumen">' +
+    '<div class="res ' + (porCotizar.length ? 'r' : 'v') + '"><div class="t">Por cotizar</div><div class="n">' + porCotizar.length + '</div></div>' +
+    '<div class="res ' + (atrasados.length ? 'r' : enCamino.length ? 'a' : 'v') + '"><div class="t">Cotizadas</div><div class="n">' + enCamino.length + '</div></div>' +
+    '<div class="res"><div class="t">Total cotizado</div><div class="n" style="font-size:18px">' + (total ? pesos(total) : '$0') + '</div></div></div>' +
+    '<p class="nota">Máquinas paradas en el taller y lo que necesitan para volver a trabajar.</p>';
+
+  function tarjeta(x, clase){
+    var c = x.c, t = x.t, cst = costo(x), atraso = c && c.llega && c.llega < hoy();
+    return '<div class="tarj ' + clase + '"><div class="cab"><span><span class="cod mono">' + esc(x.p.cod) + '</span> <span class="nom">' + esc(nombreDe(x.p.cod)) + '</span></span>' +
+        '<span class="dias">' + (x.d ? x.d + (x.d === 1 ? ' día' : ' días') + ' parada' : 'parada hoy') + '</span></div>' +
+      '<div class="fila">' + (x.p.tipo === 'mantenimiento' ? '<span class="pill a">Mantenimiento</span> ' : '') +
+        (x.p.sistema ? '<span class="pill">' + esc(sistemaTxt(x.p.sistema)) + '</span> ' : '') +
+        (t ? '<span class="pill ' + (t.estado === 'decision' ? 'r' : 'a') + '">' + esc(Reparaciones.txtEstado(t.estado)) + '</span>' : '<span class="pill r">El taller no ha dicho en qué va</span>') + '</div>' +
+      (x.p.novedad ? '<div class="fila"><span class="et">Daño</span>' + esc(x.p.novedad) + '</div>' : '') +
+      (t && t.repuesto ? '<div class="pide"><b>El taller necesita:</b> ' + esc(t.repuesto) + (t.sale ? '<br><span class="nota">Sale estimado el ' + dcorta(t.sale) + ' si llega a tiempo</span>' : '') + '</div>' : '') +
+      (t && t.nota ? '<div class="fila"><span class="et">Nota del taller</span>' + esc(t.nota) + '</div>' : '') +
+      (c ? '<div class="compra">' + (cst ? '<b>' + pesos(cst) + '</b>' + (c.repuestos && c.mano ? ' <span class="nota">(repuestos ' + pesos(c.repuestos) + ' + mano de obra ' + pesos(c.mano) + ')</span>' : '') : 'Sin costo') +
+          (c.proveedor ? '<br>Proveedor: ' + esc(c.proveedor) : '') +
+          (c.llega ? '<br>' + (atraso ? '<b style="color:var(--red)">Debía llegar el ' + dcorta(c.llega) + '</b>' : 'Llega el <b>' + dcorta(c.llega) + '</b>') : '') +
+          (c.nota ? '<br><span class="nota">' + esc(c.nota) + '</span>' : '') +
+          '<br><span class="nota">Registró ' + esc(c.por || '—') + ' el ' + dcorta(c.fecha) + (c.sinConfirmar ? ' · enviando…' : '') + '</span></div>' : '') +
+      '<button class="btn' + (c ? '' : ' lleno') + '" data-costo="' + esc(x.p.id) + '">' + (c ? 'Actualizar costo' : 'Poner costo') + '</button></div>';
+  }
+  h += '<h2 class="' + (porCotizar.length ? 'rojo' : '') + '">Por cotizar <span class="cuenta">' + porCotizar.length + '</span></h2>' +
+    (porCotizar.length ? porCotizar.map(function(x){ return tarjeta(x, 'rojo'); }).join('') : '<div class="vacio">El taller no tiene repuestos sin cotizar.</div>');
+  h += '<h2 class="' + (atrasados.length ? 'rojo' : 'ambar') + '">Cotizadas o en camino <span class="cuenta">' + enCamino.length + '</span></h2>' +
+    (enCamino.length ? enCamino.map(function(x){ return tarjeta(x, x.c.llega && x.c.llega < hoy() ? 'rojo' : 'ambar'); }).join('') : '<div class="vacio">Nada cotizado todavía.</div>');
+  h += '<h2>Otras máquinas paradas <span class="cuenta">' + otras.length + '</span></h2>' +
+    (otras.length ? otras.map(function(x){ return tarjeta(x, ''); }).join('') : '<div class="vacio">No hay más máquinas paradas.</div>') +
+    '<p class="nota">Si una máquina va a taller externo o se puede cotizar aunque el taller no haya pedido repuesto, también se le puede poner costo.</p>';
+  $('#app').innerHTML = h;
+  Array.prototype.forEach.call(document.querySelectorAll('[data-costo]'), function(b){ b.onclick = function(){ ponerCosto(b.dataset.costo); }; });
+  pintarNoLlego();
+}
+
+function abrir(html, alMontar){ $('#panel').innerHTML = html; $('#hoja').hidden = false; document.body.style.overflow = 'hidden'; if (alMontar) alMontar(); }
+function cerrar(){ $('#hoja').hidden = true; $('#panel').innerHTML = ''; document.body.style.overflow = ''; }
+$('#hoja').onclick = function(e){ if (e.target === $('#hoja')) cerrar(); };
+
+function pedirNombre(despues){
+  abrir('<h3>¿Quién registra?</h3><div class="sub">Queda guardado en cada costo que anote</div>' +
+    '<label class="campo"><span>Nombre</span><input id="nm" autocomplete="name" value="' + esc(yo) + '"></label>' +
+    '<button class="accion" id="nm-ok">Seguir</button><button class="accion gris" id="nm-no">Cancelar</button>',
+    function(){
+      $('#nm-no').onclick = cerrar;
+      $('#nm-ok').onclick = function(){ var v = $('#nm').value.trim(); if (!v){ aviso('Escriba su nombre.'); return; } yo = v; guardar(); cerrar(); despues(); };
+    });
+}
+
+function ponerCosto(id){
+  if (!yo){ pedirNombre(function(){ ponerCosto(id); }); return; }
+  var p = PARADAS.filter(function(x){ return x.id === id; })[0]; if (!p) return;
+  var R = Reparaciones.de(id), c = R.compras || {}, t = R.taller;
+  function fmt(n){ return n == null ? '' : Math.round(n).toLocaleString('es-CO'); }
+  abrir('<h3>' + esc(p.cod) + ' · ' + esc(nombreDe(p.cod)) + '</h3>' +
+    '<div class="sub">' + (t && t.repuesto ? 'Necesita: ' + esc(t.repuesto) : esc(p.novedad || 'Parada')) + '</div>' +
+    '<div class="dos">' +
+      '<label class="campo"><span>Repuestos</span><input id="c-rep" inputmode="numeric" placeholder="$0" value="' + fmt(c.repuestos) + '"></label>' +
+      '<label class="campo"><span>Mano de obra <i>o taller externo</i></span><input id="c-mano" inputmode="numeric" placeholder="$0" value="' + fmt(c.mano) + '"></label>' +
+    '</div>' +
+    '<div class="total" id="c-total"></div>' +
+    '<label class="campo"><span>Proveedor</span><input id="c-prov" value="' + esc(c.proveedor || '') + '" placeholder="Dónde se compra o quién lo repara"></label>' +
+    '<label class="campo"><span>¿Cuándo llega el repuesto? <i>— si ya se pidió</i></span><input id="c-llega" type="date" value="' + esc(c.llega || '') + '"></label>' +
+    '<label class="campo"><span>Nota <i>— opcional</i></span><textarea id="c-nota" placeholder="N.º de cotización u orden de compra, forma de pago, garantía…">' + esc(c.nota || '') + '</textarea></label>' +
+    '<button class="accion" id="c-ok">Guardar</button><button class="accion gris" id="c-no">Cancelar</button>',
+    function(){
+      function sumar(){
+        var a = numero($('#c-rep').value) || 0, b = numero($('#c-mano').value) || 0;
+        $('#c-total').textContent = a + b ? 'Total para ponerla a trabajar: ' + pesos(a + b) : '';
+        $('#c-ok').disabled = !(a + b) && !$('#c-llega').value && !$('#c-prov').value.trim();
+      }
+      ['#c-rep', '#c-mano'].forEach(function(s){
+        $(s).oninput = function(){ var n = numero(this.value); this.value = n == null ? '' : n.toLocaleString('es-CO'); sumar(); };
+      });
+      $('#c-prov').oninput = sumar; $('#c-llega').onchange = sumar;
+      sumar();
+      $('#c-no').onclick = cerrar;
+      $('#c-ok').onclick = function(){
+        Reparaciones.guardar('COMPRAS', id, p.cod, { repuestos: numero($('#c-rep').value), mano: numero($('#c-mano').value),
+          proveedor: $('#c-prov').value.trim(), llega: $('#c-llega').value, nota: $('#c-nota').value.trim() }, yo);
+        cerrar(); pintar(); aviso(p.cod + ': costo guardado.');
+        setTimeout(cargar, 6000);   // confirma en la hoja que llegó
+      };
+    });
+}
+
+function pintarNoLlego(){
+  var l = Reparaciones.sinLlegar(), b = $('#nollego');
+  if (!l.length){ b.hidden = true; return; }
+  b.hidden = false;
+  b.innerHTML = '<b>' + (l.length === 1 ? 'Un costo no ha llegado' : l.length + ' costos no han llegado') + ' a la hoja</b> después de 3 intentos.<button id="nl-re">Volver a enviar</button>';
+  $('#nl-re').onclick = function(){ Reparaciones.reintentar().then(function(){ pintarNoLlego(); aviso('Se volvió a enviar.'); }); };
+}
+
+async function cargar(){
+  try { await Maestros.traer(); } catch(e){}
+  var filas = null;
+  try {
+    var r = await fetch(GS_URL + '?hoja=Taller&t=' + Date.now()); var d = await r.json();
+    if (d && d.ok && Array.isArray(d.datos)) filas = d.datos;
+  } catch(e){}
+  await Reparaciones.traer().catch(function(){});
+  if (filas){ PARADAS = paradasDe(filas); guardar(); $('#sinhoja').hidden = true; }
+  else {
+    $('#sinhoja').hidden = false;
+    $('#sinhoja').textContent = PARADAS ? 'Sin conexión: se muestran las paradas de la última lectura.' : 'No se pudo leer el taller. Revise la señal.';
+    if (!PARADAS){ $('#app').innerHTML = '<div class="vacio">No se pudo leer el taller. Revise la señal e intente de nuevo.</div>'; return; }
+  }
+  $('#sub').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
+  pintar();
+}
+
+/* PIN */
+(function(){
+  var inp = $('#pin-in');
+  if (document.documentElement.classList.contains('pin-ok')){ $('#pin').hidden = true; }
+  else setTimeout(function(){ inp.focus(); }, 200);
+  inp.oninput = function(){
+    if (inp.value.length < 4) return;
+    if (inp.value === PIN){ try { localStorage.setItem('pin_ok_compras', '1'); } catch(e){} $('#pin').hidden = true; }
+    else { inp.value = ''; aviso('PIN incorrecto.'); }
+  };
+})();
+
+/* instalar como app */
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/maquinaria-taller-palmag/sw.js').catch(function(){});
+var pedidoInstalar = null;
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); pedidoInstalar = e; $('#btn-instalar').hidden = false; });
+$('#btn-instalar').onclick = async function(){
+  var no = window.Instalar && Instalar.impedimento();
+  if (no){ alert(no); return; }
+  if (!pedidoInstalar) return;
+  pedidoInstalar.prompt(); try { await pedidoInstalar.userChoice; } catch(e){}
+  pedidoInstalar = null; $('#btn-instalar').hidden = true;
+};
+
+(function(){
+  try { var g = JSON.parse(localStorage.getItem(KEY) || 'null'); if (g){ yo = g.yo || ''; PARADAS = g.paradas || null; } } catch(e){}
+  if (PARADAS) pintar();
+  cargar();
+  setInterval(cargar, 5 * 60000);
+  window.addEventListener('online', function(){ setTimeout(cargar, 3000); });
+})();
+</script>
+</body>
+</html>

@@ -337,6 +337,115 @@
     }
   };
 
+  /* =====================================================================
+     REPARACIONES — en qué va cada máquina parada y cuánto cuesta.
+     Hoja "Reparaciones": una fila por cambio. El Taller anota el estado, el
+     repuesto que necesita y cuándo sale; Compras anota el costo, el
+     proveedor y cuándo llega el repuesto. Clave (columna 4) = ID de la
+     parada | TALLER o COMPRAS: vale la última fila de cada clave (si es el
+     mismo día, el Apps Script la reemplaza). Lo que se guarda se envía y se
+     confirma al leer la hoja; lo que no aparece se reenvía hasta 3 veces y
+     después queda a la vista (nunca se pierde sin avisar).
+     ===================================================================== */
+  var KEY_REP = 'palma-reparaciones-v1';
+  var ENC_REP = ['Fecha','Hora','Tipo','Clave','Parada','Equipo','Estado','Repuesto que necesita','Sale estimado',
+    'Costo repuestos','Costo mano de obra','Proveedor','Llega repuesto','Nota','Registró','Envío'];
+  var ESTADOS_REP = [
+    { id:'diagnostico', txt:'En diagnóstico', d:'Todavía se está mirando qué tiene' },
+    { id:'repuesto', txt:'Esperando repuesto', d:'Ya se sabe qué necesita; falta que llegue' },
+    { id:'reparacion', txt:'En reparación', d:'Se está arreglando en el taller' },
+    { id:'externo', txt:'En taller externo', d:'Se mandó a otro taller' },
+    { id:'decision', txt:'Pendiente de decisión', d:'Hay que decidir si se repara o se da de baja' }
+  ];
+  /* Se vuelve a leer lo guardado antes de cada cambio: el Taller y Compras
+     pueden estar abiertos en el mismo equipo y comparten esta cola. */
+  var RP;
+  function cargarRep(){ try { RP = JSON.parse(localStorage.getItem(KEY_REP) || 'null'); } catch(e){ RP = null; } RP = RP || { hoja:{}, cola:[] }; return RP; }
+  cargarRep();
+  function guardarRep(){ try { localStorage.setItem(KEY_REP, JSON.stringify(RP)); } catch(e){} }
+  function horaYa(){ var d = new Date(); return p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()); }
+  function fechaHoy(){ var d = new Date(); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function aNum(v){ var n = num(v); return n == null ? null : n; }
+  /* fila de la hoja → datos */
+  function deFila(r){
+    var t = String(r[2] || '').trim().toUpperCase();
+    return t === 'TALLER'
+      ? { estado:String(r[6] || '').trim(), repuesto:String(r[7] || '').trim(), sale:aIso(r[8]), nota:String(r[13] || '').trim(),
+          por:String(r[14] || '').trim(), fecha:aIso(r[0]), envio:String(r[15] || '') }
+      : { repuestos:aNum(r[9]), mano:aNum(r[10]), proveedor:String(r[11] || '').trim(), llega:aIso(r[12]), nota:String(r[13] || '').trim(),
+          por:String(r[14] || '').trim(), fecha:aIso(r[0]), envio:String(r[15] || '') };
+  }
+  function aFila(x){
+    var d = x.datos, t = x.tipo === 'TALLER';
+    return [x.fechaTxt, x.hora, x.tipo, x.parada + '|' + x.tipo, x.parada, x.cod,
+      t ? d.estado || '' : '', t ? d.repuesto || '' : '', t ? d.sale || '' : '',
+      t ? '' : (d.repuestos == null ? '' : d.repuestos), t ? '' : (d.mano == null ? '' : d.mano), t ? '' : d.proveedor || '', t ? '' : d.llega || '',
+      d.nota || '', x.por || '', x.envio];
+  }
+  async function enviarRep(){
+    if (!navigator.onLine) return;
+    var ahora = Date.now();
+    var porEnviar = cargarRep().cola.filter(function(x){
+      return !(x.enviadoEn && ahora - x.enviadoEn < 120000) && (x.intentos || 0) < 3;   // los 3 intentos ya se avisan en pantalla
+    });
+    for (var i = 0; i < porEnviar.length; i++){
+      var x = porEnviar[i];
+      try {
+        await fetch(GS_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ hoja:'Reparaciones', fila:aFila(x), encabezados:ENC_REP }) });
+      } catch(e){ break; }
+      // se marca sobre lo guardado: otra pestaña pudo cambiar la cola mientras se enviaba
+      var y = cargarRep().cola.filter(function(z){ return z.envio === x.envio; })[0];
+      if (y){ y.enviadoEn = Date.now(); y.intentos = (y.intentos || 0) + 1; guardarRep(); }
+    }
+  }
+  window.Reparaciones = {
+    ESTADOS: ESTADOS_REP,
+    txtEstado: function(id){ var e = ESTADOS_REP.filter(function(x){ return x.id === id; })[0]; return e ? e.txt : ''; },
+    /* lo último de una parada: { taller:{…}, compras:{…} } (lo guardado aquí y aún no confirmado va primero) */
+    de: function(parada){
+      cargarRep();
+      var o = { taller:null, compras:null };
+      ['TALLER', 'COMPRAS'].forEach(function(t){
+        var k = parada + '|' + t, enCola = RP.cola.filter(function(x){ return x.parada + '|' + x.tipo === k; }).pop();
+        o[t.toLowerCase()] = enCola ? Object.assign({ fecha:aIso(enCola.fechaTxt), por:enCola.por, sinConfirmar:true }, enCola.datos) : (RP.hoja[k] || null);
+      });
+      return o;
+    },
+    guardar: function(tipo, parada, cod, datos, por){
+      cargarRep();
+      RP.cola = RP.cola.filter(function(x){ return !(x.parada === parada && x.tipo === tipo); });
+      RP.cola.push({ tipo:tipo, parada:parada, cod:cod, datos:datos, por:por || '', fechaTxt:fechaHoy(), hora:horaYa(),
+        envio:'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), intentos:0, enviadoEn:null });
+      guardarRep();
+      return enviarRep();
+    },
+    /* lee la hoja, confirma lo enviado y reintenta lo que no llegó */
+    traer: async function(){
+      var filas = await leer('Reparaciones').catch(function(){ return null; });
+      if (filas){
+        var h = {};
+        filas.forEach(function(r){ var k = String(r[3] || '').trim(); if (k) h[k] = deFila(r); });
+        cargarRep();
+        RP.hoja = h;
+        RP.cola = RP.cola.filter(function(x){
+          var r = h[x.parada + '|' + x.tipo];
+          if (r && r.envio === x.envio) return false;                              // llegó
+          if (r && r.fecha > aIso(x.fechaTxt)) return false;                        // hay algo más nuevo hecho en otro equipo
+          if (x.enviadoEn && Date.now() - x.enviadoEn > 120000 && x.intentos < 3) x.enviadoEn = null;   // reenviar
+          return true;
+        });
+        guardarRep();
+      }
+      await enviarRep();
+      return !!filas;
+    },
+    /* lo que ya se envió 3 veces y no aparece en la hoja */
+    sinLlegar: function(){ cargarRep(); return RP.cola.filter(function(x){ return x.intentos >= 3 && x.enviadoEn && Date.now() - x.enviadoEn > 120000; }); },
+    reintentar: function(envio){ cargarRep(); RP.cola.forEach(function(x){ if (x.intentos >= 3 && (!envio || x.envio === envio)){ x.intentos = 0; x.enviadoEn = null; } }); guardarRep(); return enviarRep(); },
+    descartar: function(envio){ cargarRep(); RP.cola = RP.cola.filter(function(x){ return x.envio !== envio; }); guardarRep(); },
+    enviar: enviarRep
+  };
+
   window.Mtto = {
     INTERVALO: 250,     // horas entre mantenimientos, si la máquina no tiene otro
     AVISO: 25,          // se avisa cuando faltan estas horas o menos
