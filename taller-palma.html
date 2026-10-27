@@ -198,7 +198,16 @@
 </style>
 <script>
   /* oculta el PIN antes de pintar si este celular ya lo ingresó (misma clave que la versión anterior) */
-  try { if (localStorage.getItem('pin_ok_taller') === '1') document.documentElement.className = 'pin-ok'; } catch(e){}
+  /* sin PIN si este equipo ya lo ingresó, o si se abre dentro de Agrovisión con la sesión iniciada allá */
+  (function(){
+    var ok = false;
+    try { ok = localStorage.getItem('pin_ok_taller') === '1'; } catch(e){}
+    try {
+      if (!ok && window.self !== window.top && window.top.location.origin === location.origin)
+        ok = sessionStorage.getItem('av_logged_in') === '1' || localStorage.getItem('av_logged_in') === '1';
+    } catch(e){}
+    if (ok) document.documentElement.classList.add('pin-ok');
+  })();
 </script>
 <style>.pin-ok #pin{display:none}</style>
 </head>
@@ -1511,7 +1520,7 @@ if (PERSONAS.length > 1) $('#btn-yo').onclick = function(){ elegirPersona(null);
 else $('#btn-yo').style.cursor = 'default';
 
 (async function init(){
-  if (document.documentElement.className === 'pin-ok') $('#pin').hidden = true;
+  if (document.documentElement.classList.contains('pin-ok')) $('#pin').hidden = true;
   montarPin();
   var fh = new Date().toLocaleDateString('es-CO', { weekday:'long', day:'numeric', month:'long' });
   $('#fecha-hoy').textContent = fh.charAt(0).toUpperCase() + fh.slice(1) + ' · ' + PERSONAS[0];
