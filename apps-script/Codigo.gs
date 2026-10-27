@@ -7,6 +7,12 @@
    Ojo: doPost sobrescribe la fila de hoy que tenga el mismo valor en la
    columna de equipo (columna 3 en Revisiones y Altas, columna 4 en las
    demás) en vez de agregar una fila nueva.
+
+   Cómo actualizarlo: copiar TODO este archivo, en Apps Script borrar lo que
+   hay en Código.gs y pegarlo; luego Implementar → Gestionar
+   implementaciones → lápiz → Versión: Nueva versión → Implementar. La
+   dirección (URL) no cambia. La primera vez que se usa Drive, Google pide
+   permiso: aceptarlo.
    ===================================================================== */
 
 function doGet(e) {
@@ -99,6 +105,8 @@ function doPost(e) {
   try {
     const ss = SpreadsheetApp.openById('1CyRN1R136NSvTfBSQdl4jt8fESH_HuKSqcei7CwSoa0');
     const data = JSON.parse(e.postData.contents);
+    // cotizaciones y documentos (foto o PDF): van a Google Drive, ver guardarArchivo abajo
+    if (data.archivo) return guardarArchivo(ss, data);
     let sheet = ss.getSheetByName(data.hoja);
     if (!sheet) sheet = ss.insertSheet(data.hoja);
     if (sheet.getLastRow() === 0) {
@@ -135,4 +143,56 @@ function doPost(e) {
 function resp(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* =====================================================================
+   ADJUNTOS — cotizaciones y documentos de las reparaciones (foto o PDF).
+   Cada archivo se guarda en la carpeta de Drive "Palma Grande —
+   Cotizaciones del taller" (se crea sola la primera vez), con permiso de
+   ver para quien tenga el enlace, y queda una fila en la hoja "Adjuntos"
+   con el enlace. Si el mismo archivo llega dos veces (reintento por falta
+   de señal), no se duplica: se busca por su ID.
+   ===================================================================== */
+
+const ENC_ADJ = ['Fecha','Hora','Acción','ID','Parada','Equipo','Nombre','Tipo','Enlace','Quién','Subió','KB'];
+
+function guardarArchivo(ss, data) {
+  try {
+    const a = data.archivo;
+    let sheet = ss.getSheetByName('Adjuntos');
+    if (!sheet) sheet = ss.insertSheet('Adjuntos');
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(ENC_ADJ);
+      sheet.getRange(1, 1, 1, ENC_ADJ.length).setBackground('#1a4731').setFontColor('#fff').setFontWeight('bold');
+      sheet.setFrozenRows(1);
+    }
+    // ¿ya llegó antes? (reintento)
+    const n = sheet.getLastRow();
+    if (n > 1) {
+      const ids = sheet.getRange(2, 4, n - 1, 1).getValues();
+      for (let i = 0; i < ids.length; i++) if (String(ids[i][0]) === String(a.id)) return resp({ ok: true, repetido: true });
+    }
+    const blob = Utilities.newBlob(Utilities.base64Decode(a.base64), a.tipo || 'application/octet-stream', a.nombre || a.id);
+    const f = carpetaAdjuntos().createFile(blob);
+    try { f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); } catch (err) {}
+    const ahora = new Date();
+    sheet.appendRow([
+      Utilities.formatDate(ahora, 'America/Bogota', 'd/M/yyyy'),
+      Utilities.formatDate(ahora, 'America/Bogota', 'HH:mm'),
+      'ARCHIVO', a.id, a.parada || '', a.equipo || '', a.nombre || '', a.tipo || '', f.getUrl(),
+      a.quien || '', a.por || '', Math.round(blob.getBytes().length / 1024)
+    ]);
+    return resp({ ok: true });
+  } catch (err) {
+    return resp({ ok: false, error: err.toString() });
+  }
+}
+
+function carpetaAdjuntos() {
+  const props = PropertiesService.getScriptProperties();
+  const id = props.getProperty('CARPETA_ADJUNTOS');
+  if (id) { try { return DriveApp.getFolderById(id); } catch (err) {} }
+  const c = DriveApp.createFolder('Palma Grande — Cotizaciones del taller');
+  props.setProperty('CARPETA_ADJUNTOS', c.getId());
+  return c;
 }
