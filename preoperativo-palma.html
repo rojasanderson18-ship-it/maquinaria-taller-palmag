@@ -329,7 +329,7 @@ async function traerTodo(){
     });
     R.paradas = {}; R.pendientes = {};
     Object.keys(ev).forEach(function(k){ var e = ev[k]; if (e.abierta) R.paradas[e.cod] = e.novedad + (e.desde ? ' (desde el ' + dcorta(e.desde) + ')' : ''); });
-    Object.keys(nov).forEach(function(k){ var n = nov[k]; if (n.abierta && n.txt) (R.pendientes[n.cod] = R.pendientes[n.cod] || []).push({ txt:n.txt, urgente:n.urgente }); });
+    Object.keys(nov).forEach(function(k){ var n = nov[k]; if (n.abierta && n.txt) (R.pendientes[n.cod] = R.pendientes[n.cod] || []).push({ id:k, txt:n.txt, urgente:n.urgente }); });
   }
   if (prog){
     // la última fila de cada fecha + máquina vale (igual que en Programación)
@@ -463,6 +463,14 @@ function pintarNoLlego(){
 function igual(a, b){
   function n(x){ return String(x || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
   return n(a) === n(b);
+}
+/* "Es lo mismo": no se crea otro pendiente, pero queda constancia en la hoja
+   Taller (fila REPORTE) de quién lo volvió a encontrar, cuándo y qué vio,
+   ligada a los pendientes que ya estaban abiertos. Trazabilidad. */
+function reporteRepetido(cod, texto, origen, operario){
+  var id = nid(), refs = (R.pendientes[cod] || []).map(function(n){ return n.id; }).filter(Boolean).join(',');
+  encolar('Taller', [fechaCO(hoy()), horaAhora(), 'REPORTE', id, cod, nombreDe(cod), '', '', texto, operario, hoy(), refs, origen, ''],
+    ENC_TALLER, { id:id, txt:'Reporte repetido de ' + cod });
 }
 /* la novedad le llega a Tulio como pendiente del taller (él decide si la para) */
 function pendienteParaTulio(cod, texto, urgente, sistema, operario){
@@ -796,10 +804,11 @@ function enviarPreop(){
     .concat([{ operativa:'Puede trabajar', novedad:'Con novedad', varada:'No puede trabajar' }[F.estado], F.obs.trim()]);
   encolar('PreopDiario', fila, ENC_PREOP, { fecha:hoy(), cod:F.cod, op:F.operario, txt:'Preoperativo de ' + F.cod + ' (' + F.operario + ')' });
   var yaAnotado = F.repetido === 'mismo' && necesitaRep();
-  if ((F.estado !== 'operativa' || pr.length) && !yaAnotado){
+  if (F.estado !== 'operativa' || pr.length){
     var txt = (F.estado === 'varada' ? 'NO PUEDE TRABAJAR (preoperativo)' : 'Preoperativo') +
       (pr.length ? ': ' + pr.map(function(x){ return x.txt; }).join(', ') : '') + (F.obs.trim() ? '. ' + F.obs.trim() : '');
-    pendienteParaTulio(F.cod, txt, F.estado === 'varada', sistemaComun(pr), F.operario);
+    if (yaAnotado) reporteRepetido(F.cod, txt, 'Preoperativo', F.operario);
+    else pendienteParaTulio(F.cod, txt, F.estado === 'varada', sistemaComun(pr), F.operario);
   }
   estado.ultimoOperario = F.operario;
   estado.hoy.preop[F.cod + '|' + F.operario] = { cod:F.cod, operario:F.operario, hor:n, labor:F.labor, lotes:F.lotes };
@@ -892,7 +901,8 @@ function enviarCierre(){
     F.estado === 'varada' ? 'varado' : F.estado === 'novedad' ? 'novedad' : 'operativo', F.obs.trim(), F.labor.trim()], ENC_CIERRE,
     { fecha:hoy(), cod:F.cod, op:F.operario, txt:'Cierre de ' + F.cod + ' (' + F.operario + ')' });
   var yaAnotado = F.repetido === 'mismo' && necesitaRep();
-  if (F.estado !== 'operativa' && !yaAnotado){
+  if (F.estado !== 'operativa' && yaAnotado) reporteRepetido(F.cod, 'Cierre de jornada: ' + F.obs.trim(), 'Cierre de jornada', F.operario);
+  else if (F.estado !== 'operativa'){
     pendienteParaTulio(F.cod, (F.estado === 'varada' ? 'VARADA al terminar la jornada: ' : 'Cierre de jornada: ') + F.obs.trim(),
       F.estado === 'varada', '', F.operario);
   }

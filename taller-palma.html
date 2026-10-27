@@ -174,6 +174,7 @@
   .pill.r{background:var(--red-s);color:var(--red)}
   .pill.a{background:var(--amber-s);color:var(--amber)}
   .pill.v{background:var(--green-s);color:var(--green)}
+  .pill.n{background:#E9ECEA;color:var(--steel)}
   .nota{font-size:13px;color:var(--steel);margin:0 0 16px}
   .vacio{background:var(--card);border:1px dashed var(--line);border-radius:var(--r);padding:26px 16px;text-align:center;color:var(--steel)}
   .barra i.a{background:var(--amber)} .barra i.r{background:var(--red)}
@@ -361,6 +362,43 @@ function aIso(v){
 }
 function hace24h(ts){ return ts && (Date.now() - new Date(ts).getTime()) < 86400000; }
 
+/* Reportes repetidos: un operario volvió a encontrar algo que el taller ya
+   tenía anotado (fila REPORTE de la hoja Taller, la escribe el Preoperativo). */
+function reportesDe(filas){
+  var out = {};
+  filas.forEach(function(r){
+    if (String(r[2] || '').trim().toUpperCase() !== 'REPORTE') return;
+    var id = String(r[3] || '').trim(); if (!id) return;
+    out[id] = { id:id, equipo:String(r[4] || '').trim(), txt:String(r[8] || ''), por:String(r[9] || ''),
+      fecha:aIso(r[10] || r[0]), refs:String(r[11] || '').split(',').filter(Boolean), origen:String(r[12] || '') };
+  });
+  return Object.keys(out).map(function(k){ return out[k]; });
+}
+/* Todo lo que ha pasado con la máquina, lo más reciente primero: paradas,
+   pendientes (y cómo se cerraron) y reportes repetidos de los operarios. */
+function historialDe(cod){
+  var l = [];
+  estado.eventos.filter(function(e){ return e.equipo === cod; }).forEach(function(e){
+    l.push({ fecha:e.fechaReporte, orden:e.fechaAlta || '9999', tipo:e.tipo === 'mantenimiento' ? 'Mantenimiento' : 'Parada', cl:e.tipo === 'mantenimiento' ? 'a' : 'r',
+      txt:(e.sistema ? txtSistema(e.sistema) + ' · ' : '') + (e.novedad || ''),
+      det:'Reportó ' + (e.reportadoPor || '—') + ' · ' + (e.fechaAlta
+        ? 'alta el ' + dcorta(e.fechaAlta) + ' por ' + (e.altaPor || '—') + ' (' + diasEntre(e.fechaReporte, e.fechaAlta) + ' días parada)' + (e.trabajo ? ' · ' + e.trabajo : '')
+        : 'sigue parada') });
+  });
+  (estado.novedades || []).filter(function(n){ return n.equipo === cod; }).forEach(function(n){
+    var cierre = !n.cerrada ? 'sigue abierto' : n.trabajo === 'Repetido' ? 'quitado por repetido el ' + dcorta(n.fechaCierre) + ' (' + (n.cerradoPor || '—') + ')'
+      : n.trabajo === 'Pasó a parada' ? 'pasó a parada el ' + dcorta(n.fechaCierre)
+      : 'solucionado el ' + dcorta(n.fechaCierre) + ' (' + (n.cerradoPor || '—') + ')' + (n.trabajo ? ' · ' + n.trabajo : '');
+    l.push({ fecha:n.fecha, orden:n.fechaCierre || '9999', tipo:n.trabajo === 'Repetido' ? 'Repetido' : 'Pendiente', cl:n.trabajo === 'Repetido' ? 'n' : 'a',
+      txt:n.novedad, det:'Anotó ' + (n.reportadoPor || '—') + ' · ' + cierre });
+  });
+  (estado.reportes || []).filter(function(x){ return x.equipo === cod; }).forEach(function(x){
+    l.push({ fecha:x.fecha, orden:x.fecha, tipo:'Reportado de nuevo', cl:'n', txt:x.txt,
+      det:x.por + (x.origen ? ' · ' + x.origen : '') + ' · el taller ya lo tenía anotado' });
+  });
+  return l.sort(function(a, b){ return a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : (a.orden < b.orden ? 1 : -1); });
+}
+function reportesDePend(id){ return (estado.reportes || []).filter(function(x){ return x.refs.indexOf(id) >= 0; }); }
 function pendientesDe(cod){
   return (estado.novedades || []).filter(function(n){ return n.equipo === cod && !n.cerrada; })
     .sort(function(a,b){ return (a.urgencia === 'urgente' ? 0 : 1) - (b.urgencia === 'urgente' ? 0 : 1) || (a.fecha < b.fecha ? -1 : 1); });
@@ -687,6 +725,10 @@ function verEquipo(cod){
           '<div class="vl" style="font-weight:600">' + esc(n.novedad) + '</div>' +
           '<div class="vl" style="color:var(--steel);font-size:13px">Anotado el ' + dcorta(n.fecha) + ' por ' + esc(n.reportadoPor || '—') +
             ' · ' + (dd === 0 ? 'hoy' : 'hace ' + dd + (dd === 1 ? ' día' : ' días')) + '</div>' +
+          (function(){ var rr = reportesDePend(n.id); if (!rr.length) return '';
+            var u = rr.sort(function(a, b){ return a.fecha < b.fecha ? -1 : 1; })[rr.length - 1];
+            return '<div class="vl" style="color:var(--amber);font-size:13px">Lo volvieron a reportar ' + rr.length + (rr.length === 1 ? ' vez' : ' veces') +
+              ' · último: ' + esc(u.por) + ', ' + dcorta(u.fecha) + '</div>'; })() +
           '<button class="mini verde" data-resolver="' + esc(n.id) + '">Ya se solucionó</button>' +
           (ab ? '' : '<button class="mini roja" data-escalar="' + esc(n.id) + '">La dejó parada</button>') +
           // con varios pendientes, el que repite a otro se quita sin contarlo como solucionado
@@ -730,22 +772,22 @@ function verEquipo(cod){
 
   h += mttoHtml(cod);
 
-  if (historial.length){
-    h += '<h2 style="margin-top:22px">Últimas reparaciones</h2><div class="tarj">' +
-      historial.slice(0, 8).map(function(e){
-        return '<div class="hist"><span class="f mono">' + dcorta(e.fechaReporte) + '</span>' +
-          '<span>' + (e.sistema ? '<span class="pill ' + (e.tipo === 'mantenimiento' ? 'a' : 'r') + '">' +
-          esc(txtSistema(e.sistema)) + '</span> ' : '') +
-          (e.novedad ? esc(e.novedad) : '') +
-          '<br><span style="color:var(--steel);font-size:13px">' +
-          diasEntre(e.fechaReporte, e.fechaAlta) + ' días parada · alta por ' + esc(e.altaPor || '—') +
-          (e.trabajo ? ' · ' + esc(e.trabajo) : '') + '</span></span></div>';
-      }).join('') + '</div>';
+  var hist = historialDe(cod);
+  if (hist.length){
+    h += '<h2 style="margin-top:22px">Historial <span class="cuenta">' + hist.length + '</span></h2><div class="tarj" id="hist">' +
+      hist.map(function(x, i){
+        return '<div class="hist"' + (i >= 12 ? ' data-mas hidden' : '') + '><span class="f mono">' + dcorta(x.fecha) + '</span>' +
+          '<span><span class="pill ' + x.cl + '">' + esc(x.tipo) + '</span> ' + esc(x.txt) +
+          '<br><span style="color:var(--steel);font-size:13px">' + esc(x.det) + '</span></span></div>';
+      }).join('') +
+      (hist.length > 12 ? '<button class="mini" id="hist-mas">Ver todo (' + hist.length + ')</button>' : '') + '</div>';
   }
 
   h += '</div>';
 
   abrir(h, function(){
+    var hm = $('#hist-mas');
+    if (hm) hm.onclick = function(){ Array.prototype.forEach.call($('#panel').querySelectorAll('[data-mas]'), function(x){ x.hidden = false; }); hm.remove(); };
     var a = $('#alta');
 
     // avisar si esa misma parte ya había fallado
@@ -1349,6 +1391,7 @@ async function traer(){
     if (!$('#hoja').hidden) return;
     fusionar(d.datos);
     fusionarNovedades(d.datos);
+    estado.reportes = reportesDe(d.datos);
     var n = reenviarPendientes(['ev', 'nov']);
     await persistir();
     pintar();
