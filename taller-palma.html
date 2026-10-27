@@ -150,6 +150,7 @@
   .accion.ambar{background:var(--card);border:1px solid var(--amber);color:var(--amber);font-weight:700}
   .mini{display:inline-block;padding:8px 12px;border-radius:var(--r);font-size:14px;font-weight:600;margin:10px 8px 0 0;border:1px solid var(--line);background:var(--card)}
   .mini.verde{border-color:var(--green);color:var(--green)} .mini.roja{border-color:var(--red);color:var(--red)}
+  .mini.gris{color:var(--steel)}
   .accion[disabled]{opacity:.45}
 
   .tarj{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px}
@@ -687,7 +688,9 @@ function verEquipo(cod){
           '<div class="vl" style="color:var(--steel);font-size:13px">Anotado el ' + dcorta(n.fecha) + ' por ' + esc(n.reportadoPor || '—') +
             ' · ' + (dd === 0 ? 'hoy' : 'hace ' + dd + (dd === 1 ? ' día' : ' días')) + '</div>' +
           '<button class="mini verde" data-resolver="' + esc(n.id) + '">Ya se solucionó</button>' +
-          (ab ? '' : '<button class="mini roja" data-escalar="' + esc(n.id) + '">La dejó parada</button>') + '</div>';
+          (ab ? '' : '<button class="mini roja" data-escalar="' + esc(n.id) + '">La dejó parada</button>') +
+          // con varios pendientes, el que repite a otro se quita sin contarlo como solucionado
+          (pend.length > 1 ? '<button class="mini gris" data-repetido="' + esc(n.id) + '">Es repetido</button>' : '') + '</div>';
       }).join('') + '<div style="height:8px"></div>';
   }
 
@@ -796,6 +799,9 @@ function verEquipo(cod){
     Array.prototype.forEach.call($('#panel').querySelectorAll('[data-escalar]'), function(b){
       b.onclick = function(){ pasarAParada(b.dataset.escalar); };
     });
+    Array.prototype.forEach.call($('#panel').querySelectorAll('[data-repetido]'), function(b){
+      b.onclick = function(){ quitarRepetido(b.dataset.repetido); };
+    });
     var c = $('#corregir');
     if (c) c.onclick = function(){ corregirFecha(cod); };
   });
@@ -867,6 +873,17 @@ function resolverPendiente(id){
         aviso('Pendiente resuelto.');
       };
     });
+}
+/* Un pendiente que repite a otro (el operario lo reportó con otras palabras)
+   se cierra como "Repetido": deja de verse en el Taller, la Programación y
+   Gerencia, sin contarse como algo que se reparó. */
+async function quitarRepetido(id){
+  var n = novedadDe(id); if (!n) return;
+  if (!confirm('¿Quitar este pendiente por repetido?\n\n' + n.novedad)) return;
+  n.cerrada = true; n.fechaCierre = hoy(); n.cerradoPor = estado.yo; n.cerradoEn = ahora(); n.trabajo = 'Repetido';
+  encolarNovedad(n);
+  await persistir(); pintar(); verEquipo(n.equipo); enviar();
+  aviso('Pendiente repetido quitado.');
 }
 /* El pendiente se cierra y la máquina queda parada desde hoy con esa novedad */
 async function pasarAParada(id){

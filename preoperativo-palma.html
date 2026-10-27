@@ -591,7 +591,7 @@ function pMaquina(){
   return {
     html: h,
     listo: function(){ return !!F.cod && !bloqueada(F.cod); },
-    bind: function(valido){ elegir('[data-m]', 'data-m', function(v){ F.cod = v; valido(); setTimeout(siguiente, 180); }); }
+    bind: function(valido){ elegir('[data-m]', 'data-m', function(v){ F.cod = v; F.repetido = null; valido(); setTimeout(siguiente, 180); }); }
   };
 }
 
@@ -734,6 +734,27 @@ function problemas(){
 }
 function sistemaComun(l){ var s = l.map(function(x){ return x.sis; }); return s.length && s.every(function(x){ return x === s[0]; }) ? s[0] : ''; }
 
+/* Si el taller ya tiene algo anotado en esta máquina y el operario reporta una
+   novedad, se le pregunta si es lo mismo: así a Tulio no le llega repetido
+   (los operarios lo describen con otras palabras). Si la máquina no puede
+   trabajar, sí se avisa siempre. */
+function necesitaRep(){
+  return !!(R.pendientes[F.cod] || []).length && F.estado !== 'varada' &&
+    (F.estado === 'novedad' || (F.tipo === 'preop' && problemas().length > 0));
+}
+function pintarRep(valido){
+  var z = $('#zona-rep'); if (!z) return;
+  if (!necesitaRep()){ z.innerHTML = ''; return; }
+  z.innerHTML = '<div class="tarj aviso-t"><div class="et">El taller ya tiene anotado en esta máquina</div>' +
+    R.pendientes[F.cod].map(function(n){ return '<div class="vl">• ' + esc(n.txt) + '</div>'; }).join('') +
+    '<div class="vl" style="margin-top:10px"><b>¿Lo que usted encontró es lo mismo?</b></div>' +
+    '<div class="rejilla" style="margin-top:8px">' +
+      '<button class="op" data-rep="mismo" aria-pressed="' + (F.repetido === 'mismo') + '">Es lo mismo<small>No se vuelve a avisar</small></button>' +
+      '<button class="op" data-rep="nuevo" aria-pressed="' + (F.repetido === 'nuevo') + '">Es algo nuevo<small>Le llega a Tulio</small></button>' +
+    '</div></div>';
+  elegir('[data-rep]', 'data-rep', function(v){ F.repetido = v; valido(); });
+}
+
 /* ---------- 7. estado (preoperativo) ---------- */
 function botonesEstado(textos){
   return '<div class="estado-op">' +
@@ -753,14 +774,16 @@ function pEstado(){
         '<div class="dato"><span>Encontró</span><b>' + (pr.length ? pr.map(function(x){ return esc(x.txt); }).join(', ') : 'Todo bien') + '</b></div></div>' +
       botonesEstado(['Sí, todo bien<small>Arranca a trabajar</small>', 'Sí, pero con novedad<small>Trabaja, y el taller queda avisado</small>',
                      'No puede trabajar<small>Le avisa a Tulio como urgente</small>']) +
+      '<div id="zona-rep"></div>' +
       '<label class="campo"><span id="obs-et"></span><textarea id="obs" placeholder="¿Qué notó? Ruido, fuga, no arranca…">' + esc(F.obs) + '</textarea></label>',
-    listo: function(){ return !!F.estado && (F.estado === 'operativa' || F.obs.trim().length > 2 || problemas().length > 0); },
+    listo: function(){ return !!F.estado && (F.estado === 'operativa' || F.obs.trim().length > 2 || problemas().length > 0) &&
+      (!necesitaRep() || !!F.repetido); },
     bind: function(valido){
       function etiqueta(){ $('#obs-et').innerHTML = F.estado === 'operativa' ? 'Observaciones <i>— opcional</i>' :
         'Cuéntele al taller qué pasa' + (problemas().length ? ' <i>— opcional</i>' : ''); }
-      elegir('[data-e]', 'data-e', function(v){ F.estado = v; etiqueta(); valido(); });
+      elegir('[data-e]', 'data-e', function(v){ F.estado = v; etiqueta(); pintarRep(valido); valido(); });
       $('#obs').oninput = function(){ F.obs = this.value; valido(); };
-      etiqueta();
+      etiqueta(); pintarRep(valido);
     }
   };
 }
@@ -772,7 +795,8 @@ function enviarPreop(){
     .concat(ITEMS.map(function(it){ return F.items[it.id] === 'problema' ? 'Problema' : 'Bien'; }))
     .concat([{ operativa:'Puede trabajar', novedad:'Con novedad', varada:'No puede trabajar' }[F.estado], F.obs.trim()]);
   encolar('PreopDiario', fila, ENC_PREOP, { fecha:hoy(), cod:F.cod, op:F.operario, txt:'Preoperativo de ' + F.cod + ' (' + F.operario + ')' });
-  if (F.estado !== 'operativa' || pr.length){
+  var yaAnotado = F.repetido === 'mismo' && necesitaRep();
+  if ((F.estado !== 'operativa' || pr.length) && !yaAnotado){
     var txt = (F.estado === 'varada' ? 'NO PUEDE TRABAJAR (preoperativo)' : 'Preoperativo') +
       (pr.length ? ': ' + pr.map(function(x){ return x.txt; }).join(', ') : '') + (F.obs.trim() ? '. ' + F.obs.trim() : '');
     pendienteParaTulio(F.cod, txt, F.estado === 'varada', sistemaComun(pr), F.operario);
@@ -783,7 +807,7 @@ function enviarPreop(){
   persistir(); enviar();
   terminar(F.estado, F.estado === 'operativa' ? 'Preoperativo enviado' : F.estado === 'novedad' ? 'Enviado con novedad' : 'Máquina reportada',
     F.estado === 'operativa' ? '¡Buen día de trabajo!' :
-    F.estado === 'novedad' ? 'Puede trabajar. El taller ya quedó avisado de la novedad.' :
+    F.estado === 'novedad' ? (yaAnotado ? 'Puede trabajar. El taller ya lo tenía anotado.' : 'Puede trabajar. El taller ya quedó avisado de la novedad.') :
     'No use la máquina. Tulio ya quedó avisado como urgente.');
 }
 
@@ -828,13 +852,14 @@ function pEstadoFinal(){
     html: '<h2>¿Cómo quedó la máquina?</h2>' + avisoPendientes() +
       botonesEstado(['Bien para mañana<small>Sin novedades</small>', 'Con novedad<small>Funciona, pero algo hay que revisar</small>',
                      'Varada<small>No puede trabajar. Le avisa a Tulio como urgente</small>']) +
+      '<div id="zona-rep"></div>' +
       '<label class="campo"><span id="obs-et"></span><textarea id="obs" placeholder="¿Qué pasó? Fuga, ruido, se apagó…">' + esc(F.obs) + '</textarea></label>',
-    listo: function(){ return !!F.estado && (F.estado === 'operativa' || F.obs.trim().length > 2); },
+    listo: function(){ return !!F.estado && (F.estado === 'operativa' || F.obs.trim().length > 2) && (!necesitaRep() || !!F.repetido); },
     bind: function(valido){
       function etiqueta(){ $('#obs-et').innerHTML = F.estado === 'operativa' || !F.estado ? 'Observaciones <i>— opcional</i>' : 'Cuéntele al taller qué pasó'; }
-      elegir('[data-e]', 'data-e', function(v){ F.estado = v; etiqueta(); valido(); });
+      elegir('[data-e]', 'data-e', function(v){ F.estado = v; etiqueta(); pintarRep(valido); valido(); });
       $('#obs').oninput = function(){ F.obs = this.value; valido(); };
-      etiqueta();
+      etiqueta(); pintarRep(valido);
     }
   };
 }
@@ -866,7 +891,8 @@ function enviarCierre(){
   encolar('CierreJornada', [fechaCO(hoy()), horaAhora(), F.operario, F.cod + ' - ' + nombreDe(F.cod) + ' · ' + F.operario, n, ini == null ? '' : ini, horas,
     F.estado === 'varada' ? 'varado' : F.estado === 'novedad' ? 'novedad' : 'operativo', F.obs.trim(), F.labor.trim()], ENC_CIERRE,
     { fecha:hoy(), cod:F.cod, op:F.operario, txt:'Cierre de ' + F.cod + ' (' + F.operario + ')' });
-  if (F.estado !== 'operativa'){
+  var yaAnotado = F.repetido === 'mismo' && necesitaRep();
+  if (F.estado !== 'operativa' && !yaAnotado){
     pendienteParaTulio(F.cod, (F.estado === 'varada' ? 'VARADA al terminar la jornada: ' : 'Cierre de jornada: ') + F.obs.trim(),
       F.estado === 'varada', '', F.operario);
   }
@@ -876,7 +902,7 @@ function enviarCierre(){
   persistir(); enviar();
   terminar(F.estado, F.estado === 'operativa' ? 'Cierre enviado' : F.estado === 'novedad' ? 'Cierre con novedad' : 'Máquina varada',
     (horas !== '' ? 'Trabajó ' + fmtH(horas) + ' hoy. ' : '') +
-    (F.estado === 'operativa' ? '¡Gracias, hasta mañana!' : F.estado === 'novedad' ? 'El taller ya quedó avisado.' : 'Tulio ya quedó avisado como urgente.'));
+    (F.estado === 'operativa' ? '¡Gracias, hasta mañana!' : F.estado === 'novedad' ? (yaAnotado ? 'El taller ya lo tenía anotado.' : 'El taller ya quedó avisado.') : 'Tulio ya quedó avisado como urgente.'));
 }
 
 function terminar(est, titulo, msg){
