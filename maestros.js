@@ -340,3 +340,32 @@ window.Instalar = {
       'Desde este navegador Android la bloquea como "app no segura". Mientras tanto puede seguir usándola aquí normalmente.';
   }
 };
+
+/* =====================================================================
+   DENTRO DE AGROVISIÓN — cuando estas páginas se abren en el marco de
+   "Flota y Combustible" de Agrovisión (mismo sitio), se esconden la flecha
+   de volver y el botón de instalar, y al pasar a otra app se le avisa a
+   Agrovisión para que cambie la pestaña (mismo menú y encabezado).
+   ===================================================================== */
+(function(){
+  var dentro = false;
+  try { dentro = window.self !== window.top && window.top.location.origin === location.origin; } catch(e){ dentro = false; }
+  if (!dentro) return;
+  window.EMBEBIDO = true;
+  document.documentElement.classList.add('embebido');
+  var st = document.createElement('style');
+  // en el Resumen sobran los botones de las apps: Agrovisión ya tiene las pestañas
+  st.textContent = '.embebido .volver,.embebido #btn-instalar,.embebido .inst-btn,.embebido .btn-inst,.embebido main > nav.apps{display:none !important}';
+  (document.head || document.documentElement).appendChild(st);
+  var PAGS = { 'index.html':'resumen', '':'resumen', 'taller-palma.html':'taller', 'programacion-palma.html':'programacion',
+    'preoperativo-palma.html':'preoperativo', 'gerencia-palma.html':'gerencia' };
+  document.addEventListener('click', function(e){
+    var a = e.target.closest && e.target.closest('a[href]'); if (!a) return;
+    var u; try { u = new URL(a.getAttribute('href'), location.href); } catch(x){ return; }
+    if (u.origin !== location.origin || u.pathname.indexOf('/maquinaria-taller-palmag/') !== 0) return;
+    var tab = PAGS[u.pathname.split('/').pop()];
+    if (!tab) return;
+    e.preventDefault();
+    window.top.postMessage({ flota: tab }, location.origin);
+  }, true);
+})();
