@@ -155,8 +155,20 @@
   details.nota[open] summary{margin-bottom:6px}
 
   #print{display:none}
+  .modal{position:fixed;inset:0;background:rgba(15,25,20,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}
+  .modal[hidden]{display:none}
+  .modal .caja{background:#fff;border-radius:10px;padding:18px;width:100%;max-width:420px}
+  .modal h3{margin:0 0 6px;font-size:18px}
+  .modal label{display:block;font-size:13px;font-weight:600;margin-top:12px}
+  .modal select{display:block;width:100%;margin-top:4px;padding:10px;font:inherit;border:1px solid var(--line);border-radius:6px;background:#fff}
+  .modal .botones{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
   @media print{
-    header.top,.barra,.corte,.pestanas,#app,#pin{display:none !important}
+    header.top,.barra,.corte,.pestanas,#app,#pin,.modal{display:none !important}
+    .ir .hm-res{font-size:9.5px;color:#4B5A54;margin:-2px 0 5px}
+    .ir .hm-bloque{page-break-inside:avoid}
+    .ir .hm-t td:first-child{white-space:nowrap}
+    .ir .tag{display:inline-block;padding:0 5px;border-radius:2px;font-size:8.5px;font-weight:600;background:#E8EBEA;white-space:nowrap}
+    .ir .tag.r{background:#F9E3E1;color:#9E2B21} .ir .tag.a{background:#FBEEDC;color:#7A430A} .ir .tag.v{background:#E2EDE6;color:#1F5D3C}
     #print{display:block}
     body{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
     @page{size:letter;margin:11mm 12mm}
@@ -227,6 +239,7 @@
     <div class="der">
       <select id="mes" aria-label="Mes"></select>
       <button class="btn" id="btn-recargar">Actualizar</button>
+      <button class="btn" id="btn-historial">Historial (PDF)</button>
       <button class="btn p" id="btn-informe">Generar informe</button>
     </div>
   </div>
@@ -236,6 +249,19 @@
 </div>
 
 <div id="print"></div>
+
+<div class="modal" id="modal-hist" hidden><div class="caja">
+  <h3>Historial de maquinaria</h3>
+  <p class="mod">Todo lo que pasó con cada máquina: paradas y altas, pendientes del taller y cómo se cerraron, y los reportes repetidos de los operarios.</p>
+  <label>Máquina<select id="h-maq"></select></label>
+  <label>Período<select id="h-per">
+    <option value="mes">El mes elegido arriba</option>
+    <option value="3">Últimos 3 meses</option>
+    <option value="12">Últimos 12 meses</option>
+    <option value="todo">Todo el historial</option>
+  </select></label>
+  <div class="botones"><button class="btn" id="h-cancelar">Cancelar</button><button class="btn p" id="h-generar">Generar PDF</button></div>
+</div></div>
 
 <script src="maestros.js"></script>
 <script>
@@ -268,7 +294,8 @@ var EVENTOS = null, D = null;
 var INICIO_DATOS = null;          // primer día registrado en la hoja Taller
 var PENDIENTES = [];              // pendientes abiertos: la máquina trabaja, pero algo puede pararla
 var PROG = null, INICIO_PROG = null;
-var FALTAN = [];                  // hojas que no se pudieron leer (cifras incompletas)   // programación por fecha → máquina → asignación
+var FALTAN = [];
+var FILAS_TALLER = [];            // la hoja Taller completa (para el historial)                  // hojas que no se pudieron leer (cifras incompletas)   // programación por fecha → máquina → asignación
 var HIST = [];                    // los últimos 6 meses hasta el elegido
 var MESES_HIST = 6, VENTANA_REPETIDAS = 90;
 var BASE_TEND = 50;   // la gráfica de tendencia arranca en 50 % para que se noten las diferencias
@@ -343,6 +370,7 @@ async function traer(){
     if (/^\d{4}-\d{2}-\d{2}$/.test(f) && (!INICIO_DATOS || f < INICIO_DATOS)) INICIO_DATOS = f;
   });
   PENDIENTES = pendientesDe(d.datos || []);
+  FILAS_TALLER = d.datos || [];
   return eventosDe(d.datos || []);
 }
 /* filas PENDIENTE / RESUELTO de la hoja Taller; quedan las abiertas */
@@ -1147,6 +1175,113 @@ function informe(){
   setTimeout(function(){ window.print(); }, 150);
 }
 
+/* =====================================================================
+   HISTORIAL POR MÁQUINA (PDF) — trazabilidad completa sin recargar el
+   Taller: paradas y altas, pendientes y cómo se cerraron (solucionado,
+   repetido, pasó a parada) y reportes repetidos de los operarios.
+   Todo sale de la hoja Taller.
+   ===================================================================== */
+function abrirHistorial(){
+  if (!EVENTOS){ alert('Espere a que carguen los datos.'); return; }
+  $('#h-maq').innerHTML = '<option value="">Todas las máquinas</option>' +
+    FLOTA.map(function(f){ return '<option value="' + esc(f.cod) + '">' + esc(f.cod + ' · ' + f.nombre) + (f.activa === false ? ' (dada de baja)' : '') + '</option>'; }).join('');
+  $('#modal-hist').hidden = false;
+}
+function historialDatos(){
+  var nov = {}, rep = {};
+  FILAS_TALLER.forEach(function(r){
+    var acc = String(r[2] || '').trim().toUpperCase(), id = String(r[3] || '').trim();
+    if (!id) return;
+    if (acc === 'PENDIENTE' || acc === 'RESUELTO'){
+      var n = nov[id] = nov[id] || { id:id, equipo:String(r[4] || '').trim(), urgente:false, sistema:'', txt:'', por:'', fecha:aIso(r[10] || r[0]), cerrado:false };
+      if (r[6]) n.urgente = String(r[6]).trim() === 'urgente';
+      if (r[7]) n.sistema = String(r[7]);
+      if (r[8]) n.txt = String(r[8]);
+      if (r[9]) n.por = String(r[9]);
+      if (r[10]) n.fecha = aIso(r[10]);
+      if (acc === 'RESUELTO'){
+        n.cerrado = true; n.trabajo = String(r[11] || ''); n.cerradoPor = String(r[12] || '');
+        var dd = parseInt(r[13], 10); n.cierre = isNaN(dd) ? aIso(r[0]) : sumarDias(n.fecha, dd);
+      }
+    } else if (acc === 'REPORTE'){
+      rep[id] = { id:id, equipo:String(r[4] || '').trim(), txt:String(r[8] || ''), por:String(r[9] || ''), fecha:aIso(r[10] || r[0]),
+        refs:String(r[11] || '').split(',').filter(Boolean), origen:String(r[12] || '') };
+    }
+  });
+  return { nov: Object.keys(nov).map(function(k){ return nov[k]; }).filter(function(n){ return n.txt; }),
+           rep: Object.keys(rep).map(function(k){ return rep[k]; }) };
+}
+function historialPDF(cod, per){
+  var hy = hoy(), mv = $('#mes').value.split('-'), desde, hasta, txtPer;
+  if (per === 'mes'){ desde = mv[0] + '-' + mv[1] + '-01'; hasta = isoLocal(new Date(+mv[0], +mv[1], 0)); txtPer = MESES[+mv[1] - 1] + ' ' + mv[0]; }
+  else if (per === 'todo'){ desde = '2000-01-01'; hasta = hy; txtPer = 'Todo el historial'; }
+  else { var d0 = new Date(); d0.setMonth(d0.getMonth() - (+per)); desde = isoLocal(d0); hasta = hy; txtPer = 'Últimos ' + per + ' meses (' + dcorta(desde) + '/' + desde.slice(0, 4) + ' a hoy)'; }
+  if (hasta > hy) hasta = hy;
+  var H = historialDatos();
+  // entra lo que ocurrió en el período, o lo que seguía abierto en él
+  function cruza(ini, fin){ return ini <= hasta && (!fin || fin >= desde); }
+  var maqs = FLOTA.filter(function(f){ return !cod || f.cod === cod; });
+  var conDatos = [], sinDatos = [];
+  maqs.forEach(function(f){
+    var filas = [];
+    EVENTOS.filter(function(e){ return e.equipo === f.cod && cruza(e.inicio, e.fin); }).forEach(function(e){
+      var dias = duracion(e);
+      filas.push({ f:e.inicio, o:1, tag: e.tipo === 'mantenimiento' ? '<span class="tag a">Mantenimiento</span>' : '<span class="tag r">Parada</span>',
+        det:(e.sistema ? esc(txtSistema(e.sistema)) + ' · ' : '') + esc(e.novedad || '—'), por:esc(e.reportadoPor || '—'),
+        res: e.fin ? 'Alta ' + dcorta(e.fin) + ' por ' + esc(e.altaPor || '—') + ' · ' + dias + (dias === 1 ? ' día' : ' días') + (e.trabajo ? ' · ' + esc(e.trabajo) : '')
+                   : '<b>Sigue parada</b> · ' + dias + ' días', parada:true, dias:dias, abierta:!e.fin });
+    });
+    H.nov.filter(function(n){ return n.equipo === f.cod && cruza(n.fecha, n.cierre); }).forEach(function(n){
+      var res = !n.cerrado ? '<b>Abierto</b>' : n.trabajo === 'Repetido' ? 'Quitado por repetido ' + dcorta(n.cierre) + ' (' + esc(n.cerradoPor || '—') + ')'
+        : n.trabajo === 'Pasó a parada' ? 'Pasó a parada ' + dcorta(n.cierre)
+        : 'Solucionado ' + dcorta(n.cierre) + ' (' + esc(n.cerradoPor || '—') + ')' + (n.trabajo ? ' · ' + esc(n.trabajo) : '');
+      var veces = H.rep.filter(function(x){ return x.refs.indexOf(n.id) >= 0; }).length;
+      filas.push({ f:n.fecha, o:2, tag: n.trabajo === 'Repetido' ? '<span class="tag">Repetido</span>' : '<span class="tag a">Pendiente' + (n.urgente ? ' · urgente' : '') + '</span>',
+        det:esc(n.txt) + (n.sistema ? ' <span style="color:#666">(' + esc(n.sistema) + ')</span>' : '') + (veces ? '<br><span style="color:#7A430A">Reportado de nuevo ' + veces + (veces === 1 ? ' vez' : ' veces') + '</span>' : ''),
+        por:esc(n.por || '—'), res:res, pend:true, rep:n.trabajo === 'Repetido', abierto:!n.cerrado });
+    });
+    H.rep.filter(function(x){ return x.equipo === f.cod && x.fecha >= desde && x.fecha <= hasta; }).forEach(function(x){
+      filas.push({ f:x.fecha, o:3, tag:'<span class="tag">Reportado de nuevo</span>', det:esc(x.txt), por:esc(x.por) + (x.origen ? '<br><span style="color:#666">' + esc(x.origen) + '</span>' : ''),
+        res:'Ya estaba anotado en el taller', reporte:true });
+    });
+    if (!filas.length){ sinDatos.push(f.cod); return; }
+    filas.sort(function(a, b){ return a.f < b.f ? -1 : a.f > b.f ? 1 : a.o - b.o; });
+    conDatos.push({ maq:f, filas:filas });
+  });
+
+  var gen = new Date();
+  var h = '<div class="ir">' +
+    '<div class="ir-cab"><div class="ir-marca"><div class="ir-logo">PG</div><div class="ir-emp"><b>PALMA GRANDE S.A.S.</b><span>Puerto Concordia, Meta</span></div></div>' +
+      '<div class="ir-tit"><b>Historial de maquinaria</b><span>Paradas, pendientes del taller y reportes de los operarios · trazabilidad</span></div>' +
+      '<div class="ir-dato"><div>Período</div><div>' + esc(txtPer) + '</div><div>Máquinas</div><div>' + (cod ? esc(cod + ' · ' + (eqDe(cod) || {}).nombre) : 'Todas') + '</div>' +
+      '<div>Generado</div><div>' + gen.toLocaleDateString('es-CO') + ' ' + gen.toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' }) + '</div></div></div>';
+  if (!conDatos.length) h += '<p>No hay registros en el período.</p>';
+  conDatos.forEach(function(x){
+    var F = x.filas, par = F.filter(function(r){ return r.parada; }), pe = F.filter(function(r){ return r.pend && !r.rep; }),
+        rp = F.filter(function(r){ return r.rep; }).length + F.filter(function(r){ return r.reporte; }).length;
+    var diasPar = par.reduce(function(a, r){ return a + r.dias; }, 0);
+    var res = [];
+    if (par.length) res.push(par.length + (par.length === 1 ? ' parada' : ' paradas') + ' (' + diasPar + ' días' + (par.some(function(r){ return r.abierta; }) ? ', sigue parada' : '') + ')');
+    if (pe.length){ var ab = pe.filter(function(r){ return r.abierto; }).length;
+      res.push(pe.length + (pe.length === 1 ? ' pendiente' : ' pendientes') + (ab ? ' (' + ab + (ab === 1 ? ' abierto)' : ' abiertos)') : '')); }
+    if (rp) res.push(rp + (rp === 1 ? ' repetido' : ' repetidos'));
+    h += '<div class="hm-bloque"><h2>' + esc(x.maq.cod) + ' · ' + esc(x.maq.nombre) + ' <span>· ' + esc({ campo:'Cosecha y campo', sanidad:'Sanidad', transporte:'Transporte' }[x.maq.grupo] || '') + '</span></h2>' +
+      '<p class="hm-res">' + res.join(' · ') + '</p>' +
+      '<table class="hm-t"><thead><tr><th style="width:9%">Fecha</th><th style="width:14%">Tipo</th><th>Detalle</th><th style="width:15%">Reportó</th><th style="width:28%">Resultado</th></tr></thead><tbody>' +
+      F.map(function(r){ return '<tr><td class="mono">' + dcorta(r.f) + '/' + r.f.slice(2, 4) + '</td><td>' + r.tag + '</td><td>' + r.det + '</td><td>' + r.por + '</td><td>' + r.res + '</td></tr>'; }).join('') +
+      '</tbody></table></div>';
+  });
+  if (sinDatos.length) h += '<p class="hm-res" style="margin-top:8px"><b>Sin registros en el período:</b> ' + sinDatos.map(esc).join(', ') + '</p>';
+  var sups = Maestros.get('SUPERVISORES') || [{ nombre:'Anderson Rojas', cargo:'Superintendente' }];
+  var supte = sups.filter(function(y){ return y.activo !== false && /superintendente/i.test(y.cargo || ''); })[0];
+  h += '<div class="firma"><div>Jefe de Taller<span>Tulio Olaya</span></div><div>Superintendente<span>' + (supte ? esc(supte.nombre) + ' · revisó' : 'Revisó') + '</span></div>' +
+    '<div>Gerencia<span>Recibió</span></div></div>' +
+    '<div class="pie">Fuente: hoja Taller (paradas, altas, pendientes y reportes de los operarios). "Repetido": pendiente que repetía otro ya anotado; ' +
+    '"Reportado de nuevo": el operario lo volvió a encontrar y el taller ya lo tenía. Los días de parada van hasta el alta, o hasta hoy si sigue parada.</div></div>';
+  $('#print').innerHTML = h;
+  setTimeout(function(){ window.print(); }, 150);
+}
+
 /* ---------- instalar como app ---------- */
 if ('serviceWorker' in navigator){
   navigator.serviceWorker.register('/maquinaria-taller-palmag/sw.js').catch(function(){});
@@ -1189,6 +1324,9 @@ llenarMeses();
 $('#mes').onchange = function(){ cargar(false); };
 $('#btn-recargar').onclick = function(){ cargar(true); };
 $('#btn-informe').onclick = informe;
+$('#btn-historial').onclick = abrirHistorial;
+$('#h-cancelar').onclick = function(){ $('#modal-hist').hidden = true; };
+$('#h-generar').onclick = function(){ $('#modal-hist').hidden = true; historialPDF($('#h-maq').value, $('#h-per').value); };
 cargar(true);
 </script>
 </body>
