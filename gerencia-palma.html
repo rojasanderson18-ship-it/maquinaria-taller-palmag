@@ -447,7 +447,9 @@ function txtLabor(v){ return LABORES[v] || v; }
    parada ese día: desde la fecha de parada (incluida) hasta el alta (sin
    incluir, porque ese día ya quedó lista). Si no tiene alta, hasta hoy. */
 function calcular(eventos, anio, mes){
-  var desde = anio+'-'+p2(mes)+'-01';
+  var inicioMes = anio+'-'+p2(mes)+'-01';
+  // el mes cuenta desde que arrancó el sistema actualizado (SISTEMA en maestros.js)
+  var desde = inicioMes < SISTEMA.INICIO ? SISTEMA.INICIO : inicioMes;
   var hasta = isoLocal(new Date(anio, mes, 0));
   var hy = hoy(), corte = hasta < hy ? hasta : hy;
   var prog = [];
@@ -512,8 +514,10 @@ function calcular(eventos, anio, mes){
     x.fallas++; x.dias += duracion(e);
   });
 
-  var sinDatos = !INICIO_DATOS || hasta < INICIO_DATOS.slice(0, 8) + '01';
+  // antes del arranque no hay datos del sistema; el mes del arranque es parcial (no se compara con él)
+  var sinDatos = !INICIO_DATOS || hasta < INICIO_DATOS.slice(0, 8) + '01' || hasta < SISTEMA.INICIO;
   var R = { anio:anio, mes:mes, desde:desde, hasta:hasta, corte:corte, diasProgramados:prog.length, prog:prog, sinDatos:sinDatos,
+    parcial: !sinDatos && inicioMes < SISTEMA.INICIO,
     laboralesMes:laboralesMes, festivosMes:festivosMes,
     futuro: desde > hy, equipos:equipos, maquinaria:maquinaria, camiones:camiones, totales:T, totalesCamiones:TC, eventos:delMes,
     abiertos: eventos.filter(function(e){ return !e.fin && eqDe(e.equipo); }),
@@ -615,7 +619,9 @@ function secCombustible(titulo){
   if (COMB === null) return '<div class="vacio">No se pudo leer la hoja de combustible. Pulse "Actualizar".</div>';
   if (!COMB.length) return '<div class="vacio">Todavía no hay tanqueos registrados. Se registran en la app de Tanqueo del almacén.</div>';
   var M = combustibleMes(D.desde, D.corte);
-  var pd = sumarDias(D.desde, -1), P = combustibleMes(pd.slice(0, 8) + '01', pd);
+  // el mes anterior solo si fue todo con el sistema actualizado
+  var fp = sumarDias(D.anio + '-' + p2(D.mes) + '-01', -1), ip = fp.slice(0, 8) + '01';
+  var P = ip >= SISTEMA.INICIO ? combustibleMes(ip, fp) : { T:{ gal:0 } };
   function g(v){ return String(Math.round(v * 10) / 10).replace('.', ','); }
   function peso(v){ return '$' + Math.round(v).toLocaleString('es-CO'); }
   var lista = M.equipos.slice().sort(function(a, b){ return b.gal - a.gal; });
@@ -785,14 +791,15 @@ function pintar(){
   var T = D.totales;
   if (D.futuro){ $('#app').innerHTML = '<div class="vacio">Ese mes todavía no empieza.</div>'; $('#pestanas').hidden = true; $('#corte').textContent = ''; return; }
 
-  var P = HIST.length > 1 && !HIST[HIST.length-2].sinDatos ? HIST[HIST.length-2].totales : null;
+  var P = HIST.length > 1 && !HIST[HIST.length-2].sinDatos && !HIST[HIST.length-2].parcial ? HIST[HIST.length-2].totales : null;
   var C = confiabilidad(), U = D.uso, rep90 = fallasRepetidas(D.corte);
   var urg = PENDIENTES.filter(function(n){ return n.urgente; }).length;
 
-  $('#corte').innerHTML = D.corte < D.hasta
+  $('#corte').innerHTML = (D.parcial ? '<strong>Cuenta desde el ' + dcorta(SISTEMA.INICIO) + ', cuando arrancó el sistema actualizado</strong> (lo de antes se registraba distinto). ' : '') +
+    (D.corte < D.hasta
     ? 'Mes en curso: van <strong>' + D.diasProgramados + ' de ' + D.laboralesMes + ' días laborales</strong> (hasta hoy, ' + dcorta(D.corte) +
       '). El mes completo se calcula cuando termine, porque los días que faltan todavía no se pueden medir.'
-    : MESES[D.mes - 1].charAt(0).toUpperCase() + MESES[D.mes - 1].slice(1) + ' ' + D.anio + ' completo · ' + D.laboralesMes + ' días laborales.';
+    : MESES[D.mes - 1].charAt(0).toUpperCase() + MESES[D.mes - 1].slice(1) + ' ' + D.anio + ' completo · ' + D.laboralesMes + ' días laborales.');
   if (FALTAN.length) $('#corte').innerHTML += ' <strong style="color:var(--red)">No se pudo leer ' + FALTAN.join(' ni ') +
     ': utilización, horas o mantenimiento pueden estar incompletos. Pulse "Actualizar".</strong>';
 
@@ -854,16 +861,16 @@ function pintar(){
   var secTendGraf = '<div class="graf"><div class="tend"><div class="linea" style="bottom:' + altoTend(META) + '%"></div>' +
     HIST.map(function(h, i){
       var actual = i === HIST.length - 1;
-      if (h.sinDatos || h.futuro) return '<div class="col sin' + (actual ? ' actual' : '') + '"><b>sin datos</b><i></i></div>';
+      if (h.sinDatos || h.futuro) return '<div class="col sin' + (actual ? ' actual' : '') + '"><b>' + (h.futuro ? 'sin datos' : 'antes del sistema') + '</b><i></i></div>';
       var v = h.totales.disponibilidad, cl = clase(v);
       return '<div class="col' + (actual ? ' actual' : '') + '"><b style="bottom:calc(' + altoTend(v) + '% + 4px)">' + pct(v) + '</b><i class="' + (cl === 'ok' ? '' : cl) +
         '" style="height:' + altoTend(v) + '%"></i></div>';
-    }).join('') + '</div><div class="tend-mes">' + HIST.map(function(h){ return '<span>' + nombreMes(h) + '</span>'; }).join('') + '</div></div>';
+    }).join('') + '</div><div class="tend-mes">' + HIST.map(function(h){ return '<span>' + nombreMes(h) + (h.parcial ? '<br><small>desde el ' + dcorta(h.desde) + '</small>' : '') + '</span>'; }).join('') + '</div></div>';
   var secTendTabla = '<div class="tabla"><table><thead><tr><th>Mes</th><th class="num">Disponibilidad</th><th class="num">Utilización</th>' +
     '<th class="num">Días perdidos</th><th class="num">Fallas</th><th class="num">MTTR</th><th class="num">Horas trabajadas</th></tr></thead><tbody>' +
     HIST.slice().reverse().map(function(h){
-      if (h.sinDatos || h.futuro) return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + '</td><td colspan="6" class="mod">sin datos del Taller</td></tr>';
-      return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + '</td><td class="num"><span class="pill ' + clase(h.totales.disponibilidad) + '">' +
+      if (h.sinDatos || h.futuro) return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + '</td><td colspan="6" class="mod">' + (h.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
+      return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + (h.parcial ? ' <span class="mod">(desde el ' + dcorta(h.desde) + ')</span>' : '') + '</td><td class="num"><span class="pill ' + clase(h.totales.disponibilidad) + '">' +
         pct(h.totales.disponibilidad) + '</span></td><td class="num mono">' + (h.uso ? pct(h.uso.totales.utilizacion) : '—') + '</td>' +
         '<td class="num mono">' + h.totales.diasFalla + '</td><td class="num mono">' + h.totales.fallas + '</td>' +
         '<td class="num mono">' + n1(h.totales.diasPorFalla) + '</td><td class="num mono">' + (h.horas.hay ? hFmt(h.horas.totales.horas) : '\u2014') + '</td></tr>';
@@ -1099,7 +1106,7 @@ async function cargar(forzar){
 function informe(){
   if (!D || D.futuro) return;
   var T = D.totales, TC = D.totalesCamiones;
-  var P = HIST.length > 1 && !HIST[HIST.length-2].sinDatos ? HIST[HIST.length-2].totales : null;
+  var P = HIST.length > 1 && !HIST[HIST.length-2].sinDatos && !HIST[HIST.length-2].parcial ? HIST[HIST.length-2].totales : null;
   var mesPrev = P ? MESES[HIST[HIST.length-2].mes - 1] : '';
   var C = confiabilidad(), rep90 = fallasRepetidas(D.corte), U = D.uso;
   var eqs = D.maquinaria.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
@@ -1160,8 +1167,8 @@ function informe(){
   h += sec('Tendencia', 'últimos ' + MESES_HIST + ' meses') + '<table><thead><tr><th>Mes</th><th class="n">Disponibilidad</th><th class="n">Utilización</th>' +
     '<th class="n">Días perdidos</th><th class="n">Fallas</th><th class="n">MTTR</th></tr></thead><tbody>' +
     HIST.map(function(x){
-      if (x.sinDatos || x.futuro) return '<tr><td>' + MESES[x.mes - 1] + ' ' + x.anio + '</td><td colspan="5" style="color:#888">sin datos</td></tr>';
-      return fila([MESES[x.mes - 1] + ' ' + x.anio, '<b>' + pct(x.totales.disponibilidad) + '</b>', x.uso ? pct(x.uso.totales.utilizacion) : '—',
+      if (x.sinDatos || x.futuro) return '<tr><td>' + MESES[x.mes - 1] + ' ' + x.anio + '</td><td colspan="5" style="color:#888">' + (x.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
+      return fila([MESES[x.mes - 1] + ' ' + x.anio + (x.parcial ? ' (desde el ' + dcorta(x.desde) + ')' : ''), '<b>' + pct(x.totales.disponibilidad) + '</b>', x.uso ? pct(x.uso.totales.utilizacion) : '—',
         x.totales.diasFalla, x.totales.fallas, n1(x.totales.diasPorFalla)]).replace(/<td>(<b>|[0-9—])/g, '<td class="n">$1');
     }).join('') + '</tbody></table>';
 
