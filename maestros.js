@@ -358,7 +358,7 @@ window.Instalar = {
   st.textContent = '.embebido .volver,.embebido #btn-instalar,.embebido .inst-btn,.embebido .btn-inst,.embebido main > nav.apps{display:none !important}';
   (document.head || document.documentElement).appendChild(st);
   var PAGS = { 'index.html':'resumen', '':'resumen', 'taller-palma.html':'taller', 'programacion-palma.html':'programacion',
-    'preoperativo-palma.html':'preoperativo', 'gerencia-palma.html':'gerencia' };
+    'preoperativo-palma.html':'preoperativo', 'gerencia-palma.html':'gerencia', 'tanqueo-palma.html':'combustible' };
   document.addEventListener('click', function(e){
     var a = e.target.closest && e.target.closest('a[href]'); if (!a) return;
     var u; try { u = new URL(a.getAttribute('href'), location.href); } catch(x){ return; }
