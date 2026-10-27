@@ -162,6 +162,10 @@
   .modal label{display:block;font-size:13px;font-weight:600;margin-top:12px}
   .modal select{display:block;width:100%;margin-top:4px;padding:10px;font:inherit;border:1px solid var(--line);border-radius:6px;background:#fff}
   .modal .botones{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+  .modal .rango{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .modal input[type=date]{display:block;width:100%;margin-top:4px;padding:9px;font:inherit;border:1px solid var(--line);border-radius:6px;background:#fff}
+  .modal .rapidos{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .modal .rapidos .btn{padding:6px 10px;font-size:13px}
   @media print{
     header.top,.barra,.corte,.pestanas,#app,#pin,.modal{display:none !important}
     .ir .hm-res{font-size:9.5px;color:#4B5A54;margin:-2px 0 5px}
@@ -254,12 +258,15 @@
   <h3>Historial de maquinaria</h3>
   <p class="mod">Todo lo que pasó con cada máquina: paradas y altas, pendientes del taller y cómo se cerraron, y los reportes repetidos de los operarios.</p>
   <label>Máquina<select id="h-maq"></select></label>
-  <label>Período<select id="h-per">
-    <option value="mes">El mes elegido arriba</option>
-    <option value="3">Últimos 3 meses</option>
-    <option value="12">Últimos 12 meses</option>
-    <option value="todo">Todo el historial</option>
-  </select></label>
+  <div class="rango">
+    <label>Desde<input type="date" id="h-desde"></label>
+    <label>Hasta<input type="date" id="h-hasta"></label>
+  </div>
+  <div class="rapidos">
+    <button class="btn" data-r="mes">Mes elegido</button><button class="btn" data-r="3">3 meses</button>
+    <button class="btn" data-r="12">12 meses</button><button class="btn" data-r="todo">Todo</button>
+  </div>
+  <p class="mod" id="h-error" hidden style="color:var(--red)"></p>
   <div class="botones"><button class="btn" id="h-cancelar">Cancelar</button><button class="btn p" id="h-generar">Generar PDF</button></div>
 </div></div>
 
@@ -1185,7 +1192,21 @@ function abrirHistorial(){
   if (!EVENTOS){ alert('Espere a que carguen los datos.'); return; }
   $('#h-maq').innerHTML = '<option value="">Todas las máquinas</option>' +
     FLOTA.map(function(f){ return '<option value="' + esc(f.cod) + '">' + esc(f.cod + ' · ' + f.nombre) + (f.activa === false ? ' (dada de baja)' : '') + '</option>'; }).join('');
+  if (!$('#h-desde').value) rangoRapido('mes');
+  $('#h-error').hidden = true;
   $('#modal-hist').hidden = false;
+}
+/* llena Desde / Hasta con un rango común */
+function rangoRapido(r){
+  var hy = hoy(), mv = $('#mes').value.split('-'), de, ha = hy;
+  if (r === 'mes'){ de = mv[0] + '-' + mv[1] + '-01'; ha = isoLocal(new Date(+mv[0], +mv[1], 0)); if (ha > hy) ha = hy; }
+  else if (r === 'todo'){
+    de = hy;
+    (EVENTOS || []).forEach(function(e){ if (e.inicio < de) de = e.inicio; });
+    FILAS_TALLER.forEach(function(x){ var f = aIso(x[10] || x[0]); if (/^\d{4}-\d{2}-\d{2}$/.test(f) && f < de) de = f; });
+  }
+  else { var d0 = new Date(); d0.setMonth(d0.getMonth() - (+r)); de = isoLocal(d0); }
+  $('#h-desde').value = de; $('#h-hasta').value = ha;
 }
 function historialDatos(){
   var nov = {}, rep = {};
@@ -1211,12 +1232,11 @@ function historialDatos(){
   return { nov: Object.keys(nov).map(function(k){ return nov[k]; }).filter(function(n){ return n.txt; }),
            rep: Object.keys(rep).map(function(k){ return rep[k]; }) };
 }
-function historialPDF(cod, per){
-  var hy = hoy(), mv = $('#mes').value.split('-'), desde, hasta, txtPer;
-  if (per === 'mes'){ desde = mv[0] + '-' + mv[1] + '-01'; hasta = isoLocal(new Date(+mv[0], +mv[1], 0)); txtPer = MESES[+mv[1] - 1] + ' ' + mv[0]; }
-  else if (per === 'todo'){ desde = '2000-01-01'; hasta = hy; txtPer = 'Todo el historial'; }
-  else { var d0 = new Date(); d0.setMonth(d0.getMonth() - (+per)); desde = isoLocal(d0); hasta = hy; txtPer = 'Últimos ' + per + ' meses (' + dcorta(desde) + '/' + desde.slice(0, 4) + ' a hoy)'; }
+function historialPDF(cod, desde, hasta){
+  var hy = hoy();
   if (hasta > hy) hasta = hy;
+  function larga(f){ var p = f.split('-'); return (+p[2]) + ' ' + MESES[+p[1] - 1].slice(0, 3) + '. ' + p[0]; }
+  var txtPer = larga(desde) + ' a ' + larga(hasta);
   var H = historialDatos();
   // entra lo que ocurrió en el período, o lo que seguía abierto en él
   function cruza(ini, fin){ return ini <= hasta && (!fin || fin >= desde); }
@@ -1326,7 +1346,16 @@ $('#btn-recargar').onclick = function(){ cargar(true); };
 $('#btn-informe').onclick = informe;
 $('#btn-historial').onclick = abrirHistorial;
 $('#h-cancelar').onclick = function(){ $('#modal-hist').hidden = true; };
-$('#h-generar').onclick = function(){ $('#modal-hist').hidden = true; historialPDF($('#h-maq').value, $('#h-per').value); };
+$('#h-generar').onclick = function(){
+  var de = $('#h-desde').value, ha = $('#h-hasta').value, er = $('#h-error');
+  if (!de || !ha){ er.textContent = 'Escoja las dos fechas.'; er.hidden = false; return; }
+  if (de > ha){ er.textContent = '"Desde" no puede ser después de "Hasta".'; er.hidden = false; return; }
+  er.hidden = true; $('#modal-hist').hidden = true;
+  historialPDF($('#h-maq').value, de, ha);
+};
+Array.prototype.forEach.call(document.querySelectorAll('#modal-hist [data-r]'), function(b){
+  b.onclick = function(){ rangoRapido(b.dataset.r); };
+});
 cargar(true);
 </script>
 </body>
