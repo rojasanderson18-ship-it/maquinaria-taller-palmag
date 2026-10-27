@@ -133,7 +133,7 @@ footer{text-align:center;font-size:11.5px;color:var(--gris);padding:4px 16px 22p
       <div class="saludo" id="fecha"></div>
       <h1 class="serif" id="titular">Consultando la flota…</h1>
       <p id="sub"></p>
-      <div class="semana" id="semana" title="Disponibilidad de los últimos días de trabajo"></div>
+      <div class="semana" id="semana" title="Disponibilidad de los últimos días de trabajo (desde que arrancó el sistema actualizado)"></div>
     </div>
   </div>
   <div class="lectura" id="lectura" hidden>No se pudo leer la hoja de cálculo. Revise la señal; lo que ve puede no estar al día.</div>
@@ -300,6 +300,7 @@ function pintar(hoy, T, preop, preopViejo, cierre, prog, progViejo){
   // los últimos días de trabajo (lunes a sábado sin festivos)
   var sem = [], f = hoy;
   for (var i = 0; sem.length < DIAS_SEMANA && i < 20; i++, f = sumar(f, -1)){
+    if (f < SISTEMA.INICIO) break;            // antes del sistema actualizado no se muestra
     if (f !== hoy && !Festivos.laboral(f)) continue;
     var ok = maq.filter(function(m){ return !paradaEl(T.eventos, m.cod, f); }).length;
     sem.unshift({ f: f, v: maq.length ? Math.round(ok / maq.length * 100) : 0 });

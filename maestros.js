@@ -7,6 +7,15 @@
    es un ID único, así el Apps Script siempre agrega y nunca sobrescribe.
    Cada página guarda una copia en el celular para funcionar sin señal.
    ===================================================================== */
+/* Día en que arrancó el sistema actualizado. Las cifras de un período
+   (disponibilidad, fallas, uso, preoperativos, horas, combustible) cuentan
+   desde aquí y solo se comparan con períodos que también sean del sistema
+   nuevo: lo de antes se registraba distinto o no se registraba, y las
+   comparaciones salían engañosas. El estado de hoy (qué máquina está parada
+   y desde cuándo) sí conserva su fecha real. Lo usan todas las apps y
+   Agrovisión. */
+window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pueden fijar otra fecha antes
+
 (function(){
   var GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQWYdp4sH9O14k7u6RpeuGeB3Ay3Nqj3HdFZ_4UobNC/exec';
   var KEY = 'palma-maestros-v1';
