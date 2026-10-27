@@ -459,7 +459,7 @@
      ADJUNTOS — cotizaciones (foto o PDF) de cada reparación.
      El archivo se guarda en el celular (IndexedDB, porque un PDF no cabe en
      localStorage) y se envía al Apps Script, que lo guarda en Google Drive y
-     anota el enlace en la hoja "Adjuntos" (apps-script/Adjuntos.gs). Solo
+     anota el enlace en la hoja "Adjuntos" (guardarArchivo en apps-script/Codigo.gs). Solo
      cuando el enlace aparece en la hoja se borra del celular; lo que no
      llega en 3 intentos queda a la vista para reenviarlo.
      ===================================================================== */
