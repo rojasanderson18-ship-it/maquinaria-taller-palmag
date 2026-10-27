@@ -47,6 +47,7 @@ main{max-width:1060px;margin:-44px auto 0;padding:0 16px 20px;display:grid;gap:1
 
 /* ---------- apps ---------- */
 .apps{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.apps .app:last-child:nth-child(odd){grid-column:1 / -1}
 .app{position:relative;display:flex;gap:11px;align-items:center;text-decoration:none;color:var(--tinta);background:#fff;border-radius:14px;padding:13px 12px;box-shadow:0 6px 18px rgba(16,48,31,.10);border:1px solid rgba(0,0,0,.04)}
 .ic{flex:none;width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--verde-s);color:var(--verde-m)}
 .ic svg{width:23px;height:23px}
@@ -103,7 +104,7 @@ footer{text-align:center;font-size:11.5px;color:var(--gris);padding:4px 16px 22p
   .anillo{width:140px;height:140px}
   .frase h1{font-size:32px}
   main{grid-template-columns:1.45fr 1fr;align-items:start}
-  .apps{grid-column:1 / -1;grid-template-columns:repeat(4,1fr)}
+  .apps{grid-column:1 / -1;grid-template-columns:repeat(5,1fr)}
   .flota{grid-row:span 2}
 }
 
@@ -148,6 +149,8 @@ footer{text-align:center;font-size:11.5px;color:var(--gris);padding:4px 16px 22p
       <span><b>Programación</b><small>Supervisores</small></span></a>
     <a class="app" href="gerencia-palma.html"><svg class="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>
       <span><b>Gerencia</b><small>Indicadores e informe</small></span></a>
+    <a class="app" href="tanqueo-palma.html"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v16M3 21h13M6 8h7"/><path d="M15 10h2a2 2 0 0 1 2 2v4a1.5 1.5 0 0 0 3 0V8l-3-3"/></svg></span>
+      <span><b>Tanqueo</b><small>Almacén · combustible</small></span></a>
   </nav>
 
   <section class="card flota">
