@@ -151,6 +151,10 @@
   .mini{display:inline-block;padding:8px 12px;border-radius:var(--r);font-size:14px;font-weight:600;margin:10px 8px 0 0;border:1px solid var(--line);background:var(--card)}
   .mini.verde{border-color:var(--green);color:var(--green)} .mini.roja{border-color:var(--red);color:var(--red)}
   .mini.gris{color:var(--steel)}
+  .adj{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .adj-a{display:block;text-align:left;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;font-size:14px;font-weight:600;color:var(--ink);text-decoration:none;word-break:break-word}
+  .adj-a small{display:block;font-weight:400;font-size:12px;color:var(--steel)}
+  .adj-a small button{border:0;background:none;color:var(--red);text-decoration:underline;font-size:12px;padding:0}
   .accion[disabled]{opacity:.45}
 
   .tarj{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:14px}
@@ -790,6 +794,7 @@ function verEquipo(cod){
 
   abrir(h, function(){
     if ($('#rp-editar')) $('#rp-editar').onclick = function(){ editarReparacion(cod); };
+    montarAdjuntos();
     var a = $('#alta');
 
     // avisar si esa misma parte ya había fallado
@@ -1187,6 +1192,20 @@ async function traerMaestros(){
    Tulio dice en qué va, qué repuesto necesita y cuándo sale; Compras pone el
    costo, el proveedor y cuándo llega el repuesto (app de Compras). */
 function pesos(v){ return '$' + Math.round(v).toLocaleString('es-CO'); }
+function adjuntosHtml(parada){
+  if (!window.Adjuntos) return '';
+  var l = Adjuntos.de(parada);
+  if (!l.length) return '';
+  return '<div class="adj">' + l.map(function(x){
+    var txt = (x.tipo === 'application/pdf' ? 'PDF' : 'Foto') + ' · ' + esc(x.quien === 'COMPRAS' ? 'Compras' : 'Taller') + ' · ' + dcorta(x.fecha);
+    return x.local
+      ? '<button class="adj-a" data-adj-local="' + esc(x.id) + '">📎 ' + esc(x.nombre) + '<small>' + txt + ' · ' + (x.intentos >= 3 ? 'no ha llegado' : 'enviando…') + '</small></button>'
+      : '<a class="adj-a" href="' + esc(x.url) + '" target="_blank" rel="noopener">📎 ' + esc(x.nombre) + '<small>' + txt + '</small></a>';
+  }).join('') + '</div>';
+}
+function montarAdjuntos(){
+  Array.prototype.forEach.call($('#panel').querySelectorAll('[data-adj-local]'), function(b){ b.onclick = function(){ Adjuntos.abrirLocal(b.dataset.adjLocal); }; });
+}
 function reparacionHtml(ab){
   if (!window.Reparaciones) return '';
   var R = Reparaciones.de(ab.id), t = R.taller, c = R.compras;
@@ -1202,6 +1221,7 @@ function reparacionHtml(ab){
     (c ? '<div class="vl" style="margin-top:8px;padding-top:8px;border-top:1px solid var(--line)">Compras: ' +
         (costo ? '<b>' + pesos(costo) + '</b>' : 'sin costo') + (c.proveedor ? ' · ' + esc(c.proveedor) : '') +
         (c.llega ? ' · el repuesto llega el <b>' + dcorta(c.llega) + '</b>' : '') + (c.nota ? '<br><span style="color:var(--steel);font-size:13px">' + esc(c.nota) + '</span>' : '') + '</div>' : '') +
+    adjuntosHtml(ab.id) +
     '<button class="mini ' + (t ? 'gris' : 'roja') + '" id="rp-editar" style="margin-top:10px">' + (t ? 'Actualizar en qué va' : 'Decir en qué va') + '</button></div>';
 }
 function editarReparacion(cod){
@@ -1215,28 +1235,55 @@ function editarReparacion(cod){
       '</div>' +
       '<label class="campo" id="rp-rep-c"><span>¿Qué repuesto o trabajo necesita? <i id="rp-rep-i">— opcional</i></span>' +
         '<textarea id="rp-rep" placeholder="Bomba de inyección, kit de empaques, rectificar culata…">' + esc(t.repuesto || '') + '</textarea></label>' +
+      (window.Adjuntos ? '<p class="paso">Cotización <i style="font-weight:400;font-style:normal;color:var(--steel)">— foto o PDF del proveedor</i></p>' +
+        adjuntosHtml(ab.id) + '<div id="rp-nuevos" class="adj"></div>' +
+        '<div class="rejilla"><label class="op" style="text-align:center">📷 Tomar foto<input type="file" id="rp-foto" accept="image/*" capture="environment" hidden></label>' +
+        '<label class="op" style="text-align:center">📄 Subir PDF o foto<input type="file" id="rp-pdf" accept="application/pdf,image/*" multiple hidden></label></div>' : '') +
       '<label class="campo"><span>¿Cuándo calcula que sale? <i>— opcional</i></span>' +
         '<input type="date" id="rp-sale" min="' + hoy() + '" value="' + esc(t.sale || '') + '"></label>' +
       '<label class="campo"><span>Nota <i>— opcional</i></span><textarea id="rp-nota" placeholder="Lo que Compras o la gerencia deba saber">' + esc(t.nota || '') + '</textarea></label>' +
       '<button class="accion verde" id="rp-ok" disabled>Guardar</button>' +
       '<button class="accion gris" id="rp-volver">Volver</button>' +
-      '<p class="nota">El repuesto que anote le llega a Compras para cotizarlo. El costo lo pone Compras.</p>' +
+      '<p class="nota">El repuesto y la cotización le llegan a Compras, que registra el costo.</p>' +
     '</div>',
     function(){
+      var nuevos = [], yaHay = window.Adjuntos ? Adjuntos.de(ab.id).length : 0;
       function refrescar(){
         Array.prototype.forEach.call($('#panel').querySelectorAll('[data-rpe]'), function(b){ b.setAttribute('aria-pressed', String(b.dataset.rpe === sel.estado)); });
         var pide = sel.estado === 'repuesto';
-        $('#rp-rep-i').textContent = pide ? '— para que Compras lo cotice' : '— opcional';
-        $('#rp-ok').disabled = !sel.estado || (pide && !$('#rp-rep').value.trim());
+        $('#rp-rep-i').textContent = pide ? '— o suba la cotización' : '— opcional';
+        // esperando repuesto: que Compras sepa qué es (escrito o en la cotización)
+        $('#rp-ok').disabled = !sel.estado || (pide && !$('#rp-rep').value.trim() && !nuevos.length && !yaHay);
+        if ($('#rp-nuevos')) $('#rp-nuevos').innerHTML = nuevos.map(function(f, i){
+          return '<span class="adj-a">📎 ' + esc(f.name || 'foto.jpg') + '<small>se sube al guardar · <button data-quitar="' + i + '">quitar</button></small></span>'; }).join('');
+        Array.prototype.forEach.call($('#panel').querySelectorAll('[data-quitar]'), function(b){ b.onclick = function(){ nuevos.splice(+b.dataset.quitar, 1); refrescar(); }; });
       }
+      ['#rp-foto', '#rp-pdf'].forEach(function(sx){
+        var inp = $(sx); if (!inp) return;
+        inp.onchange = function(){
+          Array.prototype.forEach.call(inp.files, function(f){
+            var pdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name || '');
+            if (!pdf && !/^image\//.test(f.type)){ aviso('Solo fotos o PDF.'); return; }
+            if (pdf && f.size > Adjuntos.MAX_PDF){ aviso('El PDF pesa más de 10 MB. Tómele una foto a la cotización.'); return; }
+            nuevos.push(f);
+          });
+          inp.value = ''; refrescar();
+        };
+      });
+      montarAdjuntos();
       Array.prototype.forEach.call($('#panel').querySelectorAll('[data-rpe]'), function(b){ b.onclick = function(){ sel.estado = b.dataset.rpe; refrescar(); }; });
       $('#rp-rep').oninput = refrescar;
       $('#rp-volver').onclick = function(){ verEquipo(cod); };
       refrescar();
       $('#rp-ok').onclick = async function(){
         Reparaciones.guardar('TALLER', ab.id, cod, { estado: sel.estado, repuesto: $('#rp-rep').value.trim(), sale: $('#rp-sale').value, nota: $('#rp-nota').value.trim() }, estado.yo);
+        var subidos = 0;
+        for (var i = 0; i < nuevos.length; i++){
+          try { await Adjuntos.subir(ab.id, cod, nuevos[i], 'TALLER', estado.yo); subidos++; }
+          catch(e){ aviso(e.message || 'No se pudo guardar la cotización en este celular.'); }
+        }
         verEquipo(cod); pintar(); pintarNoLlego();
-        aviso(cod + ': ' + Reparaciones.txtEstado(sel.estado).toLowerCase() + '.');
+        aviso(cod + ': ' + Reparaciones.txtEstado(sel.estado).toLowerCase() + (subidos ? ' · ' + (subidos === 1 ? 'cotización enviada' : subidos + ' archivos enviados') : '') + '.');
         setTimeout(traerReparaciones, 6000);   // confirma en la hoja que llegó
       };
     });
@@ -1244,6 +1291,7 @@ function editarReparacion(cod){
 async function traerReparaciones(){
   if (!navigator.onLine || !window.Reparaciones) return;
   try { if (await Reparaciones.traer() && $('#hoja').hidden) pintar(); pintarNoLlego(); } catch(e){}
+  if (window.Adjuntos) try { await Adjuntos.traer(); pintarNoLlego(); } catch(e){}
 }
 
 function encolarParada(ev){
@@ -1382,6 +1430,7 @@ function noLlego(){
   });
   // con un maestros.js viejo en caché no existe sinLlegar
   if (Maestros.sinLlegar) Maestros.sinLlegar().forEach(function(m){ lista.push({ id: 'maestro:' + m.tipo, txt: 'Cambio en ' + m.nombre }); });
+  if (window.Adjuntos) Adjuntos.sinLlegar().forEach(function(x){ lista.push({ id: 'adj:' + x.id, txt: 'Cotización de ' + x.cod + ' (' + x.nombre + '). Si ninguna cotización llega, falta activar los archivos en el Apps Script: avísele a Anderson.' }); });
   if (window.Reparaciones) Reparaciones.sinLlegar().forEach(function(x){ lista.push({ id: 'rep:' + x.envio, txt: 'En qué va la reparación de ' + x.cod + ' — ' + Reparaciones.txtEstado(x.datos.estado) }); });
   return lista;
 }
@@ -1474,6 +1523,7 @@ function verNoLlego(){
       Array.prototype.forEach.call($('#panel').querySelectorAll('[data-reint]'), function(b){
         b.onclick = async function(){
           var id = b.dataset.reint;
+          if (id.indexOf('adj:') === 0){ await Adjuntos.reintentar(id.slice(4)); pintarNoLlego(); verNoLlego(); aviso('Se volvió a enviar.'); return; }
           if (id.indexOf('rep:') === 0){ await Reparaciones.reintentar(id.slice(4)); pintarNoLlego(); verNoLlego(); aviso('Se volvió a enviar.'); return; }
           if (id.indexOf('maestro:') === 0){ var x = Maestros.reintentar(id.slice(8)); if (x) encolar(x.hoja, x.fila, x.encabezados, x.id); }
           else { var pc = estado.porConfirmar[id]; if (pc){ reencolar(id, pc.tipo); if (pc.fecha) estado.porConfirmar[id].fecha = true; } }
@@ -1485,6 +1535,7 @@ function verNoLlego(){
         b.onclick = async function(){
           var id = b.dataset.desc;
           if (!confirm('¿Descartar este registro? Se perderá lo que no llegó a la hoja.')) return;
+          if (id.indexOf('adj:') === 0){ Adjuntos.descartar(id.slice(4)); pintarNoLlego(); verNoLlego(); return; }
           if (id.indexOf('rep:') === 0){ Reparaciones.descartar(id.slice(4)); pintar(); pintarNoLlego(); verNoLlego(); return; }
           if (id.indexOf('maestro:') === 0){ Maestros.descartar(id.slice(8)); FLOTA = Maestros.flota(); }
           else {

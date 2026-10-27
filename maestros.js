@@ -382,7 +382,16 @@
       t ? '' : (d.repuestos == null ? '' : d.repuestos), t ? '' : (d.mano == null ? '' : d.mano), t ? '' : d.proveedor || '', t ? '' : d.llega || '',
       d.nota || '', x.por || '', x.envio];
   }
-  async function enviarRep(){
+  var enviandoRep = null, otraVezRep = false;
+  function enviarRep(){
+    if (enviandoRep){ otraVezRep = true; return enviandoRep; }
+    enviandoRep = enviarRepUnaVez().catch(function(){}).then(function(){
+      enviandoRep = null;
+      if (otraVezRep){ otraVezRep = false; return enviarRep(); }
+    });
+    return enviandoRep;
+  }
+  async function enviarRepUnaVez(){
     if (!navigator.onLine) return;
     var ahora = Date.now();
     var porEnviar = cargarRep().cola.filter(function(x){
@@ -444,6 +453,131 @@
     reintentar: function(envio){ cargarRep(); RP.cola.forEach(function(x){ if (x.intentos >= 3 && (!envio || x.envio === envio)){ x.intentos = 0; x.enviadoEn = null; } }); guardarRep(); return enviarRep(); },
     descartar: function(envio){ cargarRep(); RP.cola = RP.cola.filter(function(x){ return x.envio !== envio; }); guardarRep(); },
     enviar: enviarRep
+  };
+
+  /* =====================================================================
+     ADJUNTOS — cotizaciones (foto o PDF) de cada reparación.
+     El archivo se guarda en el celular (IndexedDB, porque un PDF no cabe en
+     localStorage) y se envía al Apps Script, que lo guarda en Google Drive y
+     anota el enlace en la hoja "Adjuntos" (apps-script/Adjuntos.gs). Solo
+     cuando el enlace aparece en la hoja se borra del celular; lo que no
+     llega en 3 intentos queda a la vista para reenviarlo.
+     ===================================================================== */
+  var KEY_ADJ = 'palma-adjuntos-v1', MAX_PDF = 10 * 1024 * 1024;
+  var AD;
+  function cargarAdj(){ try { AD = JSON.parse(localStorage.getItem(KEY_ADJ) || 'null'); } catch(e){ AD = null; } AD = AD || { hoja:[], cola:[] }; return AD; }
+  function guardarAdj(){ try { localStorage.setItem(KEY_ADJ, JSON.stringify(AD)); } catch(e){} }
+  cargarAdj();
+  function idb(){
+    return new Promise(function(res, rej){
+      var r = indexedDB.open('palma-adjuntos', 1);
+      r.onupgradeneeded = function(){ r.result.createObjectStore('archivos'); };
+      r.onsuccess = function(){ res(r.result); }; r.onerror = function(){ rej(r.error); };
+    });
+  }
+  function idbHacer(modo, fn){
+    return idb().then(function(db){ return new Promise(function(res, rej){
+      var tx = db.transaction('archivos', modo), st = tx.objectStore('archivos'), q = fn(st);
+      tx.oncomplete = function(){ res(q && q.result); }; tx.onerror = function(){ rej(tx.error); };
+    }); });
+  }
+  function aBase64(blob){
+    return new Promise(function(res, rej){ var r = new FileReader(); r.onload = function(){ res(String(r.result).split(',')[1]); }; r.onerror = rej; r.readAsDataURL(blob); });
+  }
+  /* una foto de una cotización se achica, pero que se pueda leer */
+  function achicarImagen(file){
+    return new Promise(function(res){
+      var url = URL.createObjectURL(file), img = new Image();
+      img.onload = function(){
+        var esc = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * esc); c.height = Math.round(img.naturalHeight * esc);
+        var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(function(b){ res(b || file); }, 'image/jpeg', 0.72);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); res(file); };
+      img.src = url;
+    });
+  }
+  /* un solo envío a la vez: si se pide otro mientras tanto, se repite al terminar */
+  var enviandoAdj = null, otraVezAdj = false;
+  function enviarAdj(){
+    if (enviandoAdj){ otraVezAdj = true; return enviandoAdj; }
+    enviandoAdj = enviarAdjUnaVez().catch(function(){}).then(function(){
+      enviandoAdj = null;
+      if (otraVezAdj){ otraVezAdj = false; return enviarAdj(); }
+    });
+    return enviandoAdj;
+  }
+  async function enviarAdjUnaVez(){
+    if (!navigator.onLine) return;
+    var ahora = Date.now();
+    var porEnviar = cargarAdj().cola.filter(function(x){ return !(x.enviadoEn && ahora - x.enviadoEn < 180000) && (x.intentos || 0) < 3; });
+    for (var i = 0; i < porEnviar.length; i++){
+      var x = porEnviar[i], blob = await idbHacer('readonly', function(st){ return st.get(x.id); }).catch(function(){ return null; });
+      if (!blob) continue;
+      try {
+        var b64 = await aBase64(blob);
+        await fetch(GS_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ hoja:'Adjuntos',
+          archivo:{ id:x.id, parada:x.parada, equipo:x.cod, nombre:x.nombre, tipo:x.tipo, base64:b64, quien:x.quien, por:x.por } }) });
+      } catch(e){ break; }
+      var y = cargarAdj().cola.filter(function(z){ return z.id === x.id; })[0];
+      if (y){ y.enviadoEn = Date.now(); y.intentos = (y.intentos || 0) + 1; guardarAdj(); }
+    }
+  }
+  window.Adjuntos = {
+    MAX_PDF: MAX_PDF,
+    /* guarda el archivo en el celular y lo envía; quien = TALLER o COMPRAS */
+    subir: async function(parada, cod, file, quien, por){
+      var esImg = /^image\//.test(file.type), esPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+      if (!esImg && !esPdf) throw new Error('Solo se pueden subir fotos o PDF.');
+      if (esPdf && file.size > MAX_PDF) throw new Error('El PDF pesa más de 10 MB. Tómele una foto a la cotización.');
+      var blob = esImg ? await achicarImagen(file) : file;
+      var id = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      var nombre = esImg ? 'Cotizacion ' + cod.replace('#', '') + ' ' + new Date().toISOString().slice(0, 10) + '.jpg' : (file.name || 'cotizacion.pdf');
+      await idbHacer('readwrite', function(st){ return st.put(blob, id); });
+      cargarAdj().cola.push({ id:id, parada:parada, cod:cod, nombre:nombre, tipo: esImg ? 'image/jpeg' : 'application/pdf',
+        kb: Math.round(blob.size / 1024), quien:quien, por:por || '', fecha:isoLocal(new Date()), intentos:0, enviadoEn:null });
+      guardarAdj();
+      enviarAdj();
+      return id;
+    },
+    /* los archivos de una parada: los de la hoja (con enlace) y los que van en camino */
+    de: function(parada){
+      cargarAdj();
+      return AD.hoja.filter(function(x){ return x.parada === parada; })
+        .concat(AD.cola.filter(function(x){ return x.parada === parada; }).map(function(x){ return Object.assign({ local:true }, x); }));
+    },
+    /* abre un archivo que todavía no ha llegado (está en el celular) */
+    abrirLocal: async function(id){
+      var b = await idbHacer('readonly', function(st){ return st.get(id); });
+      if (b) window.open(URL.createObjectURL(b), '_blank');
+    },
+    traer: async function(){
+      var filas = await leer('Adjuntos').catch(function(){ return null; });
+      if (filas){
+        var vistos = {};
+        cargarAdj();
+        AD.hoja = filas.filter(function(r){ return String(r[3] || '').trim() && String(r[8] || '').trim(); }).map(function(r){
+          var x = { id:String(r[3]).trim(), parada:String(r[4] || '').trim(), cod:String(r[5] || '').trim(), nombre:String(r[6] || ''), tipo:String(r[7] || ''),
+            url:String(r[8]), quien:String(r[9] || ''), por:String(r[10] || ''), fecha:aIso(r[0]) };
+          vistos[x.id] = true; return x;
+        });
+        var llegaron = AD.cola.filter(function(x){ return vistos[x.id]; });
+        AD.cola = AD.cola.filter(function(x){
+          if (vistos[x.id]) return false;
+          if (x.enviadoEn && Date.now() - x.enviadoEn > 180000 && x.intentos < 3) x.enviadoEn = null;    // reenviar
+          return true;
+        });
+        guardarAdj();
+        llegaron.forEach(function(x){ idbHacer('readwrite', function(st){ return st.delete(x.id); }).catch(function(){}); });
+      }
+      await enviarAdj();
+      return !!filas;
+    },
+    sinLlegar: function(){ return cargarAdj().cola.filter(function(x){ return x.intentos >= 3 && x.enviadoEn && Date.now() - x.enviadoEn > 180000; }); },
+    reintentar: function(id){ cargarAdj().cola.forEach(function(x){ if (x.intentos >= 3 && (!id || x.id === id)){ x.intentos = 0; x.enviadoEn = null; } }); guardarAdj(); return enviarAdj(); },
+    descartar: function(id){ cargarAdj(); AD.cola = AD.cola.filter(function(x){ return x.id !== id; }); guardarAdj(); idbHacer('readwrite', function(st){ return st.delete(id); }).catch(function(){}); }
   };
 
   window.Mtto = {

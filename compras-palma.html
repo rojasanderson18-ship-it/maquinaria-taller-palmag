@@ -53,6 +53,9 @@
   .pill.r{background:var(--red-s);color:var(--red)} .pill.a{background:var(--amber-s);color:var(--amber)} .pill.v{background:var(--green-s);color:var(--green)}
   .btn{display:inline-block;margin-top:10px;padding:9px 14px;border-radius:var(--r);border:1px solid var(--blue);color:var(--blue);background:var(--card);font-weight:600;font-size:14px}
   .btn.lleno{background:var(--blue);color:#fff}
+  .adj{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+  .adj-a{display:block;text-align:left;background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:8px 10px;font-size:14px;font-weight:600;color:var(--blue);text-decoration:none;word-break:break-word;width:100%}
+  .adj-a small{display:block;font-weight:400;font-size:12px;color:var(--steel)}
   .vacio{background:var(--card);border:1px dashed var(--line);border-radius:var(--r);padding:16px;color:var(--steel);font-size:14px;text-align:center}
   .lectura{background:var(--red);color:#fff;font-size:13.5px;padding:9px 16px;text-align:center}
   .lectura button{margin-left:8px;background:#fff;color:var(--red);border:0;border-radius:6px;padding:3px 10px;font-weight:700}
@@ -160,8 +163,9 @@ function pintar(){
   if (!PARADAS){ return; }
   var l = PARADAS.map(function(p){ var R = Reparaciones.de(p.id); return { p:p, t:R.taller, c:R.compras, d:dias(p.desde, hoy()) }; });
   function costo(x){ return x.c ? (x.c.repuestos || 0) + (x.c.mano || 0) : 0; }
-  // por cotizar: el Taller pidió un repuesto y Compras no ha puesto costo
-  var porCotizar = l.filter(function(x){ return x.t && x.t.estado === 'repuesto' && !costo(x); });
+  // por cotizar: el Taller pidió un repuesto o subió una cotización y Compras no ha puesto costo
+  l.forEach(function(x){ x.adj = Adjuntos.de(x.p.id); });
+  var porCotizar = l.filter(function(x){ return !costo(x) && ((x.t && x.t.estado === 'repuesto') || x.adj.some(function(a){ return a.quien === 'TALLER'; })); });
   var enCamino = l.filter(function(x){ return porCotizar.indexOf(x) < 0 && costo(x); });
   var otras = l.filter(function(x){ return porCotizar.indexOf(x) < 0 && enCamino.indexOf(x) < 0; });
   [porCotizar, enCamino, otras].forEach(function(g){ g.sort(function(a, b){ return b.d - a.d; }); });
@@ -184,6 +188,7 @@ function pintar(){
       (x.p.novedad ? '<div class="fila"><span class="et">Daño</span>' + esc(x.p.novedad) + '</div>' : '') +
       (t && t.repuesto ? '<div class="pide"><b>El taller necesita:</b> ' + esc(t.repuesto) + (t.sale ? '<br><span class="nota">Sale estimado el ' + dcorta(t.sale) + ' si llega a tiempo</span>' : '') + '</div>' : '') +
       (t && t.nota ? '<div class="fila"><span class="et">Nota del taller</span>' + esc(t.nota) + '</div>' : '') +
+      adjHtml(x.adj) +
       (c ? '<div class="compra">' + (cst ? '<b>' + pesos(cst) + '</b>' + (c.repuestos && c.mano ? ' <span class="nota">(repuestos ' + pesos(c.repuestos) + ' + mano de obra ' + pesos(c.mano) + ')</span>' : '') : 'Sin costo') +
           (c.proveedor ? '<br>Proveedor: ' + esc(c.proveedor) : '') +
           (c.llega ? '<br>' + (atraso ? '<b style="color:var(--red)">Debía llegar el ' + dcorta(c.llega) + '</b>' : 'Llega el <b>' + dcorta(c.llega) + '</b>') : '') +
@@ -191,7 +196,7 @@ function pintar(){
           '<br><span class="nota">Registró ' + esc(c.por || '—') + ' el ' + dcorta(c.fecha) + (c.sinConfirmar ? ' · enviando…' : '') + '</span></div>' : '') +
       '<button class="btn' + (c ? '' : ' lleno') + '" data-costo="' + esc(x.p.id) + '">' + (c ? 'Actualizar costo' : 'Poner costo') + '</button></div>';
   }
-  h += '<h2 class="' + (porCotizar.length ? 'rojo' : '') + '">Por cotizar <span class="cuenta">' + porCotizar.length + '</span></h2>' +
+  h += '<h2 class="' + (porCotizar.length ? 'rojo' : '') + '">Por cotizar o registrar costo <span class="cuenta">' + porCotizar.length + '</span></h2>' +
     (porCotizar.length ? porCotizar.map(function(x){ return tarjeta(x, 'rojo'); }).join('') : '<div class="vacio">El taller no tiene repuestos sin cotizar.</div>');
   h += '<h2 class="' + (atrasados.length ? 'rojo' : 'ambar') + '">Cotizadas o en camino <span class="cuenta">' + enCamino.length + '</span></h2>' +
     (enCamino.length ? enCamino.map(function(x){ return tarjeta(x, x.c.llega && x.c.llega < hoy() ? 'rojo' : 'ambar'); }).join('') : '<div class="vacio">Nada cotizado todavía.</div>');
@@ -203,6 +208,15 @@ function pintar(){
   pintarNoLlego();
 }
 
+function adjHtml(l){
+  if (!l || !l.length) return '';
+  return '<div class="adj">' + l.map(function(a){
+    var txt = (a.tipo === 'application/pdf' ? 'PDF' : 'Foto') + ' · ' + (a.quien === 'COMPRAS' ? 'Compras' : 'Taller') + (a.por ? ' (' + esc(a.por) + ')' : '') + ' · ' + dcorta(a.fecha);
+    return a.local ? '<button class="adj-a" data-adj-local="' + esc(a.id) + '">📎 ' + esc(a.nombre) + '<small>' + txt + ' · ' + (a.intentos >= 3 ? 'no ha llegado' : 'enviando…') + '</small></button>'
+      : '<a class="adj-a" href="' + esc(a.url) + '" target="_blank" rel="noopener">📎 ' + esc(a.nombre) + '<small>' + txt + ' · tocar para ver</small></a>';
+  }).join('') + '</div>';
+}
+document.addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('[data-adj-local]'); if (b) Adjuntos.abrirLocal(b.dataset.adjLocal); });
 function abrir(html, alMontar){ $('#panel').innerHTML = html; $('#hoja').hidden = false; document.body.style.overflow = 'hidden'; if (alMontar) alMontar(); }
 function cerrar(){ $('#hoja').hidden = true; $('#panel').innerHTML = ''; document.body.style.overflow = ''; }
 $('#hoja').onclick = function(e){ if (e.target === $('#hoja')) cerrar(); };
@@ -232,34 +246,54 @@ function ponerCosto(id){
     '<label class="campo"><span>Proveedor</span><input id="c-prov" value="' + esc(c.proveedor || '') + '" placeholder="Dónde se compra o quién lo repara"></label>' +
     '<label class="campo"><span>¿Cuándo llega el repuesto? <i>— si ya se pidió</i></span><input id="c-llega" type="date" value="' + esc(c.llega || '') + '"></label>' +
     '<label class="campo"><span>Nota <i>— opcional</i></span><textarea id="c-nota" placeholder="N.º de cotización u orden de compra, forma de pago, garantía…">' + esc(c.nota || '') + '</textarea></label>' +
+    adjHtml(Adjuntos.de(id)) +
+    '<label class="btn" style="display:block;text-align:center;margin-top:12px">📎 Adjuntar orden de compra, factura o cotización<input type="file" id="c-adj" accept="application/pdf,image/*" multiple hidden></label>' +
+    '<div id="c-nuevos" class="adj"></div>' +
     '<button class="accion" id="c-ok">Guardar</button><button class="accion gris" id="c-no">Cancelar</button>',
     function(){
+      var nuevos = [];
       function sumar(){
         var a = numero($('#c-rep').value) || 0, b = numero($('#c-mano').value) || 0;
         $('#c-total').textContent = a + b ? 'Total para ponerla a trabajar: ' + pesos(a + b) : '';
-        $('#c-ok').disabled = !(a + b) && !$('#c-llega').value && !$('#c-prov').value.trim();
+        $('#c-ok').disabled = !(a + b) && !$('#c-llega').value && !$('#c-prov').value.trim() && !nuevos.length;
+        $('#c-nuevos').innerHTML = nuevos.map(function(f){ return '<span class="adj-a">📎 ' + esc(f.name) + '<small>se sube al guardar</small></span>'; }).join('');
       }
+      $('#c-adj').onchange = function(){
+        Array.prototype.forEach.call(this.files, function(f){
+          var pdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name || '');
+          if (!pdf && !/^image\//.test(f.type)){ aviso('Solo fotos o PDF.'); return; }
+          if (pdf && f.size > Adjuntos.MAX_PDF){ aviso('El PDF pesa más de 10 MB.'); return; }
+          nuevos.push(f);
+        });
+        this.value = ''; sumar();
+      };
       ['#c-rep', '#c-mano'].forEach(function(s){
         $(s).oninput = function(){ var n = numero(this.value); this.value = n == null ? '' : n.toLocaleString('es-CO'); sumar(); };
       });
       $('#c-prov').oninput = sumar; $('#c-llega').onchange = sumar;
       sumar();
       $('#c-no').onclick = cerrar;
-      $('#c-ok').onclick = function(){
-        Reparaciones.guardar('COMPRAS', id, p.cod, { repuestos: numero($('#c-rep').value), mano: numero($('#c-mano').value),
-          proveedor: $('#c-prov').value.trim(), llega: $('#c-llega').value, nota: $('#c-nota').value.trim() }, yo);
-        cerrar(); pintar(); aviso(p.cod + ': costo guardado.');
+      $('#c-ok').onclick = async function(){
+        var a = numero($('#c-rep').value), b = numero($('#c-mano').value);
+        if (a != null || b != null || $('#c-llega').value || $('#c-prov').value.trim() || $('#c-nota').value.trim() || R.compras)
+          Reparaciones.guardar('COMPRAS', id, p.cod, { repuestos: a, mano: b,
+            proveedor: $('#c-prov').value.trim(), llega: $('#c-llega').value, nota: $('#c-nota').value.trim() }, yo);
+        for (var i = 0; i < nuevos.length; i++){
+          try { await Adjuntos.subir(id, p.cod, nuevos[i], 'COMPRAS', yo); } catch(e){ aviso(e.message || 'No se pudo guardar el archivo.'); }
+        }
+        cerrar(); pintar(); aviso(p.cod + ': guardado.');
         setTimeout(cargar, 6000);   // confirma en la hoja que llegó
       };
     });
 }
 
 function pintarNoLlego(){
-  var l = Reparaciones.sinLlegar(), b = $('#nollego');
+  var l = Reparaciones.sinLlegar().concat(Adjuntos.sinLlegar()), b = $('#nollego');
   if (!l.length){ b.hidden = true; return; }
   b.hidden = false;
-  b.innerHTML = '<b>' + (l.length === 1 ? 'Un costo no ha llegado' : l.length + ' costos no han llegado') + ' a la hoja</b> después de 3 intentos.<button id="nl-re">Volver a enviar</button>';
-  $('#nl-re').onclick = function(){ Reparaciones.reintentar().then(function(){ pintarNoLlego(); aviso('Se volvió a enviar.'); }); };
+  b.innerHTML = '<b>' + (l.length === 1 ? 'Un registro no ha llegado' : l.length + ' registros no han llegado') + ' a la hoja</b> después de 3 intentos (siguen guardados en este celular).' +
+    (Adjuntos.sinLlegar().length ? ' Si los archivos nunca llegan, falta activarlos en el Apps Script: avísele a Anderson.' : '') + '<button id="nl-re">Volver a enviar</button>';
+  $('#nl-re').onclick = function(){ Adjuntos.reintentar(); Reparaciones.reintentar().then(function(){ pintarNoLlego(); aviso('Se volvió a enviar.'); }); };
 }
 
 async function cargar(){
@@ -270,6 +304,7 @@ async function cargar(){
     if (d && d.ok && Array.isArray(d.datos)) filas = d.datos;
   } catch(e){}
   await Reparaciones.traer().catch(function(){});
+  await Adjuntos.traer().catch(function(){});
   if (filas){ PARADAS = paradasDe(filas); guardar(); $('#sinhoja').hidden = true; }
   else {
     $('#sinhoja').hidden = false;
