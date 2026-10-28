@@ -683,9 +683,13 @@ function historial(anio, mes){
   }
   return out;
 }
-/* MTBF: días disponibles ÷ fallas, sumando los meses con datos del historial */
+/* MTBF: días disponibles ÷ fallas, sumando los meses con datos del historial.
+   Con pocos días de datos no dice nada (2 días y 1 falla darían "10 días
+   entre fallas"): no se calcula hasta tener MTBF_MIN días laborales. */
+var MTBF_MIN = 20;
 function confiabilidad(){
   var con = HIST.filter(function(h){ return !h.sinDatos && !h.futuro; });
+  var diasCon = con.reduce(function(a, h){ return a + h.diasProgramados; }, 0);
   var porEq = {}, F = { disponibles:0, fallas:0 };
   con.forEach(function(h){
     h.maquinaria.forEach(function(e){
@@ -696,8 +700,9 @@ function confiabilidad(){
   });
   var lista = Object.keys(porEq).map(function(k){ var x = porEq[k]; x.mtbf = x.fallas ? x.disponibles / x.fallas : null; return x; })
     .sort(function(a,b){ return (a.mtbf == null ? 1e9 : a.mtbf) - (b.mtbf == null ? 1e9 : b.mtbf); });
-  F.mtbf = F.fallas ? F.disponibles / F.fallas : null;
-  return { meses: con.length, equipos: lista, flota: F };
+  F.mtbf = F.fallas && diasCon >= MTBF_MIN ? F.disponibles / F.fallas : null;
+  if (diasCon < MTBF_MIN) lista.forEach(function(x){ x.mtbf = null; });
+  return { meses: con.length, dias: diasCon, equipos: lista, flota: F };
 }
 /* Misma máquina y mismo sistema, 2 o más fallas en los últimos 90 días */
 function fallasRepetidas(corte){
@@ -827,6 +832,8 @@ function pintar(){
   var secAtencion = aten.length ? '<div class="atencion"><h4>Requiere atención</h4><ul>' +
     aten.map(function(a){ return '<li class="' + a.c + '">' + a.t + '</li>'; }).join('') + '</ul></div>' : '';
 
+  // mientras el mes cuenta desde el arranque del sistema, se dice "desde el 27/10" y no "en el mes"
+  var enPer = D.parcial ? 'desde el ' + dcorta(D.desde) : 'en el mes', todoPer = D.parcial ? 'todos esos días' : 'todo el mes';
   var secKpis = '<div class="kpis prin">' +
     '<div class="kpi ' + clase(T.disponibilidad) + '"><div class="n">' + pct(T.disponibilidad) + '</div>' +
       '<div class="t">Disponibilidad de la maquinaria</div><div class="x">' + T.disponibles + ' de ' + T.programados +
@@ -835,7 +842,7 @@ function pintar(){
       (U ? pct(U.totales.utilizacion) : '—') + '</div><div class="t">Utilización</div><div class="x">' +
       (U ? U.totales.conLabor + ' de ' + U.totales.disponibles + ' días disponibles trabajados' +
         (U.totales.sinProgramar ? ' · ' + U.totales.sinProgramar + ' sin programar' : '') : 'sin programación ni preoperativos en el mes') + '</div></div>' +
-    '<div class="kpi"><div class="n">' + T.fallas + '</div><div class="t">Fallas en el mes</div>' +
+    '<div class="kpi"><div class="n">' + T.fallas + '</div><div class="t">Fallas ' + enPer + '</div>' +
       '<div class="x">en ' + T.conFallas + ' de ' + T.equipos + ' máquinas</div>' + (P ? delta(T.fallas, P.fallas, '', true) : '') + '</div>' +
     '<div class="kpi"><div class="n">' + n1(T.diasPorFalla) + '</div><div class="t">MTTR · días promedio de reparación</div>' +
       '<div class="x">' + (function(){
@@ -845,14 +852,15 @@ function pintar(){
     '</div><div class="kpis sec">' +
     '<div class="kpi ' + (T.diasFalla ? 'ma' : 'ok') + '"><div class="n">' + T.diasFalla + '</div>' +
       '<div class="t">Días-máquina perdidos por falla</div><div class="x">equivale a ' +
-      n1(T.diasFalla / Math.max(1, D.diasProgramados)) + ' máquinas paradas todo el mes</div>' + (P ? delta(T.diasFalla, P.diasFalla, ' días', true) : '') + '</div>' +
+      n1(T.diasFalla / Math.max(1, D.diasProgramados)) + ' máquinas paradas ' + todoPer + '</div>' + (P ? delta(T.diasFalla, P.diasFalla, ' días', true) : '') + '</div>' +
     '<div class="kpi"><div class="n">' + (C.flota.mtbf == null ? '—' : n1(C.flota.mtbf)) + '</div>' +
       '<div class="t">MTBF · días entre fallas</div><div class="x">' +
-      (C.flota.mtbf == null ? 'sin fallas registradas' : 'últimos ' + C.meses + (C.meses === 1 ? ' mes' : ' meses') + ' con datos') + '</div></div>' +
+      (C.flota.mtbf == null ? (C.dias < MTBF_MIN ? 'se calcula con al menos ' + MTBF_MIN + ' días laborales de datos (van ' + C.dias + ')' : 'sin fallas registradas')
+        : 'días-máquina disponibles entre fallas · ' + C.dias + ' días laborales con datos') + '</div></div>' +
     '<div class="kpi ' + (T.diasMtto ? 'al' : '') + '"><div class="n">' + T.diasMtto + '</div>' +
-      '<div class="t">Días en mantenimiento programado</div><div class="x">' + T.mttos + ' entrada(s) en el mes</div></div>' +
+      '<div class="t">Días en mantenimiento programado</div><div class="x">' + T.mttos + ' entrada(s) ' + enPer + '</div></div>' +
     '<div class="kpi"><div class="n">' + (D.horas.hay ? hFmt(D.horas.totales.horas).replace(' h', '') : '\u2014') + '</div>' +
-      '<div class="t">Horas trabajadas</div><div class="x">' + (D.horas.hay ? 'promedio ' + hFmt(D.horas.totales.promedio) + ' por jornada' : 'sin cierres de jornada en el mes') + '</div></div>' +
+      '<div class="t">Horas trabajadas</div><div class="x">' + (D.horas.hay ? 'promedio ' + hFmt(D.horas.totales.promedio) + ' por jornada' : 'sin cierres de jornada ' + enPer) + '</div></div>' +
     (D.camiones.length ? '<div class="kpi ' + clase(D.totalesCamiones.disponibilidad) + '"><div class="n">' + pct(D.totalesCamiones.disponibilidad) + '</div>' +
       '<div class="t">Disponibilidad de los camiones</div><div class="x">se mide aparte</div></div>' : '') +
     '</div>';
@@ -970,7 +978,7 @@ function pintar(){
     C.equipos.map(function(e){
       return '<tr><td><span class="eqn mono">' + esc(e.equipo) + '</span> <span class="mod">' + esc(e.nombre) + '</span></td>' +
         '<td class="num mono">' + e.disponibles + '</td><td class="num mono">' + (e.fallas || '—') + '</td>' +
-        '<td class="num">' + (e.mtbf == null ? '<span class="pill ok">sin fallas</span>' : '<span class="mono">' + n1(e.mtbf) + ' días</span>') + '</td></tr>';
+        '<td class="num">' + (e.mtbf == null ? (e.fallas ? '<span class="mod">pocos días</span>' : '<span class="pill ok">sin fallas</span>') : '<span class="mono">' + n1(e.mtbf) + ' días</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
   var secRepetidas = rep90.length ? rep90.map(function(x){
       return '<div class="critico"><b>' + esc(x.equipo) + ' ' + esc(x.nombre) + ' — ' + esc(x.sistema) + ', ' + x.fallas.length +
@@ -1011,7 +1019,7 @@ function pintar(){
         '<div class="kpi ' + clase(TC.disponibilidad) + '"><div class="n">' + pct(TC.disponibilidad) + '</div>' +
           '<div class="t">Disponibilidad de los camiones</div><div class="x">' + TC.disponibles + ' de ' + TC.programados + ' días-camión</div></div>' +
         '<div class="kpi ' + (TC.diasFalla ? 'ma' : 'ok') + '"><div class="n">' + TC.diasFalla + '</div><div class="t">Días perdidos por falla</div></div>' +
-        '<div class="kpi"><div class="n">' + TC.fallas + '</div><div class="t">Fallas en el mes</div></div>' +
+        '<div class="kpi"><div class="n">' + TC.fallas + '</div><div class="t">Fallas ' + (D.parcial ? 'desde el ' + dcorta(D.desde) : 'en el mes') + '</div></div>' +
         '<div class="kpi"><div class="n">' + n1(TC.diasPorFalla) + '</div><div class="t">Días promedio de reparación</div></div>' +
       '</div>' + tablaGrupo('Detalle por camión', D.camiones);
   } else secCamiones = '<div class="vacio">No hay camiones en la flota.</div>';
@@ -1137,7 +1145,7 @@ function informe(){
     '<div class="kpi-p">' +
       '<div><b>' + pct(T.disponibilidad) + '</b><span>Disponibilidad (meta ' + META + '%)</span>' + dif(T.disponibilidad, P && P.disponibilidad, ' pts', false, true) + '</div>' +
       '<div><b>' + (U ? pct(U.totales.utilizacion) : '—') + '</b><span>Utilización</span></div>' +
-      '<div><b>' + T.fallas + '</b><span>Fallas en el mes</span>' + dif(T.fallas, P && P.fallas, '', true) + '</div>' +
+      '<div><b>' + T.fallas + '</b><span>Fallas ' + (D.parcial ? 'desde el ' + dcorta(D.desde) : 'en el mes') + '</span>' + dif(T.fallas, P && P.fallas, '', true) + '</div>' +
       '<div><b>' + n1(T.diasPorFalla) + '</b><span>MTTR · días de reparación</span>' + dif(T.diasPorFalla, P && P.diasPorFalla, ' días', true, true) + '</div>' +
       '<div><b>' + T.diasFalla + '</b><span>Días-máquina perdidos por falla</span>' + dif(T.diasFalla, P && P.diasFalla, ' días', true) + '</div>' +
       '<div><b>' + (C.flota.mtbf == null ? '—' : n1(C.flota.mtbf)) + '</b><span>MTBF · días entre fallas</span></div>' +
@@ -1229,7 +1237,7 @@ function informe(){
       '</tbody></table>' : '<p>Sin programación guardada en el mes.</p>';
   h += '</div><div>' + sec('Confiabilidad', 'MTBF, ' + C.meses + (C.meses === 1 ? ' mes' : ' meses') + ' con datos') +
     '<table><thead><tr><th>Máquina</th><th class="n">Días disp.</th><th class="n">Fallas</th><th class="n">MTBF (días)</th></tr></thead><tbody>' +
-    C.equipos.map(function(e){ return fila([esc(e.equipo), e.disponibles, e.fallas, e.mtbf == null ? 'sin fallas' : n1(e.mtbf)]).replace(/<td>(sin fallas|[0-9][0-9,]*)<\/td><\/tr>$/, '<td class="n">$1</td></tr>'); }).join('') +
+    C.equipos.map(function(e){ return fila([esc(e.equipo), e.disponibles, e.fallas, e.mtbf == null ? (e.fallas ? 'pocos días' : 'sin fallas') : n1(e.mtbf)]).replace(/<td>(sin fallas|[0-9][0-9,]*)<\/td><\/tr>$/, '<td class="n">$1</td></tr>'); }).join('') +
     '</tbody></table></div></div>';
 
   /* 8. camiones */
