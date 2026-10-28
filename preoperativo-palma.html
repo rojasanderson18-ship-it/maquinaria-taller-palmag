@@ -553,7 +553,10 @@ function pOperario(){
     html: '<h2>¿Quién es usted?</h2><p class="ayuda">Toque su nombre.</p><div class="rejilla">' +
       ops.map(function(o){ return '<button class="op" data-o="' + esc(o) + '" aria-pressed="' + (F.operario === o) + '">' + esc(o) + '</button>'; }).join('') + '</div>',
     listo: function(){ return !!F.operario && ops.indexOf(F.operario) >= 0; },
-    bind: function(valido){ elegir('[data-o]', 'data-o', function(v){ F.operario = v; valido(); setTimeout(siguiente, 180); }); }
+    bind: function(valido){ elegir('[data-o]', 'data-o', function(v){
+      // otro operario: la máquina y la labor se vuelven a sugerir según su programación
+      if (v !== F.operario){ F.cod = ''; F.codElegida = false; F.labor = ''; F.lotes = ''; F.deProg = false; }
+      F.operario = v; valido(); setTimeout(siguiente, 180); }); }
   };
 }
 
@@ -573,6 +576,7 @@ function pMaquina(){
   }
   function bloqueada(c){ return !!R.paradas[c] && !(F.tipo === 'cierre' && usadaHoy(c)); }
   if (F.cod && bloqueada(F.cod)) F.cod = '';
+  if (!F.codElegida) F.cod = '';            // lo que no escogió el operario se vuelve a sugerir
   if (!F.cod && sug && !bloqueada(sug)) F.cod = sug;
   var lista = flota().slice().sort(function(a, b){ return (a.grupo === 'transporte') - (b.grupo === 'transporte'); });
   var p = R.prog[sug];
@@ -599,8 +603,30 @@ function pMaquina(){
   return {
     html: h,
     listo: function(){ return !!F.cod && !bloqueada(F.cod); },
-    bind: function(valido){ elegir('[data-m]', 'data-m', function(v){ F.cod = v; F.repetido = null; valido(); setTimeout(siguiente, 180); }); }
+    bind: function(valido){ elegir('[data-m]', 'data-m', function(v){
+      if (!confirmarMaquina(v, sug)){ pintarPaso(); return; }
+      if (v !== F.cod){ F.labor = ''; F.lotes = ''; F.deProg = false; }
+      F.cod = v; F.codElegida = true; F.repetido = null; valido(); setTimeout(siguiente, 180); }); }
   };
+}
+/* Antes de aceptar una máquina distinta a la suya, se pregunta: así un
+   preoperativo no queda en la máquina de otro (celular compartido, o se le
+   fue el dedo). Una máquina con preoperativo de otro operario hoy solo es
+   normal si es su doble turno programado. */
+function confirmarMaquina(v, sug){
+  if (v === F.cod && F.codElegida) return true;
+  var p = R.prog[v], suyo = p && (p.operario === F.operario || p.operario2 === F.operario);
+  if (sug && v !== sug){
+    var msg = F.tipo === 'preop'
+      ? F.operario + ': usted está programado hoy en la ' + sug + ' · ' + nombreDe(sug) + '.\n\n¿Seguro que va a usar la ' + v + '?'
+      : F.operario + ': su preoperativo de hoy fue en la ' + sug + '.\n\n¿Seguro que el cierre es de la ' + v + '?';
+    if (!confirm(msg)) return false;
+  }
+  if (F.tipo === 'preop' && !suyo){
+    var otros = preopsHoy().filter(function(l){ return l.cod === v && l.operario !== F.operario; }).map(function(l){ return l.operario; });
+    if (otros.length && !confirm('La ' + v + ' ya tiene preoperativo hoy de ' + otros.join(' y ') + '.\n\n¿Usted también la va a usar (doble turno)?')) return false;
+  }
+  return true;
 }
 
 /* aviso de pendientes del taller para la máquina escogida */
