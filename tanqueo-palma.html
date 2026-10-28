@@ -1752,6 +1752,85 @@ function enviarGenerico(accion, data, alExito){
 /* Confirma en la hoja lo enviado. Lo que no aparece después de 2 minutos
    vuelve a quedar pendiente y se reenvía (nunca se pierde sin aviso). La
    foto se borra del celular solo cuando la hoja ya la tiene. */
+/* Lo que se registró en otro celular (el saldo inicial que puso Leanis, las
+   llegadas, las mediciones y los tanqueos) se trae de la hoja, así todos
+   ven el mismo tanque. Lo de este celular que aún no se confirma en la hoja
+   no se toca; lo ya confirmado se actualiza con la hoja (ediciones o
+   anulaciones hechas en otro equipo). */
+function isoDe(v){
+  var s=String(v==null?'':v).trim(), m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if(m) return m[3]+'-'+String(m[2]).padStart(2,'0')+'-'+String(m[1]).padStart(2,'0');
+  if(s.indexOf('T')>0){ var d=new Date(s); if(!isNaN(d)) return hoyISO(d); }
+  return s.slice(0,10);
+}
+function horaDe(v){
+  var s=String(v==null?'':v);
+  if(s.indexOf('1899-')===0){ var d=new Date(s); return isNaN(d)?'':String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+  var m=s.match(/(\d{1,2}):(\d{2})/); return m ? String(m[1]).padStart(2,'0')+':'+m[2] : '';
+}
+/* el momento exacto va en el ID (r/m + milisegundos): así se sabe qué fue primero
+   aunque el saldo y el tanqueo se hayan registrado en el mismo minuto */
+function tsDe(f, h, id){
+  var ms=Number(String(id||'').slice(1,14));
+  if(ms>1.5e12 && ms<4e12) return ms;
+  var p=f.split('-'), q=(h||'00:00').split(':'); return new Date(+p[0], +p[1]-1, +p[2], +q[0]||0, +q[1]||0).getTime();
+}
+function numDe(v){ if(v===''||v==null) return null; var n=Number(String(v).replace(',','.')); return isNaN(n)?null:n; }
+var trayendo=false;
+function traerDeHoja(){
+  if(trayendo || !navigator.onLine) return Promise.resolve(false);
+  trayendo=true;
+  function leer(h){ return fetch(GS_URL+'?hoja='+h+'&t='+Date.now()).then(function(r){ return r.json(); })
+    .then(function(d){ if(!d || !d.ok || !Array.isArray(d.datos)) throw new Error('sin datos'); return d.datos; }); }
+  function ultimos(filas){ var u={}; filas.forEach(function(r){ var id=String(r[3]||'').trim(); if(id) u[id]=r; }); return u; }
+  return Promise.all([leer('Combustible'), leer('CombustibleTanque')]).then(function(res){
+    var cambio=false, hace30=hoyISO(new Date(Date.now()-30*86400000));
+    function confirmado(x){ return x.sync===true && !x.enviadoTs; }
+    var U=ultimos(res[0]);
+    Object.keys(U).forEach(function(id){
+      var r=U[id], f=isoDe(r[0]); if(!/^\d{4}-\d{2}-\d{2}$/.test(f)) return;
+      var anul=String(r[2]||'').trim().toUpperCase()==='ANULADO', h=horaDe(r[1]);
+      var x={ id:id, ts:tsDe(f,h,id), fecha:f, hora:h, equipo:String(r[4]||'').trim(), equipoNom:String(r[5]||''),
+        galones:numDe(r[6])||0, lectura:numDe(r[7])||0, lecturaTipo:String(r[8]||'')==='Km'?'kilometraje':'horometro',
+        deltaLectura:numDe(r[9]), rendimiento:numDe(r[10]), recibe:String(r[11]||''), despacha:String(r[12]||''),
+        precio:numDe(r[13])||0, costo:numDe(r[14])||0, saldoDespues:numDe(r[15]), folio:String(r[16]||''),
+        justificacion:String(r[17]||''), observacion:String(r[18]||''), anulado:anul,
+        firma: f>=hace30 ? String(r[19]||'') : '', foto:'', tuvoFoto:!!r[20], sync:true, deOtroEquipo:true };
+      var i=registros.findIndex(function(y){ return y.id===id; });
+      if(i<0){ registros.push(x); cambio=true; }
+      else if(confirmado(registros[i]) && (registros[i].anulado!==x.anulado || registros[i].galones!==x.galones || registros[i].lectura!==x.lectura)){
+        ['anulado','galones','lectura','observacion','justificacion','recibe','despacha'].forEach(function(k){ registros[i][k]=x[k]; }); cambio=true;
+      }
+    });
+    var M=ultimos(res[1]);
+    Object.keys(M).forEach(function(id){
+      var r=M[id], f=isoDe(r[0]), t=String(r[2]||'').trim().toUpperCase(); if(!/^\d{4}-\d{2}-\d{2}$/.test(f) || (t!=='LLEGADA' && t!=='AJUSTE')) return;
+      var h=horaDe(r[1]);
+      var x = t==='LLEGADA'
+        ? { id:id, ts:tsDe(f,h,id), tipo:'recarga', fecha:f, galones:numDe(r[4])||0, precio:numDe(r[7])||0, nota:String(r[8]||''), placa:String(r[9]||''),
+            conductor:String(r[10]||''), observacion:String(r[11]||''), firma: f>=hace30 ? String(r[12]||'') : '', foto:'', sync:true, deOtroEquipo:true }
+        : { id:id, ts:tsDe(f,h,id), tipo:'ajuste', fecha:f, galones:numDe(r[4])||0, teorico:numDe(r[5])||0, diferencia:numDe(r[6])||0, nota:String(r[8]||''), sync:true, deOtroEquipo:true };
+      if(!movimientos.some(function(y){ return y.id===id; })){ movimientos.push(x); cambio=true; }
+    });
+    if(cambio){
+      registros.sort(function(a,b){ return a.ts-b.ts; });
+      movimientos.sort(function(a,b){ return a.ts-b.ts; });
+      if(movimientos.length) cfg.iniciado=true;
+      guardarTodo();
+    }
+    return cambio;
+  }).catch(function(){ return false; }).then(function(c){ trayendo=false; return c; });
+}
+function mostrarSegunSaldo(){
+  if(!cfg.iniciado && !movimientos.length){ $('setup').style.display='block'; $('formTanqueo').style.display='none'; }
+  else { $('setup').style.display='none'; $('formTanqueo').style.display='block'; }
+}
+function alTraer(cambio){
+  if(!cambio) return;
+  mostrarSegunSaldo(); pintarEncabezado(); pintarRegistros(); pintarMovimientos(); pintarChipSync();
+  if(typeof pintarAlertaReq==='function') pintarAlertaReq();
+}
+
 var verificando=false;
 function verificar(){
   if(verificando || !navigator.onLine) return Promise.resolve();
@@ -2252,6 +2331,18 @@ window.addEventListener('resize', function(){
 });
 iniciar();
 
+/* lo registrado en otros celulares (saldo inicial, llegadas, mediciones y tanqueos) */
+if(!cfg.iniciado && !movimientos.length && navigator.onLine){
+  $('setup').style.display='none'; $('formTanqueo').style.display='none';
+  var cons=document.createElement('div'); cons.id='consultandoHoja'; cons.className='aviso amarillo';
+  cons.style.margin='16px'; cons.textContent='Consultando el tanque en la hoja…';
+  $('setup').parentNode.insertBefore(cons, $('setup'));
+}
+traerDeHoja().then(function(c){
+  var cons=$('consultandoHoja'); if(cons) cons.remove();
+  mostrarSegunSaldo(); alTraer(c);
+});
+
 /* Lista compartida de máquinas, envío de pendientes y confirmación en la hoja */
 if(window.Maestros) Maestros.traer().then(function(cambio){
   if(cambio){ equipos = equiposCompartidos(); pintarSelectores(); pintarGrilla(); }
@@ -2263,7 +2354,7 @@ setTimeout(function(){
     setTimeout(verificar, 4000);
   });
 }, 1500);
-setInterval(verificar, 5*60000);
+setInterval(function(){ traerDeHoja().then(alTraer); verificar(); }, 5*60000);
 window.addEventListener('online', function(){ setTimeout(verificar, 5000); });
 
 /* Guarda la app en el celular para que abra sin senal.
