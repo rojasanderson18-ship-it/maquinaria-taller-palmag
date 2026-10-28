@@ -531,11 +531,12 @@ function pintar(){
 
   var pTaller = programadasEnTaller(fechaSel);
   if (pTaller.length){
-    h += '<div class="alerta"><b>' + (pTaller.length === 1 ? 'Una máquina programada entró al taller.' : pTaller.length + ' máquinas programadas entraron al taller.') +
-      '</b> ' + pTaller.map(function(m){ var a = d[m.cod];
-        return esc(m.cod) + ' tenía ' + esc(txtLabor(a.labor)) + (opsDe(a).length ? ' con ' + esc(opsDe(a).join(' y ')) : ''); }).join('; ') +
-      '. ' + (pTaller.some(function(m){ return opsDe(d[m.cod]).length; }) ? 'Quedó libre: asígnelo a otra máquina. ' : '') +
-      '<button class="btn-lib" id="liberar">Quitar de la programación</button></div>';
+    h += '<div class="nota-a"><b>' + (pTaller.length === 1 ? 'Una máquina programada está en el taller' : pTaller.length + ' máquinas programadas están en el taller') +
+      ':</b> ' + pTaller.map(function(m){ var a = d[m.cod];
+        return esc(m.cod) + ' (' + esc(txtLabor(a.labor)) + (opsDe(a).length ? ' con ' + esc(opsDe(a).join(' y ')) : '') + ')'; }).join('; ') +
+      '. Su labor queda en espera: cuando el Taller le dé el alta, el operario la ve en el Preoperativo. ' +
+      (pTaller.some(function(m){ return opsDe(d[m.cod]).length; }) ? 'Mientras tanto su operario puede ir a otra máquina. ' : '') +
+      '<button class="btn-lib" id="liberar">Quitarlas de la programación</button></div>';
   }
   if (dobles.length){
     h += '<div class="alerta"><b>Un operario no puede estar en dos máquinas.</b> ' +
@@ -582,8 +583,10 @@ function pintar(){
       '<span class="cod mono">' + esc(m.cod) + '</span>' +
       '<span><span class="nom">' + esc(m.nombre) + '</span>' +
       '<span class="sub ' + clsSub + '">' + esc(sub) + '</span>' +
-      (!vr && pendTaller[m.cod] ? '<span class="sub pend">Pendiente del taller: ' + esc(txtPend(m.cod)) + '</span>' : '') + '</span>' +
-      '<span class="ir">' + (vr ? '' : '›') + '</span></button></div>';
+      (!vr && pendTaller[m.cod] ? '<span class="sub pend">Pendiente del taller: ' + esc(txtPend(m.cod)) + '</span>' : '') +
+      (vr ? (a ? '<span class="sub asig">Si sale del taller: ' + esc([txtLabor(a.labor), txtLotes(a), a.implemento, opsDe(a).length ? txtOps(a) : 'sin operario'].filter(Boolean).join(' · ')) + '</span>'
+             : '<span class="sub">Toque para dejarla programada por si sale del taller</span>') : '') + '</span>' +
+      '<span class="ir">›</span></button></div>';
   }
 
   h += '<h2>Cosecha, fertilización y mantenimiento</h2>' +
@@ -610,8 +613,7 @@ function pintar(){
   $('#sig').onclick = function(){ fechaSel = sumarDias(fechaSel, 1); pintar(); };
   $$('#app .cab').forEach(function(b){
     b.onclick = function(){
-      if (b.dataset.varada){ aviso(b.dataset.cod + ' está en el taller. Dele de alta primero.'); return; }
-      asignar(b.dataset.cod);
+      asignar(b.dataset.cod);   // en el taller también: queda lista para cuando salga
     };
   });
   $('#btn-yo').textContent = estado.yo || '¿Quién programa?';
@@ -699,7 +701,9 @@ function asignar(cod){
     busca: ''
   };
 
-  var h = tope(cod + ' · ' + nombreDe(cod), fechaLarga(fechaSel)) + '<div class="cuerpo">';
+  var h = tope(cod + ' · ' + nombreDe(cod), fechaLarga(fechaSel)) + '<div class="cuerpo">' +
+    (enTallerEse(fechaSel, cod) ? '<div class="nota-a"><b>Está en el taller:</b> ' + esc(varadas[cod]) +
+      '.<br>Lo que programe queda <b>listo para cuando salga</b>: apenas el Taller le dé el alta, la labor le aparece al operario en el Preoperativo y el Taller le avisa a dónde va. Mientras siga en el taller, su operario e implemento no cuentan como ocupados.</div>' : '');
   if (pendTaller[cod]){
     h += '<div class="nota-a"><b>Pendiente del taller:</b> ' + esc(txtPend(cod)) +
       '. La máquina puede trabajar, pero avise al operario para que esté atento.</div>';
@@ -1242,6 +1246,9 @@ function textoWhatsApp(){
   var enTaller = cfgFlota().filter(function(m){ return varadas[m.cod]; }).map(function(m){ return m.cod; });
   L.push('━━━━━━━━━━━━');
   if (enTaller.length) L.push('🔧 *En el taller (no usar):* ' + enTaller.join(', '));
+  // las que tienen labor en espera: el operario sabe a dónde ir si la sueltan
+  enTaller.forEach(function(c){ var a = asignacion(fechaSel, c); if (!a) return;
+    L.push('   ↪ ' + c + ' si sale: ' + [txtLabor(a.labor), txtLotes(a), opsDe(a).length ? txtOps(a) : ''].filter(Boolean).join(' · ')); });
   // lo que anotó el taller en máquinas que trabajan, abajo y como observación (sin "URGENTE")
   var conObs = cfgFlota().filter(function(m){ return pendTaller[m.cod] && !varadas[m.cod]; });
   if (conObs.length){

@@ -532,6 +532,7 @@ function pintar(){
    Hoja deslizable
    ===================================================================== */
 function abrir(html, alMontar){
+  soloInfo = false;
   $('#panel').innerHTML = html;
   $('#hoja').hidden = false;
   document.body.style.overflow = 'hidden';
@@ -545,7 +546,8 @@ function abrir(html, alMontar){
   }
   if (alMontar) alMontar();
 }
-function cerrar(){ $('#hoja').hidden = true; $('#panel').innerHTML = ''; document.body.style.overflow = ''; }
+var soloInfo = false;     // la hoja abierta solo muestra información (no hay formulario)
+function cerrar(){ soloInfo = false; $('#hoja').hidden = true; $('#panel').innerHTML = ''; document.body.style.overflow = ''; }
 $('#hoja').addEventListener('click', function(e){ if (e.target.id === 'hoja') cerrar(); });
 document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('#hoja').hidden) cerrar(); });
 
@@ -837,6 +839,7 @@ function verEquipo(cod){
       cerrar(); pintar();
       aviso(cod + ' quedó disponible. ' + dias + ' día(s) parada.');
       enviar();
+      aDondeVa(cod);
     };
     var r = $('#rep');
     if (r) r.onclick = function(){ cerrar(); reportar(cod); };
@@ -1294,6 +1297,45 @@ async function traerReparaciones(){
   if (window.Adjuntos) try { await Adjuntos.traer(); pintarNoLlego(); } catch(e){}
 }
 
+/* Al darle el alta: ¿a dónde va hoy? Si en la Programación la dejaron
+   lista "por si sale del taller", Tulio le avisa al operario; si no está
+   programada, que avise al supervisor. */
+async function aDondeVa(cod){
+  var hy = hoy(), a = null, leida = false, porDia = {}, cuando = '';
+  var dm = new Date(); dm.setDate(dm.getDate() + 1); var manana = isoLocal(dm);
+  try {
+    var r = await fetch(GS_URL + '?hoja=ProgMaquinaria&t=' + Date.now()), d = await r.json();
+    if (d && d.ok && Array.isArray(d.datos)){
+      leida = true;
+      // hoy, o el próximo día que tenga programado (la Programación se hace la víspera)
+      d.datos.forEach(function(f){
+        var fe = aIso(f[4]);
+        if (fe < hy || String(f[5] || '').trim() !== cod) return;
+        var acc = String(f[2] || '').trim().toUpperCase();
+        if (acc === 'QUITAR') delete porDia[fe];
+        else if (acc === 'ASIGNAR') porDia[fe] = { labor:String(f[6] || ''), lotes:String(f[7] || ''), impl:String(f[8] || ''),
+          op:String(f[9] || ''), op2:String(f[12] || ''), obs:String(f[10] || ''), por:String(f[11] || '') };
+      });
+      var fechas = Object.keys(porDia).sort();
+      if (fechas.length){ cuando = fechas[0]; a = porDia[cuando]; }
+    }
+  } catch(e){}
+  if (!$('#hoja').hidden) return;          // ya abrió otra cosa
+  abrir(topeFicha(cod, '<span class="pill v">Quedó lista</span>') + '<div class="cuerpo">' +
+    (a ? '<div class="tarj" style="border-left:4px solid var(--green)"><div class="et">' + (cuando === hy ? 'Hoy' : cuando === manana ? 'Mañana' : 'El ' + dcorta(cuando)) + ' está programada para</div>' +
+        '<div class="vl grande">' + esc(a.labor || 'Labor sin nombre') + '</div>' +
+        (a.lotes ? '<div class="vl">Lotes: <b>' + esc(a.lotes) + '</b></div>' : '') +
+        (a.impl ? '<div class="vl">Implemento: <b>' + esc(a.impl) + '</b></div>' : '') +
+        '<div class="vl">Operario: <b>' + esc(a.op || 'sin operario') + '</b>' + (a.op2 ? ' · turno 2: <b>' + esc(a.op2) + '</b>' : '') + '</div>' +
+        (a.obs ? '<div class="vl" style="color:var(--steel);font-size:14px">' + esc(a.obs) + '</div>' : '') +
+        '</div><p class="nota">Avísele al operario a dónde va. También le aparece en el Preoperativo.</p>'
+      : leida ? '<div class="tarj alerta"><div class="et">No está programada</div>' +
+          '<div class="vl">Avísele al supervisor para que le asigne labor en la Programación.</div></div>'
+        : '<div class="tarj"><div class="vl">No se pudo ver la Programación (sin señal). Pregúntele al supervisor a dónde va.</div></div>') +
+    '<button class="accion verde" data-cerrar>Listo</button></div>');
+  soloInfo = true;
+}
+
 function encolarParada(ev){
   encolar(HOJA, [fechaCO(hoy()), horaAhora(), 'PARADA', ev.id, ev.equipo, nombreDe(ev.equipo),
     ev.tipo, ev.sistema ? txtSistema(ev.sistema) : '', ev.novedad, ev.reportadoPor, ev.fechaReporte, '', '', ''], ENC_TALLER, ev.id);
@@ -1572,7 +1614,8 @@ async function traer(){
     if (!d || !d.ok || !Array.isArray(d.datos)){ pintarLectura(false); return; }   // error del Apps Script: se deja lo local
     pintarLectura(true);
     // con una hoja abierta no se reemplazan los eventos: el formulario tiene uno en la mano
-    if (!$('#hoja').hidden) return;
+    // (un aviso que solo informa, como "a dónde va", no frena nada)
+    if (!$('#hoja').hidden && !soloInfo) return;
     fusionar(d.datos);
     fusionarNovedades(d.datos);
     estado.reportes = reportesDe(d.datos);
