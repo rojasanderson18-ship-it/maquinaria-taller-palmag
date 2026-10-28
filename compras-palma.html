@@ -8,28 +8,31 @@
 <link rel="manifest" href="manifest-compras.json">
 <link rel="apple-touch-icon" href="icons/compras-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --paper:#EDF0EE; --card:#fff; --ink:#16211C; --soft:#4A5B53; --steel:#7E8C86; --line:#D3DAD6;
     --green:#1F5D3C; --green-s:#E2EDE6; --amber:#B0600D; --amber-s:#FBEEDC;
-    --red:#9E2B21; --red-s:#F9E3E1; --blue:#1D4E89; --blue-s:#E3ECF7; --r:4px;
+    --red:#9E2B21; --red-s:#F9E3E1; --blue:#1F5D3C; --blue-s:#E2EDE6; --r:4px;   /* las acciones en verde, como en el Taller */
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--paper);color:var(--ink);font-size:16px;line-height:1.4;min-height:100vh}
+  body{font-family:'Barlow',system-ui,sans-serif;background:var(--paper);color:var(--ink);font-size:16px;line-height:1.4;min-height:100vh}
   button{font:inherit;cursor:pointer;color:inherit}
-  .mono{font-family:'IBM Plex Mono',monospace}
-  header{background:var(--ink);color:#fff;padding:14px 16px 16px}
-  .top{display:flex;align-items:center;gap:10px;max-width:760px;margin:0 auto}
-  .volver{color:#fff;text-decoration:none;font-size:22px;line-height:1;padding:4px 6px 4px 0}
-  .tit b{display:block;font-size:18px}
-  .tit span{font-size:13px;opacity:.75}
-  .inst-btn{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:var(--r);padding:6px 10px;font-size:13px}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+  /* encabezado como el del Taller */
+  header{background:var(--ink);color:#EDF0EE;padding:12px 16px;position:sticky;top:0;z-index:20;border-bottom:3px solid var(--green)}
+  .top{display:flex;align-items:center;gap:12px;max-width:760px;margin:0 auto}
+  .volver{color:#9CB3A7;text-decoration:none;font-size:24px;line-height:1;padding:2px 4px 4px 0}
+  .tit .marca{display:block;font-size:11px;letter-spacing:.14em;color:#8FA79A;font-weight:600;text-transform:uppercase}
+  .tit b{display:block;font-size:19px;line-height:1.15}
+  .tit span#sub{font-size:12px;color:#8FA79A}
+  .inst-btn{margin-left:auto;font-size:13px;font-weight:600;color:#fff;background:var(--green);border:1px solid var(--green);border-radius:20px;padding:6px 12px;white-space:nowrap}
+  .inst-btn[hidden]{display:none}
   main{max-width:760px;margin:0 auto;padding:14px 16px 40px}
   .resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:6px}
   .res{background:var(--card);border:1px solid var(--line);border-top:4px solid var(--steel);border-radius:var(--r);padding:10px}
   .res .t{font-size:11.5px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.04em}
-  .res .n{font-size:22px;font-weight:700;margin-top:2px}
+  .res .n{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:22px;font-weight:700;margin-top:2px}
   .res.r{border-top-color:var(--red)} .res.r .n{color:var(--red)}
   .res.a{border-top-color:var(--amber)} .res.a .n{color:var(--amber)}
   .res.v{border-top-color:var(--green)}
@@ -96,7 +99,7 @@
 <div id="pin"><div><b style="font-size:20px">Compras</b><p>Ingrese el PIN</p><input id="pin-in" type="password" inputmode="numeric" maxlength="4" autocomplete="off"></div></div>
 <header><div class="top">
   <a class="volver" href="./" aria-label="Volver">‹</a>
-  <div class="tit"><b>Compras · Repuestos del taller</b><span id="sub">Costos de las máquinas paradas</span></div>
+  <div class="tit"><span class="marca">Palma Grande · Taller</span><b>Compras de repuestos</b><span id="sub">Costos de las máquinas paradas</span></div>
   <button class="inst-btn" id="btn-instalar" hidden>Instalar app</button>
 </div></header>
 <div class="lectura" id="nollego" hidden></div>
