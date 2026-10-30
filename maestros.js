@@ -590,6 +590,121 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
     descartar: function(id){ cargarAdj(); AD.cola = AD.cola.filter(function(x){ return x.id !== id; }); guardarAdj(); idbHacer('readwrite', function(st){ return st.delete(id); }).catch(function(){}); }
   };
 
+  /* =====================================================================
+     COMBUSTIBLE — un solo cálculo para la app de Tanqueo y Agrovisión.
+     Antes cada pantalla calculaba el consumo a su manera y podían dar
+     cifras distintas para la misma máquina.
+     Un tanqueo: { id, ts, fecha, cod, gal, lec, tipo ('horometro'|'km'|
+     'ninguna'), anulado, dudoso, … }. Un movimiento del tanque:
+     { id, ts, fecha, tipo ('LLEGADA'|'AJUSTE'), gal, teorico, dif, … }.
+     ===================================================================== */
+  function tsDeId(id, fecha, hora){
+    var ms = Number(String(id || '').slice(1, 14));
+    if (ms > 1.5e12 && ms < 4e12) return ms;            // el ID lleva el momento exacto
+    var p = String(fecha || '').split('-'), q = String(hora || '00:00').split(':');
+    return new Date(+p[0], +p[1] - 1, +p[2], +q[0] || 0, +q[1] || 0).getTime();
+  }
+  function hm(v){
+    var s = String(v == null ? '' : v);
+    if (s.indexOf('1899-') === 0){ var d = new Date(s); return isNaN(d) ? '' : p2(d.getHours()) + ':' + p2(d.getMinutes()); }
+    var m = s.match(/(\d{1,2}):(\d{2})/); return m ? p2(+m[1]) + ':' + m[2] : '';
+  }
+  /* una pareja válida: dos lecturas seguidas de la misma máquina que avanzan
+     poco (una lectura mal digitada no cuenta) */
+  function parValido(a, b){
+    if (!a || !b || a.tipo !== b.tipo || a.tipo === 'ninguna' || !(a.lec > 0) || !(b.lec > 0) || b.dudoso) return false;
+    var d = b.lec - a.lec;
+    return d > 0 && d <= (b.tipo === 'km' ? 3000 : 300);
+  }
+  function porMaquina(lista, cod){ return lista.filter(function(t){ return t.cod === cod && !t.anulado; }).sort(function(a, b){ return a.ts - b.ts; }); }
+  function tasaDe(pares, km){
+    var gal = 0, av = 0;
+    pares.forEach(function(p){ gal += p[1].gal; av += p[1].lec - p[0].lec; });
+    return { gal:gal, avance:av, pares:pares.length, km:km,
+      tasa: av > 0 && gal > 0 ? (km ? av / gal : gal / av) : null };   // gal/h, o km/gal en camiones y vehículos
+  }
+  window.Combustible = {
+    /* hoja Combustible → tanqueos (vale la última fila de cada ID; sin anulados) */
+    tanqueos: function(filas){
+      var u = {};
+      (filas || []).forEach(function(r){ var id = String(r[3] || '').trim(); if (id) u[id] = r; });
+      var l = Object.keys(u).map(function(id){
+        var r = u[id], f = aIso(r[0]), tl = String(r[8] || '');
+        return { id:id, fecha:f, hora:hm(r[1]), ts:tsDeId(id, f, hm(r[1])), anulado: String(r[2] || '').trim().toUpperCase() === 'ANULADO',
+          cod:String(r[4] || '').trim(), nom:String(r[5] || ''), gal:num(r[6]) || 0, lec:num(r[7]),
+          tipo: tl === 'Km' ? 'km' : tl === 'Ninguna' ? 'ninguna' : 'horometro',
+          recibe:String(r[11] || '').trim(), despacha:String(r[12] || '').trim(), precio:num(r[13]) || 0, costo:num(r[14]) || 0,
+          saldo:num(r[15]), folio:String(r[16] || ''), just:String(r[17] || '').trim(), obs:String(r[18] || '').trim() };
+      }).filter(function(t){ return /^\d{4}-\d{2}-\d{2}$/.test(t.fecha) && t.gal > 0; });
+      // galones fuera de toda proporción para esa máquina (125 en vez de 12,5): no se cuentan
+      var por = {};
+      l.forEach(function(t){ if (!t.anulado) (por[t.cod] = por[t.cod] || []).push(t.gal); });
+      l.forEach(function(t){
+        var v = (por[t.cod] || []).slice().sort(function(a, b){ return a - b; }), med = v[Math.floor(v.length / 2)];
+        t.dudoso = v.length >= 5 && t.gal > Math.max(med * 4, 30);
+      });
+      return l.sort(function(a, b){ return a.ts - b.ts; });
+    },
+    /* hoja CombustibleTanque → llegadas y mediciones (cuadres y cierres) */
+    movimientos: function(filas){
+      var u = {};
+      (filas || []).forEach(function(r){ var id = String(r[3] || '').trim(); if (id) u[id] = r; });
+      return Object.keys(u).map(function(id){
+        var r = u[id], f = aIso(r[0]), tipo = String(r[2] || '').trim().toUpperCase(), nota = String(r[8] || '').trim();
+        return { id:id, fecha:f, ts:tsDeId(id, f, hm(r[1])), tipo:tipo, gal:num(r[4]) || 0, teorico:num(r[5]), dif:num(r[6]) || 0,
+          precio:num(r[7]) || 0, nota:nota, cierre: nota.indexOf('Cierre por llegada') === 0,
+          motivo: nota.indexOf('Cierre por llegada') === 0 ? nota.split(' · ').slice(2).join(' · ') : '' };
+      }).filter(function(m){ return /^\d{4}-\d{2}-\d{2}$/.test(m.fecha) && (m.tipo === 'LLEGADA' || m.tipo === 'AJUSTE'); })
+        .sort(function(a, b){ return a.ts - b.ts; });
+    },
+    /* consumo de una máquina con los tanqueos de un período (desde/hasta en ms):
+       galones de cada tanqueo ÷ lo que avanzó el horómetro desde el anterior */
+    consumo: function(lista, cod, desde, hasta){
+      var l = porMaquina(lista, cod), pares = [];
+      for (var i = 1; i < l.length; i++) if (l[i].ts >= desde && l[i].ts <= hasta && parValido(l[i - 1], l[i])) pares.push([l[i - 1], l[i]]);
+      return tasaDe(pares, l.length && l[0].tipo === 'km');
+    },
+    /* lo normal de una máquina: sus últimos N tanqueos antes de "antes" */
+    normal: function(lista, cod, antes, n, excluirId){
+      var l = porMaquina(lista, cod).filter(function(t){ return t.ts < antes && t.id !== excluirId; }), pares = [];
+      for (var i = l.length - 1; i >= 1 && pares.length < (n || 10); i--) if (parValido(l[i - 1], l[i])) pares.push([l[i - 1], l[i]]);
+      var r = tasaDe(pares, l.length && l[0].tipo === 'km');
+      if (pares.length < 3) r.tasa = null;          // con menos de 3 tanqueos no hay "normal"
+      return r;
+    },
+    /* el consumo de un tanqueo frente al anterior de la misma máquina */
+    deTanqueo: function(lista, t){
+      var l = porMaquina(lista, t.cod), i = -1;
+      for (var k = 0; k < l.length; k++) if (l[k].id === t.id) i = k;
+      return i > 0 && parValido(l[i - 1], l[i]) ? tasaDe([[l[i - 1], l[i]]], t.tipo === 'km').tasa : null;
+    },
+    /* saldo del tanque: la última medición + lo que entró − lo despachado después */
+    saldo: function(movs, lista, hasta){
+      hasta = hasta || Infinity;
+      var m = movs.filter(function(x){ return x.ts <= hasta; }), base = 0, desde = 0;
+      for (var i = m.length - 1; i >= 0; i--) if (m[i].tipo === 'AJUSTE'){ base = m[i].gal; desde = m[i].ts; break; }
+      m.forEach(function(x){ if (x.tipo === 'LLEGADA' && x.ts > desde) base += x.gal; });
+      lista.forEach(function(t){ if (!t.anulado && t.ts > desde && t.ts <= hasta) base -= t.gal; });
+      return Math.round(base * 100) / 100;
+    },
+    /* galones por día de los últimos días, y cuántos días alcanza el saldo */
+    autonomia: function(lista, saldo, dias){
+      dias = dias || 15;
+      var lim = Date.now() - dias * 86400000, g = lista.filter(function(t){ return !t.anulado && t.ts >= lim; }).reduce(function(a, t){ return a + t.gal; }, 0);
+      var diario = g / dias;
+      return { diario:diario, dias: diario > 0 ? saldo / diario : null };
+    },
+    /* el período de un cierre: desde la medición anterior hasta este cierre */
+    periodo: function(movs, lista, cierre){
+      var ant = movs.filter(function(m){ return m.tipo === 'AJUSTE' && m.ts < cierre.ts; }).pop() || null, desde = ant ? ant.ts : 0;
+      var entr = movs.filter(function(m){ return m.tipo === 'LLEGADA' && m.ts > desde && m.ts < cierre.ts; });
+      var sal = lista.filter(function(t){ return !t.anulado && t.ts > desde && t.ts < cierre.ts; });
+      var tE = entr.reduce(function(a, m){ return a + m.gal; }, 0), tS = sal.reduce(function(a, t){ return a + t.gal; }, 0);
+      return { anterior:ant, entradas:entr, salidas:sal, totalEntradas:tE, totalSalidas:tS,
+        teorico: Math.round(((ant ? ant.gal : 0) + tE - tS) * 100) / 100 };
+    }
+  };
+
   window.Mtto = {
     INTERVALO: 250,     // horas entre mantenimientos, si la máquina no tiene otro
     AVISO: 25,          // se avisa cuando faltan estas horas o menos
