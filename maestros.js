@@ -49,7 +49,8 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
   var M = leerLocal();
   var avisos = [], GRACIA_MS = 2 * 60000, MAX_INTENTOS = 3;
   var NOMBRES = { FLOTA:'la lista de máquinas', MTTO:'los mantenimientos', OPERARIOS:'los tractoristas',
-    SUPERVISORES:'los supervisores', LOTES:'los lotes', FINCAS:'las fincas', IMPL:'los implementos' };
+    SUPERVISORES:'los supervisores', LOTES:'los lotes', FINCAS:'las fincas', IMPL:'los implementos',
+    VEHICULOS:'los vehículos que tanquean' };
 
   window.Maestros = {
     GRUPOS: GRUPOS,
