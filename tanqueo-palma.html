@@ -82,6 +82,8 @@ textarea{min-height:70px;resize:vertical}
 
 /* selector de equipo en grilla, como los botones del Taller */
 .grilla{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.grupo-eq{grid-column:1/-1;font-size:11.5px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.07em;margin:6px 0 -2px}
+.grupo-eq:first-child{margin-top:0}
 .eq-btn{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px 6px;text-align:center;display:grid;gap:2px;min-height:70px;align-content:center}
 .eq-btn .c{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:16px;font-weight:700}
 .eq-btn .m{font-size:11.5px;color:var(--steel);line-height:1.25;overflow:hidden}
@@ -199,37 +201,26 @@ nav button .badge.on{display:block}
   .capa-cerrar{display:none !important}
 }
 
-/* Informe imprimible (PDF) — línea ejecutiva: verde Palma Grande + dorado, serif en títulos */
-.informe-doc{
-  background:#fff;color:#1a2620;max-width:100%;
-  font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-}
-.informe-doc .barra-top-doc{height:4px;background:linear-gradient(90deg,#123024,#C9A84C,#123024);margin:-18px -18px 18px}
-.informe-doc .encabezado-doc{display:flex;justify-content:space-between;align-items:flex-end;
-  border-bottom:2px solid #123024;padding-bottom:12px;margin-bottom:18px}
-.informe-doc h1{font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:700;
-  color:#123024;margin:0 0 3px;letter-spacing:.01em}
-.informe-doc .sub{font-size:12px;color:#6b7d72;margin:0}
-.informe-doc .marca-doc{text-align:right;font-size:10.5px;color:#9aa89f;text-transform:uppercase;letter-spacing:.08em}
-.informe-doc .marca-doc strong{display:block;font-family:'Playfair Display',Georgia,serif;
-  font-size:13px;color:#123024;text-transform:none;letter-spacing:0}
-.informe-doc h2{font-family:'Playfair Display',Georgia,serif;font-size:15px;font-weight:600;
-  color:#123024;margin:24px 0 10px;padding-bottom:6px;border-bottom:1px solid #C9A84C;letter-spacing:.01em}
-.informe-doc table{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:6px}
-.informe-doc th{text-align:left;background:#123024;color:#F5EFD8;padding:7px 8px;font-weight:600;
-  font-size:10.5px;text-transform:uppercase;letter-spacing:.03em}
-.informe-doc td{padding:7px 8px;border-bottom:1px solid #E4E1D6;vertical-align:top}
-.informe-doc tr:nth-child(even) td{background:#FAF9F4}
-.informe-doc .kpis-doc{display:flex;gap:12px;margin:6px 0 4px}
-.informe-doc .kpis-doc div{flex:1;border:1px solid #E4E1D6;border-top:3px solid #C9A84C;
-  border-radius:6px;padding:12px 10px;background:#FDFCF8}
-.informe-doc .kpis-doc .v{font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:700;color:#123024}
-.informe-doc .kpis-doc .k{font-size:10.5px;color:#6b7d72;margin-top:2px;text-transform:uppercase;letter-spacing:.03em}
-.informe-doc .vacio-doc{color:#9aa89f;font-size:12.5px;padding:10px 0;font-style:italic}
-.informe-doc .pie{margin-top:28px;padding-top:12px;border-top:1px solid #E4E1D6;
-  font-size:10px;color:#9aa89f;letter-spacing:.02em}
+/* Documentos imprimibles (cierre, listados): mismo diseño del sistema */
+.informe-doc{background:#fff;color:#16211C;max-width:100%;font-family:'Barlow',system-ui,sans-serif}
+.informe-doc .barra-top-doc{height:4px;background:#1F5D3C;margin:-18px -18px 18px}
+.informe-doc .encabezado-doc{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;border-bottom:3px solid #16211C;padding-bottom:10px;margin-bottom:16px}
+.informe-doc h1{font-size:20px;font-weight:700;color:#16211C;margin:0 0 3px}
+.informe-doc .sub{font-size:12.5px;color:#4A5B53;margin:0}
+.informe-doc .marca-doc{text-align:right;font-size:10.5px;color:#7E8C86;text-transform:uppercase;letter-spacing:.1em;font-weight:600}
+.informe-doc .marca-doc strong{display:block;font-size:13px;color:#1F5D3C;text-transform:none;letter-spacing:0}
+.informe-doc h2{font-size:12px;font-weight:700;color:#1F5D3C;text-transform:uppercase;letter-spacing:.06em;margin:20px 0 8px;padding-bottom:4px;border-bottom:1.5px solid #1F5D3C}
+.informe-doc table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:6px}
+.informe-doc th{text-align:left;color:#7E8C86;padding:5px 6px;font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #D3DAD6}
+.informe-doc td{padding:6px;border-bottom:1px solid #EEF1EF;vertical-align:top}
+.informe-doc .kpis-doc{display:flex;gap:10px;margin:6px 0 4px}
+.informe-doc .kpis-doc > div{flex:1;border:1px solid #D3DAD6;border-top:3px solid #1F5D3C;border-radius:4px;padding:10px}
+.informe-doc .kpis-doc .v{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:20px;font-weight:700;color:#16211C}
+.informe-doc .kpis-doc .k{font-size:10.5px;color:#7E8C86;margin-top:2px;text-transform:uppercase;letter-spacing:.04em}
+.informe-doc .vacio-doc{color:#7E8C86;font-size:12.5px;padding:8px 0}
+.informe-doc .pie{margin-top:24px;padding-top:10px;border-top:1px solid #D3DAD6;font-size:10px;color:#7E8C86}
 @media print{
-  .informe-doc{display:block !important;position:static;padding:18px}
+  .informe-doc{display:block !important;position:static;padding:18px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .informe-doc .barra-top-doc{margin:0 0 18px}
   .informe-doc table{page-break-inside:auto}
   .informe-doc tr{page-break-inside:avoid}
@@ -302,13 +293,14 @@ nav button .badge.on{display:block}
       <div class="campo">
         <label for="recibe">Quién recibe el combustible</label>
         <select id="recibe"><option value="">Seleccionar…</option></select>
+        <div class="ayuda" id="ayudaRecibe"></div>
       </div>
       <div class="campo" id="campoOtro" style="display:none">
         <label for="recibeOtro">Nombre de quien recibe</label>
         <input type="text" id="recibeOtro" placeholder="Nombre y apellido" autocomplete="off">
       </div>
 
-      <div class="campo">
+      <div class="campo" id="campoLectura">
         <label id="lblLectura" for="lectura">Horómetro</label>
         <input type="number" id="lectura" inputmode="decimal" step="0.1" min="0" placeholder="0">
         <div class="ayuda" id="ayudaLectura"></div>
@@ -423,6 +415,16 @@ nav button .badge.on{display:block}
   <div class="subvista" id="sv-llegada">
   <div class="bloque">
     <h2>Llegada de combustible</h2>
+    <div class="aviso amarillo" style="margin-bottom:12px"><b>Antes de descargar:</b> mida el tanque. Con esa medida se cierra el período desde la llegada anterior.</div>
+    <div class="campo">
+      <label for="recMedido">Galones medidos en el tanque antes de descargar</label>
+      <input type="number" id="recMedido" inputmode="decimal" step="0.1" min="0" placeholder="0">
+      <div class="ayuda" id="recCuadre"></div>
+    </div>
+    <div class="campo" id="campoDif" style="display:none">
+      <label for="recDifMotivo">¿Por qué no cuadra?</label>
+      <textarea id="recDifMotivo" placeholder="Ej. fuga en la manguera, tanqueo sin registrar del 22, medición con varilla mojada…"></textarea>
+    </div>
     <div class="fila">
       <div class="campo"><label for="recFecha">Fecha</label><input type="date" id="recFecha"></div>
       <div class="campo"><label for="recGal">Galones</label><input type="number" id="recGal" inputmode="decimal" step="0.1" min="0" placeholder="0"></div>
@@ -486,6 +488,12 @@ nav button .badge.on{display:block}
   </div>
 
   <div class="bloque">
+    <h2>Cierres del almacén</h2>
+    <div id="listaCierres"></div>
+    <div class="ayuda">Se hace en cada llegada de combustible: lo que había, lo que entró, lo que salió y lo que se midió. Se imprime y se firma.</div>
+  </div>
+
+  <div class="bloque">
     <h2>Movimientos</h2>
     <div id="listaMov"></div>
     <button class="secundario" id="btnInformeTraza" style="margin-top:12px">Descargar informe de trazabilidad (CSV)</button>
@@ -515,6 +523,17 @@ nav button .badge.on{display:block}
     <div id="listaEquipos"></div>
     <button class="secundario" id="btnAddEquipo" style="display:none">Agregar equipo</button>
     <div class="ayuda">Es la lista de máquinas del Taller: las máquinas nuevas o dadas de baja se manejan allá y aparecen aquí solas. Los camiones se miden por kilometraje.</div>
+  </div>
+
+  <div class="bloque">
+    <h2>Vehículos que tanquean</h2>
+    <div id="listaVehiculos"></div>
+    <div class="fila" style="margin-top:8px">
+      <div class="campo" style="flex:0 0 38%"><label for="vehPlaca">Placa</label><input type="text" id="vehPlaca" placeholder="Ej. ABC123" autocomplete="off" style="text-transform:uppercase"></div>
+      <div class="campo"><label for="vehNombre">Qué es y de quién</label><input type="text" id="vehNombre" placeholder="Ej. Moto de Juan Carlos" autocomplete="off"></div>
+    </div>
+    <button class="secundario" id="btnAddVehiculo">Agregar vehículo</button>
+    <div class="ayuda">Motos y camionetas se controlan por placa. Guadañas, motobombas y la estacionaria de fumigación se registran por tipo, sin placa. La lista es la misma en todos los celulares.</div>
   </div>
 
   <div class="bloque">
@@ -663,12 +682,25 @@ var GS_URL = 'https://script.google.com/macros/s/AKfycbwvDU84orwDkO_iBIBdmaq2CSQ
 cfg.url = GS_URL;
 /* Equipos: la lista compartida de máquinas (la administra el Taller). Los
    camiones (grupo transporte) se miden por kilometraje. */
+/* Además de máquinas y camiones sale combustible para vehículos (se
+   controlan por placa; la lista se maneja en Ajustes y es la misma en todos
+   los celulares) y para otros equipos que se controlan por tipo. */
+var OTROS_COMB = [
+  { cod:'GUADAÑAS', nom:'Guadañas' },
+  { cod:'MOTOBOMBAS', nom:'Motobombas' },
+  { cod:'ESTACIONARIA', nom:'Estacionaria de fumigación' }
+];
+function vehiculos(){ return (window.Maestros && Maestros.get('VEHICULOS')) || []; }
 function equiposCompartidos(){
   var l = (window.Maestros ? Maestros.flota() : []).map(function(f){
-    return { cod:f.cod, nom:f.nombre, lec: f.grupo === 'transporte' ? 'kilometraje' : 'horometro' };
+    return { cod:f.cod, nom:f.nombre, lec: f.grupo === 'transporte' ? 'kilometraje' : 'horometro', grupo: f.grupo === 'transporte' ? 'camion' : 'maquina' };
   });
-  return l.length ? l : EQUIPOS_DEF;
+  if(!l.length) l = EQUIPOS_DEF.map(function(e){ return Object.assign({ grupo: e.lec==='kilometraje' ? 'camion' : 'maquina' }, e); });
+  vehiculos().forEach(function(v){ if(v.placa) l.push({ cod:v.placa, nom:v.nombre||'Vehículo', lec:'kilometraje', grupo:'vehiculo', lecOpcional:true }); });
+  OTROS_COMB.forEach(function(o){ l.push({ cod:o.cod, nom:o.nom, lec:'ninguna', grupo:'otro' }); });
+  return l;
 }
+var GRUPOS_EQ = [['maquina','Máquinas'],['camion','Camiones'],['vehiculo','Vehículos (por placa)'],['otro','Otros consumos']];
 var equipos = equiposCompartidos();
 var personal = Store.get(K.per, PERSONAL_DEF);
 var registros = Store.get(K.reg, []);
@@ -1009,7 +1041,17 @@ function pintarGrilla(){
     c.innerHTML = '<div class="vacio" style="grid-column:1/-1">Ningún equipo coincide con la búsqueda.</div>';
     return;
   }
-  lista.forEach(function(e){
+  var grupoAnt = null;
+  lista.slice().sort(function(a, b){
+    var o = function(g){ for(var i=0;i<GRUPOS_EQ.length;i++) if(GRUPOS_EQ[i][0]===g) return i; return 9; };
+    return o(a.grupo) - o(b.grupo);
+  }).forEach(function(e){
+    if(!q && e.grupo !== grupoAnt){
+      grupoAnt = e.grupo;
+      var t = document.createElement('div'); t.className='grupo-eq';
+      t.textContent = (GRUPOS_EQ.filter(function(g){ return g[0]===e.grupo; })[0] || ['', 'Otros'])[1];
+      c.appendChild(t);
+    }
     var hoy = galonesEquipoHoy(e.cod);
     var b = document.createElement('button');
     b.type='button';
@@ -1035,7 +1077,17 @@ function seleccionarEquipo(cod){
   $('bloqueEquipoSel').style.display='block';
   $('equipoSelTxt').textContent = e ? (e.cod+' · '+e.nom) : cod;
   ['bloqueDatos','bloqueFirma','guardar'].forEach(function(id){ $(id).style.display='block'; });
-  $('bloqueFoto').style.display = cfg.foto==='off' ? 'none' : 'block';
+  var sinLec = e && e.lec==='ninguna';
+  $('campoLectura').style.display = sinLec ? 'none' : 'block';
+  $('bloqueFoto').style.display = cfg.foto==='off' || sinLec ? 'none' : 'block';
+  // quién recibe: el operario que tiene esa máquina hoy (preoperativo o programación)
+  var op = operarioHoy(cod);
+  if(op){
+    if(personal.indexOf(op)<0 && !$('recibe').querySelector('option[value="'+op.replace(/"/g,'')+'"]'))
+      $('recibe').insertAdjacentHTML('afterbegin','<option value="'+esc(op)+'">'+esc(op)+'</option>');
+    $('recibe').value = op;
+  }
+  $('ayudaRecibe').textContent = op ? (opsHoy[cod].fuente==='preop' ? 'Hizo el preoperativo de esta máquina hoy.' : 'Programado hoy en esta máquina.') : '';
   revisar();
   setTimeout(function(){ $('bloqueEquipoSel').scrollIntoView({behavior:'smooth',block:'start'}); ajustarLienzo(); }, 60);
 }
@@ -1158,8 +1210,9 @@ function revisar(){
   var e=eqPorCod(equipoSel);
   var gal=Number($('galones').value)||0, lec=Number($('lectura').value)||0;
   var avisos=[];
-  if(e){
-    $('lblLectura').textContent = e.lec==='kilometraje'?'Kilometraje':'Horómetro';
+  if(e && e.lec==='ninguna'){ /* guadañas, motobombas…: sin lectura */ }
+  else if(e){
+    $('lblLectura').textContent = (e.lec==='kilometraje'?'Kilometraje':'Horómetro') + (e.lecOpcional ? ' (si tiene)' : '');
     var ult=ultimoDe(e.cod);
     if(ult){
       var d=n2(lec-ult.lectura);
@@ -1167,6 +1220,14 @@ function revisar(){
         (lec>0 && d>0 ? ' · diferencia '+galTxt(d)+(e.lec==='kilometraje'?' km':' h') : '');
     }else{
       $('ayudaLectura').textContent = 'Primer registro de este equipo';
+    }
+    // el horómetro que anotaron en el preoperativo o el cierre de jornada
+    var hc = e.lec==='horometro' && window.Horometros ? Horometros.ultimo()[e.cod] : null;
+    if(hc && hc.h){
+      $('ayudaLectura').textContent += ' · Preoperativo/cierre: '+galTxt(hc.h)+' el '+fechaCorta(hc.fecha);
+      var dias = Math.max(1, Math.round((Date.now() - new Date(hc.fecha+'T12:00:00').getTime())/86400000));
+      if(lec>0 && (lec < hc.h - 1 || lec > hc.h + 24*dias))
+        avisos.push(['amarillo','El horómetro que anotaron en el preoperativo o el cierre es '+galTxt(hc.h)+' ('+fechaCorta(hc.fecha)+'). Revise que '+galTxt(lec)+' esté bien digitado.']);
     }
     if(ult && lec>0 && lec<ult.lectura)
       avisos.push(['rojo','La lectura es menor que la anterior ('+galTxt(ult.lectura)+'). Verifica el dato antes de registrar.']);
@@ -1190,7 +1251,7 @@ function revisar(){
   }
   var s=saldoActual();
   if(gal>s) avisos.push(['rojo','En el tanque solo quedan '+galTxt(s)+' gal. Carga el tanque o corrige la cantidad.']);
-  if(cfg.foto==='obligatoria' && !fotoActual)
+  if(cfg.foto==='obligatoria' && !fotoActual && e && e.lec!=='ninguna' && !e.lecOpcional)
     avisos.push(['amarillo','Falta la foto del horómetro, que está configurada como obligatoria.']);
 
   var cont=$('banderas'); cont.innerHTML='';
@@ -1216,8 +1277,9 @@ $('guardar').addEventListener('click', function(){
   if(!cod){ alert('Selecciona el equipo que se está tanqueando.'); return; }
   if(!quien){ alert('Falta el nombre de quien recibe el combustible.'); return; }
   if(gal<=0){ alert('Escribe cuántos galones se entregaron.'); return; }
-  if(lec<=0){ alert('Falta la lectura del horómetro o el kilometraje.'); return; }
-  if(cfg.foto==='obligatoria' && !fotoActual){ alert('Toma la foto del horómetro para poder registrar.'); return; }
+  var eSel = eqPorCod(cod), pideLec = eSel && eSel.lec!=='ninguna' && !eSel.lecOpcional;
+  if(pideLec && lec<=0){ alert('Falta la lectura del horómetro o el kilometraje.'); return; }
+  if(cfg.foto==='obligatoria' && !fotoActual && pideLec){ alert('Toma la foto del horómetro para poder registrar.'); return; }
   if(!hayFirma){ alert('Falta la firma de quien recibe.'); return; }
   if($('campoJust').style.display==='block' && !$('justificacion').value.trim()){
     alert('Este tanqueo tiene una alerta. Escribe la justificación para poder registrarlo.'); return;
@@ -1689,7 +1751,7 @@ function filaComb(accion, d){
     return Promise.all([achicar(d.firma, 18000, 360), achicar(d.foto, 42000, 560)]).then(function(im){
       return { hoja:HOJAS_COMB.tanqueo, encabezados:ENC_COMB.tanqueo, fila:[fCO(d.fecha), d.hora||hhmm(d.ts),
         d.anulado ? 'ANULADO' : (d.historialEdicion && d.historialEdicion.length ? 'EDITADO' : 'TANQUEO'), d.id, d.equipo, d.equipoNom||'',
-        d.galones, d.lectura, d.lecturaTipo==='kilometraje' ? 'Km' : 'Horómetro', d.deltaLectura||'', d.rendimiento==null ? '' : d.rendimiento,
+        d.galones, d.lectura||'', d.lecturaTipo==='kilometraje' ? 'Km' : d.lecturaTipo==='ninguna' ? 'Ninguna' : 'Horómetro', d.deltaLectura||'', d.rendimiento==null ? '' : d.rendimiento,
         d.recibe||'', d.despacha||'', d.precio||'', d.costo||'', d.saldoDespues, d.folio||'', d.justificacion||'',
         (d.anulado ? 'ANULADO ' + fechaCorta(d.anuladoFecha) + ': ' + (d.anuladoMotivo||'') + (d.observacion ? ' · ' : '') : '') + (d.observacion||''),
         im[0], im[1]] };
@@ -1734,6 +1796,33 @@ function enviarGenerico(accion, data, alExito){
 /* Confirma en la hoja lo enviado. Lo que no aparece después de 2 minutos
    vuelve a quedar pendiente y se reenvía (nunca se pierde sin aviso). La
    foto se borra del celular solo cuando la hoja ya la tiene. */
+/* Quién tiene cada máquina hoy: el que hizo el preoperativo; si no, el
+   programado. Así Leanis no busca el nombre a mano. */
+var opsHoy = {};
+function operarioHoy(cod){ return opsHoy[cod] ? opsHoy[cod].op : ''; }
+function traerOperarios(){
+  if(!navigator.onLine) return Promise.resolve();
+  function leer(h){ return fetch(GS_URL+'?hoja='+h+'&t='+Date.now()).then(function(r){ return r.json(); })
+    .then(function(d){ return d && d.ok && Array.isArray(d.datos) ? d.datos : []; }).catch(function(){ return []; }); }
+  var hy=hoyISO();
+  return Promise.all([leer('ProgMaquinaria'), leer('PreopDiario')]).then(function(res){
+    var o={};
+    res[0].forEach(function(r){
+      if(isoDe(r[4])!==hy) return;
+      var c=String(r[5]||'').trim(), acc=String(r[2]||'').trim().toUpperCase();
+      if(acc==='QUITAR') delete o[c];
+      else if(acc==='ASIGNAR' && String(r[9]||'').trim()) o[c]={ op:String(r[9]).trim(), fuente:'prog' };
+    });
+    res[1].forEach(function(r){
+      if(isoDe(r[0])!==hy) return;
+      var c=String(r[3]||'').split('·')[0].trim(), op=String(r[2]||'').trim();
+      if(window.Horometros) c=Horometros.codDe(c);
+      if(c && op) o[c]={ op:op, fuente:'preop' };
+    });
+    opsHoy=o;
+  });
+}
+
 /* Lo que se registró en otro celular (el saldo inicial que puso Leanis, las
    llegadas, las mediciones y los tanqueos) se trae de la hoja, así todos
    ven el mismo tanque. Lo de este celular que aún no se confirma en la hoja
@@ -1773,7 +1862,7 @@ function traerDeHoja(){
       var r=U[id], f=isoDe(r[0]); if(!/^\d{4}-\d{2}-\d{2}$/.test(f)) return;
       var anul=String(r[2]||'').trim().toUpperCase()==='ANULADO', h=horaDe(r[1]);
       var x={ id:id, ts:tsDe(f,h,id), fecha:f, hora:h, equipo:String(r[4]||'').trim(), equipoNom:String(r[5]||''),
-        galones:numDe(r[6])||0, lectura:numDe(r[7])||0, lecturaTipo:String(r[8]||'')==='Km'?'kilometraje':'horometro',
+        galones:numDe(r[6])||0, lectura:numDe(r[7])||0, lecturaTipo:String(r[8]||'')==='Km'?'kilometraje':String(r[8]||'')==='Ninguna'?'ninguna':'horometro',
         deltaLectura:numDe(r[9]), rendimiento:numDe(r[10]), recibe:String(r[11]||''), despacha:String(r[12]||''),
         precio:numDe(r[13])||0, costo:numDe(r[14])||0, saldoDespues:numDe(r[15]), folio:String(r[16]||''),
         justificacion:String(r[17]||''), observacion:String(r[18]||''), anulado:anul,
@@ -1791,13 +1880,18 @@ function traerDeHoja(){
       var x = t==='LLEGADA'
         ? { id:id, ts:tsDe(f,h,id), tipo:'recarga', fecha:f, galones:numDe(r[4])||0, precio:numDe(r[7])||0, nota:String(r[8]||''), placa:String(r[9]||''),
             conductor:String(r[10]||''), observacion:String(r[11]||''), firma: f>=hace30 ? String(r[12]||'') : '', foto:'', sync:true, deOtroEquipo:true }
-        : { id:id, ts:tsDe(f,h,id), tipo:'ajuste', fecha:f, galones:numDe(r[4])||0, teorico:numDe(r[5])||0, diferencia:numDe(r[6])||0, nota:String(r[8]||''), sync:true, deOtroEquipo:true };
+        : { id:id, ts:tsDe(f,h,id), tipo:'ajuste', fecha:f, galones:numDe(r[4])||0, teorico:numDe(r[5])||0, diferencia:numDe(r[6])||0, nota:String(r[8]||''),
+            cierre: String(r[8]||'').indexOf('Cierre por llegada')===0, motivoDif: (String(r[8]||'').split(' · ').slice(2).join(' · ')),
+            mideNombre: (String(r[8]||'').match(/midió ([^·]+)/)||[])[1] ? String(r[8]).match(/midió ([^·]+)/)[1].trim() : '', sync:true, deOtroEquipo:true };
       if(!movimientos.some(function(y){ return y.id===id; })){ movimientos.push(x); cambio=true; }
     });
     if(cambio){
       registros.sort(function(a,b){ return a.ts-b.ts; });
       movimientos.sort(function(a,b){ return a.ts-b.ts; });
       if(movimientos.length) cfg.iniciado=true;
+      // el precio vigente es el de la última llegada, la haya registrado quien la haya registrado
+      var ll=movimientos.filter(function(m){ return m.tipo==='recarga' && m.precio>0; });
+      if(ll.length) cfg.precio=ll[ll.length-1].precio;
       guardarTodo();
     }
     return cambio;
@@ -1809,7 +1903,7 @@ function mostrarSegunSaldo(){
 }
 function alTraer(cambio){
   if(!cambio) return;
-  mostrarSegunSaldo(); pintarEncabezado(); pintarRegistros(); pintarMovimientos(); pintarChipSync();
+  mostrarSegunSaldo(); pintarEncabezado(); pintarRegistros(); pintarMovimientos(); pintarCierres(); pintarChipSync();
   if(typeof pintarAlertaReq==='function') pintarAlertaReq();
 }
 
@@ -1969,6 +2063,7 @@ $('btnRecQuitarFoto').addEventListener('click', function(){
 });
 function limpiarFormLlegada(){
   $('recGal').value=''; $('recProv').value=''; $('recPlaca').value='';
+  $('recMedido').value=''; $('recDifMotivo').value=''; $('recCuadre').textContent=''; $('campoDif').style.display='none';
   $('recConductor').value=''; $('recObs').value=''; $('recPrecio').value=cfg.precio||'';
   recFotoActual=''; $('recFotoPrev').style.display='none'; $('btnRecQuitarFoto').style.display='none';
   $('btnRecFoto').textContent='Foto de la remisión o el carrotanque';
@@ -1976,8 +2071,80 @@ function limpiarFormLlegada(){
 }
 
 /* ---------------- Tanque ---------------- */
+/* ---------- Cierre del almacén (en cada llegada) ----------
+   Antes de descargar, Leanis mide el tanque. El período va desde el cierre
+   (o cuadre) anterior: lo que había + lo que entró − lo que salió = lo que
+   debería haber, contra lo medido. Se guarda como un cuadre (fila AJUSTE en
+   CombustibleTanque) y queda el documento para firmar. */
+function periodoCierre(hasta){
+  var aj = movimientos.filter(function(m){ return m.tipo==='ajuste' && m.ts < hasta; }).sort(function(a,b){ return a.ts-b.ts; });
+  var ini = aj.length ? aj[aj.length-1] : null, desde = ini ? ini.ts : 0;
+  var entr = movimientos.filter(function(m){ return m.tipo==='recarga' && m.ts > desde && m.ts < hasta; });
+  var sal = registros.filter(function(r){ return !r.anulado && r.ts > desde && r.ts < hasta; });
+  var por = {};
+  sal.forEach(function(r){ var e=eqPorCod(r.equipo), g=e ? e.grupo : 'otro';
+    var x = por[g] = por[g] || { gal:0, n:0, eq:{} }; x.gal += r.galones; x.n++; x.eq[r.equipo] = (x.eq[r.equipo]||0) + r.galones; });
+  var tE = entr.reduce(function(a,m){ return a+m.galones; },0), tS = sal.reduce(function(a,r){ return a+r.galones; },0);
+  return { ini:ini, inicial: ini ? ini.galones : 0, entradas:entr, totalEntradas:n2(tE), salidas:sal, totalSalidas:n2(tS), por:por,
+    teorico: n2((ini ? ini.galones : 0) + tE - tS) };
+}
+function toleranciaCierre(P){ return Math.max(2, n2(P.totalSalidas*0.01)); }
+$('recMedido').addEventListener('input', function(){
+  var med=Number(this.value);
+  if(this.value===''||isNaN(med)){ $('recCuadre').textContent=''; $('campoDif').style.display='none'; return; }
+  var P=periodoCierre(Date.now()+1), dif=n2(med-P.teorico);
+  $('recCuadre').textContent = 'Debería haber '+galTxt(P.teorico)+' gal ('+galTxt(P.inicial)+' del cierre anterior + '+galTxt(P.totalEntradas)+
+    ' entrados − '+galTxt(P.totalSalidas)+' despachados). Diferencia: '+(dif>0?'+':'')+galTxt(dif)+' gal'+(dif<0?' (falta)':dif>0?' (sobra)':'')+'.';
+  $('campoDif').style.display = Math.abs(dif) > toleranciaCierre(P) ? 'block' : 'none';
+});
+function cierreHTML(c){
+  var P = periodoCierre(c.ts), precio = c.precio || cfg.precio || 0, dif = n2(c.galones - P.teorico);
+  var nombres = { maquina:'Máquinas', camion:'Camiones', vehiculo:'Vehículos', otro:'Otros (guadañas, motobombas, estacionaria)' };
+  var h='<div class="encabezado-doc"><div><h1>Cierre del almacén de combustible</h1>'+
+    '<div class="sub">Del '+(P.ini ? fechaCorta(hoyISO(new Date(P.ini.ts))) : 'inicio')+' al '+fechaCorta(hoyISO(new Date(c.ts)))+' · medido antes de recibir combustible</div></div>'+
+    '<div class="marca-doc"><strong>Palma Grande S.A.S.</strong>Almacén de combustible</div></div>';
+  h+='<div class="kpis-doc"><div><div class="v">'+galTxt(P.teorico)+'</div><div class="k">Debería haber (gal)</div></div>'+
+     '<div><div class="v">'+galTxt(c.galones)+'</div><div class="k">Medido (gal)</div></div>'+
+     '<div><div class="v" style="color:'+(Math.abs(dif)>toleranciaCierre(P)?'#9E2B21':'#1F5D3C')+'">'+(dif>0?'+':'')+galTxt(dif)+'</div><div class="k">Diferencia (gal)'+(precio?' · '+pesos(Math.abs(dif)*precio):'')+'</div></div></div>';
+  h+='<h2>Cuentas del período</h2><table>'+
+     '<tr><td>Saldo del cierre anterior</td><td style="text-align:right">'+galTxt(P.inicial)+' gal</td></tr>'+
+     '<tr><td>+ Entradas ('+P.entradas.length+' llegada'+(P.entradas.length===1?'':'s')+')</td><td style="text-align:right">'+galTxt(P.totalEntradas)+' gal</td></tr>'+
+     '<tr><td>− Despachado ('+P.salidas.length+' tanqueo'+(P.salidas.length===1?'':'s')+')</td><td style="text-align:right">'+galTxt(P.totalSalidas)+' gal</td></tr>'+
+     '<tr><td><b>= Debería haber</b></td><td style="text-align:right"><b>'+galTxt(P.teorico)+' gal</b></td></tr>'+
+     '<tr><td>Medido en el tanque</td><td style="text-align:right">'+galTxt(c.galones)+' gal</td></tr>'+
+     '<tr><td><b>Diferencia</b></td><td style="text-align:right"><b>'+(dif>0?'+':'')+galTxt(dif)+' gal</b></td></tr></table>';
+  if(c.motivoDif) h+='<p style="font-size:12px"><b>Explicación de la diferencia:</b> '+esc(c.motivoDif)+'</p>';
+  h+='<h2>Despachado por destino</h2>';
+  var gs=['maquina','camion','vehiculo','otro'].filter(function(g){ return P.por[g]; });
+  h+= gs.length ? '<table><tr><th>Destino</th><th>Equipo</th><th>Galones</th></tr>'+gs.map(function(g){
+      return Object.keys(P.por[g].eq).sort().map(function(cod, i){ var e=eqPorCod(cod);
+        return '<tr><td>'+(i===0?nombres[g]:'')+'</td><td>'+esc(cod)+(e&&e.nom?' · '+esc(e.nom):'')+'</td><td>'+galTxt(P.por[g].eq[cod])+'</td></tr>'; }).join('') +
+        '<tr><td></td><td><b>Total '+nombres[g].toLowerCase()+'</b></td><td><b>'+galTxt(P.por[g].gal)+'</b></td></tr>';
+    }).join('')+'</table>' : '<div class="vacio-doc">No hubo despachos en el período.</div>';
+  if(P.entradas.length) h+='<h2>Entradas</h2><table><tr><th>Fecha</th><th>Galones</th><th>Proveedor / remisión</th><th>Precio/gal</th></tr>'+
+    P.entradas.map(function(m){ return '<tr><td>'+fechaCorta(m.fecha)+'</td><td>'+galTxt(m.galones)+'</td><td>'+esc(m.nota||'')+'</td><td>'+(m.precio?pesos(m.precio):'—')+'</td></tr>'; }).join('')+'</table>';
+  h+='<div style="display:flex;gap:40px;margin-top:46px;font-size:12px"><div style="flex:1;border-top:1px solid #16211C;padding-top:4px"><b>'+esc(c.mideNombre||cfg.despacha||'Responsable del almacén')+'</b><br>Responsable del almacén</div>'+
+     '<div style="flex:1;border-top:1px solid #16211C;padding-top:4px"><b>&nbsp;</b><br>Revisó · Superintendencia</div></div>';
+  return h;
+}
+function pintarCierres(){
+  var c=$('listaCierres'); if(!c) return;
+  var l=movimientos.filter(function(m){ return m.tipo==='ajuste' && m.cierre; }).sort(function(a,b){ return b.ts-a.ts; });
+  c.innerHTML = l.length ? l.map(function(m){
+    var dif=m.diferencia||0;
+    return '<div class="mov"><div>'+fechaCorta(m.fecha)+' · medido '+galTxt(m.galones)+' gal<div class="ayuda">'+(dif?(dif>0?'Sobran ':'Faltan ')+galTxt(Math.abs(dif))+' gal':'Cuadró')+'</div></div>'+
+      '<button class="btn-accion vale" data-cierre="'+esc(m.id)+'">Ver cierre</button></div>'; }).join('')
+    : '<div class="ayuda" style="margin-top:0">Todavía no hay cierres. El primero se hace en la próxima llegada de combustible.</div>';
+  c.querySelectorAll('[data-cierre]').forEach(function(b){ b.addEventListener('click', function(){
+    var m=movimientos.filter(function(x){ return x.id===b.getAttribute('data-cierre'); })[0]; if(m) abrirInforme(cierreHTML(m)); }); });
+}
+
 $('btnRecarga').addEventListener('click', function(){
   var g=Number($('recGal').value)||0, f=$('recFecha').value||hoyISO();
+  var medTxt=$('recMedido').value, medido=Number(medTxt);
+  if(medTxt==='' || isNaN(medido) || medido<0){ alert('Primero mida el tanque antes de descargar y escriba los galones medidos.'); return; }
+  var P0=periodoCierre(Date.now()+1), dif0=n2(medido-P0.teorico);
+  if(Math.abs(dif0) > toleranciaCierre(P0) && !$('recDifMotivo').value.trim()){ alert('El tanque no cuadra ('+(dif0>0?'+':'')+galTxt(dif0)+' gal). Escriba por qué antes de registrar la llegada.'); return; }
   var placa=$('recPlaca').value.trim(), conductor=$('recConductor').value.trim();
   var precioLlegada=Number($('recPrecio').value)||0;
   if(g<=0){ alert('Escribe cuántos galones entraron al tanque.'); return; }
@@ -1986,6 +2153,13 @@ $('btnRecarga').addEventListener('click', function(){
   if(!conductor){ alert('Escribe el nombre del conductor.'); return; }
   if(precioLlegada<=0){ alert('Escribe el precio pagado por galón.'); return; }
   if(!recHayFirma){ alert('Falta la firma del conductor que entrega.'); return; }
+  // 1. el cierre del período (medido antes de descargar)
+  var tsC=Date.now()-1, motivo=$('recDifMotivo').value.trim();
+  movimientos.push({id:'m'+tsC, ts:tsC, tipo:'ajuste', fecha:hoyISO(), galones:n2(medido), teorico:P0.teorico, diferencia:dif0,
+    nota:'Cierre por llegada · midió '+(cfg.despacha||'almacén')+(motivo?' · '+motivo:''), motivoDif:motivo, cierre:true,
+    precio:Number(cfg.precio)||0, mideNombre:cfg.despacha||'', sync:false});
+  var cierreGuardado = movimientos[movimientos.length-1];
+  // 2. la llegada
   movimientos.push({
     id:'m'+Date.now(), ts:Date.now(), tipo:'recarga', fecha:f, galones:n2(g),
     nota:$('recProv').value.trim(), placa:placa, conductor:conductor, precio:precioLlegada,
@@ -1999,9 +2173,11 @@ $('btnRecarga').addEventListener('click', function(){
   guardarTodo();
   limpiarFormLlegada();
   pintarEncabezado(); pintarMovimientos(); pintarAlertas();
-  enviarGenerico('llegada', llegadaGuardada);
+  enviarGenerico('ajuste', cierreGuardado).then(function(){ return enviarGenerico('llegada', llegadaGuardada); });
   if(p && p.atendida) enviarGenerico('alerta', p);
-  alert('Llegada registrada. El tanque queda en '+galTxt(saldoActual())+' gal. Precio vigente: '+pesos(precioLlegada)+'/gal.');
+  pintarCierres();
+  abrirInforme(cierreHTML(cierreGuardado));
+  alert('Llegada registrada. El tanque queda en '+galTxt(saldoActual())+' gal. Precio vigente: '+pesos(precioLlegada)+'/gal.\n\nAhí está el cierre del período: imprímalo o guárdelo en PDF para firmarlo.');
 });
 $('ajSaldo').addEventListener('input', function(){
   var med=Number(this.value);
@@ -2109,7 +2285,7 @@ function pintarEquipos(){
   var c=$('listaEquipos'); c.innerHTML='';
   // solo lectura: la lista la administra el Taller
   equipos = equiposCompartidos();
-  c.innerHTML = equipos.map(function(e){ return '<div class="eq-fila"><b class="w-cod">'+esc(e.cod)+'</b><span>'+esc(e.nom)+'</span><span class="w-lec">'+(e.lec==='kilometraje'?'Km':'Horómetro')+'</span></div>'; }).join('');
+  c.innerHTML = equipos.filter(function(e){ return e.grupo==='maquina' || e.grupo==='camion'; }).map(function(e){ return '<div class="eq-fila"><b class="w-cod">'+esc(e.cod)+'</b><span>'+esc(e.nom)+'</span><span class="w-lec">'+(e.lec==='kilometraje'?'Km':'Horómetro')+'</span></div>'; }).join('');
   return;
   equipos.forEach(function(e,i){
     var d=document.createElement('div'); d.className='eq-fila';
@@ -2139,6 +2315,42 @@ $('btnAddEquipo').addEventListener('click', function(){
   equipos.push({cod:'#'+String(equipos.length+1).padStart(2,'0'), nom:'Equipo nuevo', lec:'horometro'});
   guardarTodo(); pintarEquipos(); pintarSelectores(); pintarGrilla();
 });
+/* vehículos: lista compartida (hoja Maestros, tipo VEHICULOS) */
+function postMaestro(x){
+  if(!x) return;
+  fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:x.hoja,fila:x.fila,encabezados:x.encabezados})}).catch(function(){});
+}
+function reenviarMaestros(){ if(window.Maestros && Maestros.reenviar) Maestros.reenviar().forEach(postMaestro); }
+function guardarVehiculos(lista){
+  postMaestro(Maestros.fila('VEHICULOS', lista, cfg.despacha || 'Almacén'));
+  equipos = equiposCompartidos(); pintarVehiculos(); pintarSelectores(); pintarGrilla();
+}
+function pintarVehiculos(){
+  var c=$('listaVehiculos'); if(!c) return;
+  var l=vehiculos();
+  c.innerHTML = l.length ? l.map(function(v,i){
+    return '<div class="eq-fila"><b class="w-cod">'+esc(v.placa)+'</b><span style="flex:1">'+esc(v.nombre||'')+'</span>'+
+      '<button class="borrar" data-delveh="'+i+'" aria-label="Quitar">×</button></div>'; }).join('')
+    : '<div class="ayuda" style="margin-top:0">Todavía no hay vehículos.</div>';
+  c.querySelectorAll('[data-delveh]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var l2=vehiculos(), i=Number(this.getAttribute('data-delveh'));
+      if(!confirm('¿Quitar '+l2[i].placa+' de la lista? Sus tanqueos anteriores se conservan.')) return;
+      l2.splice(i,1); guardarVehiculos(l2);
+    });
+  });
+}
+$('btnAddVehiculo').addEventListener('click', function(){
+  var placa=$('vehPlaca').value.trim().toUpperCase().replace(/\s+/g,''), nombre=$('vehNombre').value.trim();
+  if(!placa){ alert('Escribe la placa.'); return; }
+  if(!nombre){ alert('Escribe qué vehículo es y de quién.'); return; }
+  var l=vehiculos();
+  if(l.some(function(v){ return v.placa===placa; }) || eqPorCod(placa)){ alert('Esa placa ya está en la lista.'); return; }
+  l.push({placa:placa, nombre:nombre}); guardarVehiculos(l);
+  $('vehPlaca').value=''; $('vehNombre').value='';
+});
+pintarVehiculos();
+
 function pintarPersonal(){
   var c=$('listaPersonal'); c.innerHTML='';
   personal.forEach(function(p,i){
@@ -2327,8 +2539,13 @@ traerDeHoja().then(function(c){
 
 /* Lista compartida de máquinas, envío de pendientes y confirmación en la hoja */
 if(window.Maestros) Maestros.traer().then(function(cambio){
-  if(cambio){ equipos = equiposCompartidos(); pintarSelectores(); pintarGrilla(); }
+  if(cambio){ equipos = equiposCompartidos(); pintarSelectores(); pintarGrilla(); pintarVehiculos(); }
+  reenviarMaestros();
 }).catch(function(){});
+traerOperarios();
+pintarCierres();
+if(window.Horometros) Horometros.traer().catch(function(){});
+setInterval(traerOperarios, 15*60000);
 setTimeout(function(){
   var p = pendientesTotales();
   (p && navigator.onLine ? sincronizarTodoPendiente() : Promise.resolve()).then(function(){
