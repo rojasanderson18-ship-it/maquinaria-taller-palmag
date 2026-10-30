@@ -744,7 +744,13 @@ function guardarTodo(){
 }
 
 /* ---------------- Saldo y consumo ---------------- */
+/* El consumo, el saldo y los cierres salen del cálculo compartido
+   (Combustible en maestros.js), el mismo que usa Agrovisión. */
+function tqComb(){ return registros.map(function(r){ return { id:r.id, ts:r.ts, fecha:r.fecha, cod:r.equipo, gal:r.galones, lec:r.lectura,
+  tipo: r.lecturaTipo==='kilometraje' ? 'km' : r.lecturaTipo==='ninguna' ? 'ninguna' : 'horometro', anulado:!!r.anulado }; }); }
+function movComb(){ return movimientos.map(function(m){ return { id:m.id, ts:m.ts, fecha:m.fecha, tipo: m.tipo==='recarga' ? 'LLEGADA' : 'AJUSTE', gal:m.galones }; }); }
 function saldoActual(){
+  if(window.Combustible) return n2(Combustible.saldo(movComb(), tqComb()));
   var i, base = 0, desde = 0;
   // el último cuadre por varillaje manda: de ahí en adelante se recalcula
   for(i=movimientos.length-1;i>=0;i--){
@@ -783,6 +789,7 @@ function rendimientoDe(r){
   return r.lecturaTipo==='kilometraje' ? n2(r.deltaLectura/r.galones) : n2(r.galones/r.deltaLectura);
 }
 function promedioRend(cod, excluirId){
+  if(window.Combustible){ var nm=Combustible.normal(tqComb(), cod, Infinity, 10, excluirId); return nm.tasa==null ? null : n2(nm.tasa); }
   var vals=[];
   for(var i=registros.length-1;i>=0 && vals.length<10;i--){
     var r=registros[i];
@@ -2085,8 +2092,9 @@ function periodoCierre(hasta){
   sal.forEach(function(r){ var e=eqPorCod(r.equipo), g=e ? e.grupo : 'otro';
     var x = por[g] = por[g] || { gal:0, n:0, eq:{} }; x.gal += r.galones; x.n++; x.eq[r.equipo] = (x.eq[r.equipo]||0) + r.galones; });
   var tE = entr.reduce(function(a,m){ return a+m.galones; },0), tS = sal.reduce(function(a,r){ return a+r.galones; },0);
-  return { ini:ini, inicial: ini ? ini.galones : 0, entradas:entr, totalEntradas:n2(tE), salidas:sal, totalSalidas:n2(tS), por:por,
-    teorico: n2((ini ? ini.galones : 0) + tE - tS) };
+  var teorico = n2((ini ? ini.galones : 0) + tE - tS);
+  if(window.Combustible) teorico = n2(Combustible.periodo(movComb(), tqComb(), { ts:hasta }).teorico);   // mismo cálculo que Agrovisión
+  return { ini:ini, inicial: ini ? ini.galones : 0, entradas:entr, totalEntradas:n2(tE), salidas:sal, totalSalidas:n2(tS), por:por, teorico:teorico };
 }
 function toleranciaCierre(P){ return Math.max(2, n2(P.totalSalidas*0.01)); }
 $('recMedido').addEventListener('input', function(){
