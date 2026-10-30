@@ -48,7 +48,7 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
 
   var M = leerLocal();
   var avisos = [], GRACIA_MS = 2 * 60000, MAX_INTENTOS = 3;
-  var NOMBRES = { FLOTA:'la lista de máquinas', MTTO:'los mantenimientos', OPERARIOS:'los tractoristas',
+  var NOMBRES = { FLOTA:'la lista de máquinas', MTTO:'los mantenimientos', FICHAS:'las fichas de mantenimiento', OPERARIOS:'los tractoristas',
     SUPERVISORES:'los supervisores', LOTES:'los lotes', FINCAS:'las fincas', IMPL:'los implementos',
     VEHICULOS:'los vehículos que tanquean' };
 
@@ -705,21 +705,275 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
     }
   };
 
+  /* =====================================================================
+     FICHAS DE MANTENIMIENTO — qué filtros y aceites lleva cada modelo, con
+     qué referencia, cuánto y cada cuántas horas (km en los camiones).
+     Hoja Maestros, tipo FICHAS: { modelos:{ nombre:{ medidor, items:[…] } },
+     asignadas:{ cod: modelo }, propios:{ cod:[ítems de esa máquina] },
+     base:{ cod:{ ítem:{ h, fecha } } } }. "base" es el último cambio de cada
+     ítem que traía la app Fichas técnicas: el punto de partida hasta que el
+     Taller registre el primer mantenimiento.
+     Mientras no se guarde nada, cada máquina usa la plantilla de su clase.
+     ===================================================================== */
+  var PLANTILLA = {
+    horas: [['filtro','Filtro de aceite de motor','und',250], ['filtro','Filtro de aire primario','und',500],
+      ['filtro','Filtro de aire secundario','und',1000], ['filtro','Filtro de combustible','und',500],
+      ['filtro','Separador de agua','und',500], ['filtro','Filtro hidráulico','und',1000],
+      ['filtro','Filtro de transmisión','und',1000], ['lubricante','Aceite de motor','gal',250],
+      ['lubricante','Aceite hidráulico / transmisión','gal',1000], ['lubricante','Aceite de diferencial','gal',1000],
+      ['lubricante','Aceite de mandos finales','gal',1000], ['lubricante','Refrigerante','gal',2000]],
+    km: [['filtro','Filtro de aceite de motor','und',10000], ['filtro','Filtro de aire','und',20000],
+      ['filtro','Filtro de combustible','und',10000], ['filtro','Separador de agua','und',10000],
+      ['filtro','Filtro secador de aire','und',40000], ['filtro','Filtro de cabina','und',20000],
+      ['lubricante','Aceite de motor','gal',10000], ['lubricante','Aceite de caja','gal',60000],
+      ['lubricante','Aceite de diferencial','gal',60000], ['lubricante','Aceite de dirección hidráulica','gal',40000],
+      ['lubricante','Refrigerante','gal',40000]]
+  };
+  function slug(t){ return String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  function deFlota(cod){ return window.Maestros.flotaTodas().filter(function(f){ return f.cod === cod; })[0] || null; }
+  function medidorDe(f){ return f && (f.clase === 'camion' || f.grupo === 'transporte') ? 'km' : 'horas'; }
+  function plantilla(medidor){
+    return PLANTILLA[medidor].map(function(p){ return { id:slug(p[1]), cat:p[0], comp:p[1], unidad:p[2], cant:null, ref:'', prov:'', costo:null, cada:p[3] }; });
+  }
+
+  window.Fichas = {
+    /* lo guardado; si nunca se ha guardado, una ficha de plantilla por modelo de la flota */
+    datos: function(){
+      var d = window.Maestros.get('FICHAS');
+      if (d && d.modelos) return d;
+      var m = {};
+      window.Maestros.flotaTodas().forEach(function(f){ if (!m[f.nombre]) m[f.nombre] = { medidor:medidorDe(f), items:plantilla(medidorDe(f)) }; });
+      return { modelos:m, asignadas:{}, propios:{}, base:{}, plantilla:true };
+    },
+    modeloDe: function(cod, d){
+      d = d || this.datos();
+      var f = deFlota(cod), n = d.asignadas && d.asignadas[cod];
+      if (n && d.modelos[n]) return n;
+      return f && d.modelos[f.nombre] ? f.nombre : null;
+    },
+    /* lo que lleva una máquina: { modelo, medidor, items } (ítems del modelo + los propios de esa máquina) */
+    de: function(cod, d){
+      d = d || this.datos();
+      var n = this.modeloDe(cod, d), f = deFlota(cod);
+      var mod = n ? d.modelos[n] : { medidor:medidorDe(f), items:plantilla(medidorDe(f)) };
+      return { modelo:n, plantilla:!n || !!d.plantilla, medidor:mod.medidor || medidorDe(f), items:(mod.items || []).concat((d.propios && d.propios[cod]) || []) };
+    },
+    unidad: function(medidor){ return medidor === 'km' ? 'km' : 'h' },
+    /* Convierte lo que guarda la app Fichas técnicas (respaldo .json o su
+       backend) en fichas de este sistema. Las máquinas se emparejan por
+       código (#01, EXX568…). */
+    desdeFichasTecnicas: function(x){
+      if (!x || !Array.isArray(x.planes) || !Array.isArray(x.equipos)) throw new Error('El archivo no es un respaldo de Fichas técnicas.');
+      var cat = {}; (x.catalogoProveedores || []).forEach(function(c){ cat[c.id] = c; });
+      function item(it){
+        var provs = (it.proveedorIds || []).map(function(id){ return cat[id]; }).filter(Boolean);
+        var p = provs.filter(function(c){ return c.id === it.proveedorPreferidoId; })[0] || provs[0] || null;
+        return { id:String(it.id), cat:it.categoria || '', comp:String(it.componente || '').trim(), unidad:it.unidad || '',
+          cant: it.cantidad == null || it.cantidad === '' ? null : +it.cantidad, ref: p ? String(p.referencia || '') : '',
+          prov: p ? String(p.proveedor || '') : '', costo: p && p.costoUnitario != null ? +p.costoUnitario : null, cada: +it.intervalo || null };
+      }
+      var out = { modelos:{}, asignadas:{}, propios:{}, base:{}, importado:new Date().toISOString().slice(0, 10) }, porId = {};
+      x.planes.forEach(function(p){
+        var n = String(p.nombre || '').trim(); if (!n) return;
+        porId[p.id] = n;
+        out.modelos[n] = { medidor: p.medidor === 'km' ? 'km' : 'horas', items:(p.items || []).filter(function(it){ return it.componente; }).map(item) };
+      });
+      var codigos = {}; window.Maestros.flotaTodas().forEach(function(f){ codigos[f.cod.toUpperCase().replace(/\s+/g, '')] = f.cod; });
+      x.equipos.forEach(function(e){
+        var cod = codigos[String(e.codigo || '').toUpperCase().replace(/\s+/g, '')] || codigos[String(e.placa || '').toUpperCase().replace(/\s+/g, '')];
+        if (!cod) return;
+        if (porId[e.planId]) out.asignadas[cod] = porId[e.planId];
+        if ((e.propios || []).length) out.propios[cod] = e.propios.filter(function(it){ return it.componente; }).map(item);
+        var b = {};
+        Object.keys(e.estado || {}).forEach(function(id){
+          var s = e.estado[id];
+          if (s && s.ultLectura != null && s.ultLectura !== '' && +s.ultLectura > 0) b[id] = { h:+s.ultLectura, fecha:String(s.ultFecha || '').slice(0, 10) };
+        });
+        if (Object.keys(b).length) out.base[cod] = b;
+      });
+      if (!Object.keys(out.modelos).length) throw new Error('El respaldo no trae hojas de configuración.');
+      return out;
+    },
+    /* Lee los datos directamente del backend de la app Fichas técnicas. La
+       clave no va en el código (es público): se escribe una vez y queda en
+       el celular. */
+    URL_FT: 'https://script.google.com/macros/s/AKfycbxiM0fxmj1lYpa1XQe2gpDwabSmD88D3OdC5X6jkIiEpyz1sILXgG3CU_IwJGvomzBqyQ/exec',
+    clave: function(v){
+      try { if (v != null) localStorage.setItem('palma-fichas-clave', v); return localStorage.getItem('palma-fichas-clave') || ''; } catch(e){ return v || ''; }
+    },
+    traerDeFichasTecnicas: async function(clave){
+      if (!clave) throw new Error('Escriba la clave de Fichas técnicas.');
+      var r = await fetch(this.URL_FT + '?op=get&key=fichas-flota-v2&token=' + encodeURIComponent(clave) + '&t=' + Date.now());
+      var j = await r.json();
+      if (!j || !j.ok) throw new Error(j && j.error === 'no autorizado' ? 'La clave de Fichas técnicas no es correcta.' : 'Fichas técnicas no respondió.');
+      this.clave(clave);
+      if (!j.value) throw new Error('Fichas técnicas no tiene datos guardados.');
+      return this.desdeFichasTecnicas(JSON.parse(j.value));
+    }
+  };
+
+  /* =====================================================================
+     MANTENIMIENTOS — historial de mantenimientos preventivos (los registra
+     el Taller). Hoja "Mantenimientos": una fila por mantenimiento; columna 4
+     = ID (el Apps Script reemplaza la del mismo día; si no, vale la última).
+     El costo lo anota Compras en Reparaciones, con el ID del mantenimiento
+     como parada. Mismo envío que Reparaciones: se confirma al leer la hoja y
+     lo que no llega en 3 intentos queda a la vista.
+     ===================================================================== */
+  var KEY_MT = 'palma-mantenimientos-v1';
+  var ENC_MT = ['Fecha','Hora','Acción','ID','Equipo','Máquina','Medidor','Fecha mantenimiento','Ítems','Qué se cambió','Nota','Registró','Envío'];
+  var MT;
+  function cargarMt(){ try { MT = JSON.parse(localStorage.getItem(KEY_MT) || 'null'); } catch(e){ MT = null; } MT = MT || { hoja:{}, cola:[] }; return MT; }
+  function guardarMt(){ try { localStorage.setItem(KEY_MT, JSON.stringify(MT)); } catch(e){} }
+  cargarMt();
+  function fechaHoyMt(){ var d = new Date(); return d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear(); }
+  function horaMt(){ var d = new Date(); return p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()); }
+  function mtDeFila(r){
+    var items = []; try { items = JSON.parse(String(r[8] || '[]')) || []; } catch(e){}
+    return { id:String(r[3] || '').trim(), cod:String(r[4] || '').trim(), h:num(r[6]), fecha:aIso(r[7]) || aIso(r[0]), items:items,
+      nota:String(r[10] || '').trim(), por:String(r[11] || '').trim(), anulado:String(r[2] || '').trim().toUpperCase() === 'ANULADO',
+      registrado:aIso(r[0]), envio:String(r[12] || '') };
+  }
+  function mtAFila(x){
+    var f = deFlota(x.cod);
+    return [x.fechaTxt, x.hora, x.anulado ? 'ANULADO' : 'REGISTRO', x.id, x.cod, f ? f.nombre : '', x.h == null ? '' : x.h, x.fecha,
+      JSON.stringify(x.items || []), (x.items || []).map(function(i){ return i.comp + (i.ref ? ' (' + i.ref + ')' : ''); }).join(' · '),
+      x.nota || '', x.por || '', x.envio];
+  }
+  var enviandoMt = null, otraVezMt = false;
+  function enviarMt(){
+    if (enviandoMt){ otraVezMt = true; return enviandoMt; }
+    enviandoMt = enviarMtUnaVez().catch(function(){}).then(function(){
+      enviandoMt = null;
+      if (otraVezMt){ otraVezMt = false; return enviarMt(); }
+    });
+    return enviandoMt;
+  }
+  async function enviarMtUnaVez(){
+    if (!navigator.onLine) return;
+    var ahora = Date.now();
+    var porEnviar = cargarMt().cola.filter(function(x){ return !(x.enviadoEn && ahora - x.enviadoEn < 120000) && (x.intentos || 0) < 3; });
+    for (var i = 0; i < porEnviar.length; i++){
+      var x = porEnviar[i];
+      try {
+        await fetch(GS_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ hoja:'Mantenimientos', fila:mtAFila(x), encabezados:ENC_MT }) });
+      } catch(e){ break; }
+      var y = cargarMt().cola.filter(function(z){ return z.envio === x.envio; })[0];
+      if (y){ y.enviadoEn = Date.now(); y.intentos = (y.intentos || 0) + 1; guardarMt(); }
+    }
+  }
+  window.Mantenimientos = {
+    /* todos (lo de este celular aún sin confirmar va encima de lo de la hoja), sin los anulados, el más reciente primero */
+    todos: function(){
+      cargarMt();
+      var o = {};
+      Object.keys(MT.hoja).forEach(function(k){ o[k] = MT.hoja[k]; });
+      MT.cola.forEach(function(x){ o[x.id] = Object.assign({ sinConfirmar:true }, x); });
+      return Object.keys(o).map(function(k){ return o[k]; }).filter(function(x){ return !x.anulado; })
+        .sort(function(a, b){ return a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : (b.h || 0) - (a.h || 0); });
+    },
+    de: function(cod){ return this.todos().filter(function(x){ return x.cod === cod; }); },
+    nuevoId: function(){ return 'MT-' + (Date.now().toString(36) + Math.random().toString(36).slice(2, 5)).toUpperCase(); },
+    /* x = { id, cod, h, fecha, items:[{id, comp, ref, cant, unidad}], nota, por } */
+    guardar: function(x){
+      cargarMt();
+      MT.cola = MT.cola.filter(function(y){ return y.id !== x.id; });
+      MT.cola.push(Object.assign({}, x, { fechaTxt:fechaHoyMt(), hora:horaMt(),
+        envio:'t' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), intentos:0, enviadoEn:null }));
+      guardarMt();
+      return enviarMt();
+    },
+    anular: function(id, por){
+      var x = this.todos().filter(function(y){ return y.id === id; })[0];
+      if (!x) return Promise.resolve();
+      var y = {}; ['id', 'cod', 'h', 'fecha', 'items', 'nota'].forEach(function(k){ y[k] = x[k]; });
+      y.anulado = true; y.por = por || x.por;
+      return this.guardar(y);
+    },
+    traer: async function(){
+      var filas = await leer('Mantenimientos').catch(function(){ return null; });
+      if (filas){
+        var h = {};
+        filas.forEach(function(r){ var x = mtDeFila(r); if (x.id && x.cod) h[x.id] = x; });
+        cargarMt();
+        MT.hoja = h;
+        MT.cola = MT.cola.filter(function(x){
+          var r = h[x.id];
+          if (r && r.envio === x.envio) return false;                                     // llegó
+          if (r && r.registrado > aIso(x.fechaTxt)) return false;                          // hay algo más nuevo hecho en otro equipo
+          if (x.enviadoEn && Date.now() - x.enviadoEn > 120000 && x.intentos < 3) x.enviadoEn = null;
+          return true;
+        });
+        guardarMt();
+      }
+      await enviarMt();
+      return !!filas;
+    },
+    sinLlegar: function(){ cargarMt(); return MT.cola.filter(function(x){ return x.intentos >= 3 && x.enviadoEn && Date.now() - x.enviadoEn > 120000; }); },
+    reintentar: function(envio){ cargarMt(); MT.cola.forEach(function(x){ if (x.intentos >= 3 && (!envio || x.envio === envio)){ x.intentos = 0; x.enviadoEn = null; } }); guardarMt(); return enviarMt(); },
+    descartar: function(envio){ cargarMt(); MT.cola = MT.cola.filter(function(x){ return x.envio !== envio; }); guardarMt(); },
+    enviar: enviarMt
+  };
+
+  /* =====================================================================
+     ESTADO DEL MANTENIMIENTO — por ítem de la ficha: el último cambio
+     (historial del Taller; si no hay, el punto de partida de Fichas
+     técnicas; si no, el registro anterior de un solo horómetro, que cubre
+     los ítems de ese intervalo o menos) más su intervalo, contra el
+     horómetro de los operarios. La máquina toma el ítem más urgente.
+     ===================================================================== */
   window.Mtto = {
-    INTERVALO: 250,     // horas entre mantenimientos, si la máquina no tiene otro
-    AVISO: 25,          // se avisa cuando faltan estas horas o menos
-    /* { cod: { hor, fecha, por, intervalo } } guardado en Maestros (tipo MTTO) */
+    INTERVALO: 250,
+    AVISO: 25,          // horas; en los camiones 500 km
+    aviso: function(medidor){ return medidor === 'km' ? 500 : this.AVISO; },
+    /* registro anterior: { cod: { hor, fecha, por, intervalo } } en Maestros (tipo MTTO) */
     datos: function(){ return window.Maestros.get('MTTO') || {}; },
-    /* estado del mantenimiento con el horómetro actual (o el último conocido) */
+    /* último cambio de cada ítem: { ítem: { h, fecha, por, id } } */
+    ultimos: function(cod, ficha){
+      ficha = ficha || window.Fichas.de(cod);
+      var u = {}, fd = window.Fichas.datos(), base = (fd.base && fd.base[cod]) || {}, viejo = this.datos()[cod];
+      ficha.items.forEach(function(it){
+        if (base[it.id]) u[it.id] = { h:base[it.id].h, fecha:base[it.id].fecha, por:'Fichas técnicas' };
+        else if (viejo && viejo.hor != null && it.cada && it.cada <= (viejo.intervalo || 250)) u[it.id] = { h:viejo.hor, fecha:viejo.fecha, por:viejo.por };
+      });
+      // lo registrado en el Taller manda; del más viejo al más nuevo, así queda el último.
+      // Se empareja por ítem o por nombre (si la ficha se volvió a cargar, los ítems cambian de id).
+      var porNombre = {}; ficha.items.forEach(function(it){ porNombre[slug(it.comp)] = it.id; });
+      window.Mantenimientos.de(cod).slice().reverse().forEach(function(m){
+        (m.items || []).forEach(function(i){
+          var id = ficha.items.some(function(it){ return it.id === i.id; }) ? i.id : porNombre[slug(i.comp)];
+          if (id) u[id] = { h:m.h, fecha:m.fecha, por:m.por, id:m.id };
+        });
+      });
+      return u;
+    },
     estado: function(cod, horActual){
-      var d = this.datos()[cod], u = window.Horometros.ultimo()[cod];
-      var actual = horActual != null ? horActual : (u ? u.h : null);
-      if (!d || d.hor == null) return { nivel:'sindato', actual:actual };
-      var intervalo = d.intervalo || this.INTERVALO, proximo = d.hor + intervalo;
-      if (actual == null) return { nivel:'sinhorometro', ultimo:d.hor, fecha:d.fecha, intervalo:intervalo, proximo:proximo };
-      var faltan = Math.round((proximo - actual) * 10) / 10;
-      return { nivel: faltan <= 0 ? 'vencido' : faltan <= this.AVISO ? 'proximo' : 'ok', actual:actual, ultimo:d.hor, fecha:d.fecha,
-               por:d.por, intervalo:intervalo, proximo:proximo, faltan:faltan };
+      var ficha = window.Fichas.de(cod), u = window.Horometros.ultimo()[cod], av = this.aviso(ficha.medidor);
+      var actual = horActual != null ? horActual : (u ? u.h : null), ult = this.ultimos(cod, ficha);
+      var items = ficha.items.map(function(it){
+        var l = ult[it.id], x = { id:it.id, comp:it.comp, cat:it.cat, ref:it.ref, prov:it.prov, cant:it.cant, unidad:it.unidad, costo:it.costo, cada:it.cada };
+        if (!l || l.h == null || !it.cada){ x.nivel = 'sindato'; return x; }
+        x.ultimo = l.h; x.fecha = l.fecha; x.por = l.por; x.proximo = l.h + it.cada;
+        if (actual == null){ x.nivel = 'sinhorometro'; return x; }
+        x.faltan = Math.round((x.proximo - actual) * 10) / 10;
+        x.nivel = x.faltan <= 0 ? 'vencido' : x.faltan <= av ? 'proximo' : 'ok';
+        return x;
+      });
+      var con = items.filter(function(x){ return x.nivel !== 'sindato'; });
+      var r = { modelo:ficha.plantilla ? null : ficha.modelo, medidor:ficha.medidor, unidad:window.Fichas.unidad(ficha.medidor), actual:actual, items:items,
+        sinDato:items.length - con.length };
+      if (!con.length){ r.nivel = 'sindato'; return r; }
+      if (actual == null){
+        var p = con.slice().sort(function(a, b){ return a.proximo - b.proximo; })[0];
+        r.nivel = 'sinhorometro'; r.ultimo = p.ultimo; r.fecha = p.fecha; r.intervalo = p.cada; r.proximo = p.proximo; return r;
+      }
+      con.sort(function(a, b){ return a.faltan - b.faltan; });
+      var m = con[0];
+      // lo que toca en ese mismo cambio: los que vencen hasta el aviso después del más urgente
+      var tocan = con.filter(function(x){ return x.faltan <= Math.max(m.faltan, 0) + av; });
+      r.nivel = m.nivel; r.faltan = m.faltan; r.proximo = m.proximo; r.ultimo = m.ultimo; r.fecha = m.fecha; r.por = m.por; r.intervalo = m.cada;
+      r.tocan = tocan; r.que = tocan.map(function(x){ return x.comp.toLowerCase(); }).join(', ');
+      return r;
     }
   };
 })();
