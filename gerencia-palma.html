@@ -312,7 +312,6 @@ var PENDIENTES = [];              // pendientes abiertos: la máquina trabaja, p
 var PROG = null, INICIO_PROG = null;
 var FALTAN = [];
 var FILAS_TALLER = [];
-var COMB = null;                  // tanqueos de la app de Tanqueo (hoja Combustible), null si no se pudo leer            // la hoja Taller completa (para el historial)                  // hojas que no se pudieron leer (cifras incompletas)   // programación por fecha → máquina → asignación
 var HIST = [];                    // los últimos 6 meses hasta el elegido
 var MESES_HIST = 6, VENTANA_REPETIDAS = 90;
 var BASE_TEND = 50;   // la gráfica de tendencia arranca en 50 % para que se noten las diferencias
@@ -590,60 +589,8 @@ function criticoDias(D){
       : 'Concentra los días perdidos del mes. Revisar si son fallas distintas o la misma sin resolver.' };
 }
 
-/* ---------- combustible (app de Tanqueo del almacén, hoja Combustible) ----------
-   Una fila por tanqueo con su ID en la columna 4; si se editó o anuló, vale
-   la última fila de ese ID. Recorrido = horómetro (o km) desde el tanqueo
-   anterior de la misma máquina: con eso sale el consumo por hora. */
-async function traerCombustible(){
-  try {
-    var filas = await leerHoja('Combustible'), u = {};
-    filas.forEach(function(r){ var id = String(r[3] || '').trim(); if (id) u[id] = r; });
-    COMB = Object.keys(u).map(function(k){ var r = u[k];
-      return { id:k, accion:String(r[2] || '').trim().toUpperCase(), fecha:aIso(r[0]), cod:String(r[4] || '').trim(),
-        gal:+r[6] || 0, rec:+r[9] || 0, km:String(r[8] || '') === 'Km', costo:+r[14] || 0, just:String(r[17] || ''), recibe:String(r[11] || '') };
-    }).filter(function(t){ return t.accion !== 'ANULADO' && /^\d{4}-\d{2}-\d{2}$/.test(t.fecha); });
-  } catch(e){ COMB = null; FALTAN.push('el combustible'); }
-}
-function combustibleMes(desde, hasta){
-  var l = (COMB || []).filter(function(t){ return t.fecha >= desde && t.fecha <= hasta; }), por = {}, T = { gal:0, costo:0, n:0 };
-  l.forEach(function(t){
-    var x = por[t.cod] || (por[t.cod] = { cod:t.cod, gal:0, costo:0, n:0, galRec:0, rec:0, km:t.km, raros:0 });
-    x.gal += t.gal; x.costo += t.costo; x.n++;
-    if (t.rec > 0){ x.galRec += t.gal; x.rec += t.rec; }
-    if (t.just) x.raros++;
-    T.gal += t.gal; T.costo += t.costo; T.n++;
-  });
-  return { equipos: Object.keys(por).map(function(k){ return por[k]; }), T:T, raros: l.filter(function(t){ return t.just; }) };
-}
-function secCombustible(titulo){
-  if (COMB === null) return '<div class="vacio">No se pudo leer la hoja de combustible. Pulse "Actualizar".</div>';
-  if (!COMB.length) return '<div class="vacio">Todavía no hay tanqueos registrados. Se registran en la app de Tanqueo del almacén.</div>';
-  var M = combustibleMes(D.desde, D.corte);
-  // el mes anterior solo si fue todo con el sistema actualizado
-  var fp = sumarDias(D.anio + '-' + p2(D.mes) + '-01', -1), ip = fp.slice(0, 8) + '01';
-  var P = ip >= SISTEMA.INICIO ? combustibleMes(ip, fp) : { T:{ gal:0 } };
-  function g(v){ return String(Math.round(v * 10) / 10).replace('.', ','); }
-  function peso(v){ return '$' + Math.round(v).toLocaleString('es-CO'); }
-  var lista = M.equipos.slice().sort(function(a, b){ return b.gal - a.gal; });
-  var h = '<div class="kpis sec">' +
-    '<div class="kpi"><div class="n">' + g(M.T.gal) + '</div><div class="t">Galones en el mes</div><div class="x">' + M.T.n + ' tanqueos' +
-      (P.T.gal ? ' · mes anterior ' + g(P.T.gal) : '') + '</div></div>' +
-    '<div class="kpi"><div class="n">' + peso(M.T.costo) + '</div><div class="t">Costo del combustible</div><div class="x">al precio de cada tanqueo</div></div>' +
-    '<div class="kpi' + (M.raros.length ? ' al' : '') + '"><div class="n">' + M.raros.length + '</div><div class="t">Tanqueos con alerta</div><div class="x">consumo fuera de lo normal, con justificación</div></div>' +
-    '</div>';
-  h += titulo('Consumo por máquina', 'Galones del mes y consumo por hora (o km por galón en camiones), con el horómetro de cada tanqueo.') +
-    (lista.length ? '<div class="tabla"><table><thead><tr><th>Máquina</th><th class="num">Tanqueos</th><th class="num">Galones</th><th class="num">Costo</th><th class="num">Consumo</th></tr></thead><tbody>' +
-      lista.map(function(x){ var e = eqDe(x.cod) || {};
-        var cons = !x.rec ? '—' : x.km ? g(x.rec / x.galRec) + ' km/gal' : g(x.galRec / x.rec) + ' gal/h';
-        return '<tr><td><span class="eqn mono">' + esc(x.cod) + '</span> <span class="mod">' + esc(e.nombre || '') + '</span>' + (x.raros ? ' <span class="pill al">' + x.raros + ' alerta' + (x.raros > 1 ? 's' : '') + '</span>' : '') + '</td>' +
-          '<td class="num mono">' + x.n + '</td><td class="num mono">' + g(x.gal) + '</td><td class="num mono">' + peso(x.costo) + '</td><td class="num mono">' + cons + '</td></tr>';
-      }).join('') + '</tbody></table></div>' : '<div class="vacio">Sin tanqueos en el mes.</div>');
-  if (M.raros.length) h += titulo('Tanqueos con alerta', 'Lo que la app marcó como consumo fuera de lo normal y la justificación que se escribió.') +
-    '<div class="tabla"><table><thead><tr><th>Fecha</th><th>Máquina</th><th class="num">Galones</th><th>Recibió</th><th>Justificación</th></tr></thead><tbody>' +
-    M.raros.map(function(t){ return '<tr><td class="mono">' + dcorta(t.fecha) + '</td><td class="mono">' + esc(t.cod) + '</td><td class="num mono">' + g(t.gal) + '</td><td>' + esc(t.recibe) + '</td><td>' + esc(t.just) + '</td></tr>'; }).join('') +
-    '</tbody></table></div>';
-  return titulo('Combustible', 'Lo que despacha el almacén en la app de Tanqueo.') + h;
-}
+/* El combustible ya no se ve aquí: está en Agrovisión (Flota y Combustible), con
+   el mismo cálculo de la app de Tanqueo (Combustible en maestros.js). */
 
 /* ---------- horas trabajadas (horómetro del Cierre de jornada) ---------- */
 function horasDelMes(R){
@@ -778,8 +725,7 @@ var TABS = [
   { id:'fallas',    txt:'Fallas y taller' },
   { id:'uso',       txt:'Uso' },
   { id:'conf',      txt:'Confiabilidad' },
-  { id:'camiones',  txt:'Camiones' },
-  { id:'comb',      txt:'Combustible' }
+  { id:'camiones',  txt:'Camiones' }
 ];
 var TAB = 'resumen';
 try { TAB = localStorage.getItem('gerencia-pestana') || 'resumen'; } catch(e){}
@@ -1067,8 +1013,7 @@ function pintar(){
     conf: '<div class="dos"><div>' + titulo('MTBF por máquina', 'Cuántos días disponibles pasan en promedio entre una falla y otra (más es mejor), con los últimos ' +
         C.meses + (C.meses === 1 ? ' mes' : ' meses') + ' con datos.') + secMtbf + '</div>' +
       '<div>' + titulo('Fallas repetidas', 'Señal de que la reparación no quedó bien.') + secRepetidas + '</div></div>',
-    camiones: titulo('Camiones', 'Transporte de fruta y de personal. Se miden aparte y no entran en la disponibilidad de la maquinaria.') + secCamiones,
-    comb: secCombustible(titulo)
+    camiones: titulo('Camiones', 'Transporte de fruta y de personal. Se miden aparte y no entran en la disponibilidad de la maquinaria.') + secCamiones
   };
   var cuenta = { fallas: D.abiertos.length + PENDIENTES.length + mVenc.length, conf: rep90.length };
 
@@ -1094,7 +1039,6 @@ async function cargar(forzar){
     FLOTA = Maestros.flotaTodas();
     FALTAN = [];
     var progListo = traerProgramacion();
-    var combListo = traerCombustible();
     var horListo = Horometros.traer().then(function(ok){ if (!ok) FALTAN.push('los horómetros'); })
       .catch(function(){ FALTAN.push('los horómetros'); });
     try { EVENTOS = await traer(); }
@@ -1102,7 +1046,7 @@ async function cargar(forzar){
       $('#app').innerHTML = '<div class="err"><strong>No se pudo leer la hoja Taller.</strong> Revise la conexión e intente con "Actualizar". (' + esc(e.message) + ')</div>';
       return;
     }
-    await progListo; await horListo; await combListo;
+    await progListo; await horListo;
     $('#act').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
   }
   HIST = historial(+mv[0], +mv[1]);
