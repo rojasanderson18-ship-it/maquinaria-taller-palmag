@@ -371,11 +371,11 @@ function pintar(hoy, T, preop, preopViejo, cierre, prog, progViejo){
   var mt = maq.map(function(f){ var m = Mtto.estado(f.cod); m.cod = f.cod; return m; });
   var venc = mt.filter(function(m){ return m.nivel === 'vencido'; }), prox = mt.filter(function(m){ return m.nivel === 'proximo'; });
   if (venc.length) at.push({ c: 'r', i: 'llave', t: 'Mantenimiento vencido: ' + venc.map(function(m){ return m.cod; }).join(', '),
-    s: 'Se pasaron de las ' + (venc[0].intervalo || 250) + ' h desde el último mantenimiento.' });
+    s: venc.map(function(m){ return m.cod + ': ' + (m.que || 'mantenimiento'); }).join(' · ') });
   else if (prox.length) at.push({ c: 'a', i: 'llave', t: 'Mantenimiento próximo: ' + prox.map(function(m){ return m.cod; }).join(', '),
-    s: 'Les faltan menos de ' + Mtto.AVISO + ' h.' });
+    s: prox.map(function(m){ return m.cod + ': ' + (m.que || 'mantenimiento'); }).join(' · ') });
   if (!mt.some(function(m){ return m.nivel !== 'sindato'; }))
-    at.push({ c: 'n', i: 'llave', t: 'Mantenimiento sin registrar', s: 'Sin eso no hay alerta de las 250 h. Tulio lo registra en la ficha de cada máquina.' });
+    at.push({ c: 'n', i: 'llave', t: 'Mantenimiento sin registrar', s: 'Sin eso no hay alerta de cambios de filtros y aceites. Tulio lo registra en la ficha de cada máquina.' });
   if (!at.length) at.push({ c: 'ok', i: 'ok', t: 'Todo en orden', s: 'No hay nada pendiente de atención hoy.' });
   $('#aten').innerHTML = at.map(function(x){
     return '<li><span class="s ' + (x.c === 'ok' ? 'n' : x.c) + '"' + (x.c === 'ok' ? ' style="background:var(--verde-s);color:var(--verde-m)"' : '') + '>' + ICO[x.i] + '</span>' +

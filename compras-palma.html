@@ -65,7 +65,7 @@
   .aviso{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:14px;z-index:50;max-width:90vw}
   /* hoja */
   .hoja{position:fixed;inset:0;background:rgba(14,26,21,.45);z-index:40;display:flex;align-items:flex-end;justify-content:center}
-  .hoja[hidden]{display:none}
+  .hoja[hidden],.campo[hidden]{display:none}
   .panel{background:var(--paper);width:100%;max-width:560px;max-height:92vh;overflow:auto;border-radius:12px 12px 0 0;padding:16px 16px 26px}
   .panel h3{font-size:18px;margin-bottom:2px}
   .panel .sub{font-size:13px;color:var(--steel);margin-bottom:12px}
@@ -206,10 +206,44 @@ function pintar(){
   h += '<h2>Otras máquinas paradas <span class="cuenta">' + otras.length + '</span></h2>' +
     (otras.length ? otras.map(function(x){ return tarjeta(x, ''); }).join('') : '<div class="vacio">No hay más máquinas paradas.</div>') +
     '<p class="nota">Si una máquina va a taller externo o se puede cotizar aunque el taller no haya pedido repuesto, también se le puede poner costo.</p>';
+  h += mttosHtml();
   $('#app').innerHTML = h;
   Array.prototype.forEach.call(document.querySelectorAll('[data-costo]'), function(b){ b.onclick = function(){ ponerCosto(b.dataset.costo); }; });
   pintarNoLlego();
 }
+
+/* Mantenimientos preventivos que registró el Taller (desde que arrancó el
+   sistema): Compras les pone el costo, igual que a las reparaciones. */
+function mttos(){
+  var desde = (window.SISTEMA && SISTEMA.INICIO) || '2026-10-27';
+  return Mantenimientos.todos().filter(function(m){ return m.fecha >= desde; }).map(function(m){
+    var c = Reparaciones.de(m.id).compras;
+    return { m:m, c:c, costo: c ? (c.repuestos || 0) + (c.mano || 0) : 0 };
+  });
+}
+function estimadoMtto(m){
+  var t = 0, todos = true;
+  (m.items || []).forEach(function(i){ if (i.costo != null && i.cant != null) t += i.costo * i.cant; else todos = false; });
+  return t ? { valor:t, completo:todos } : null;
+}
+function mttosHtml(){
+  var l = mttos(), sin = l.filter(function(x){ return !x.costo; }), con = l.filter(function(x){ return x.costo && x.m.fecha >= haceDias(30); });
+  function tarj(x){
+    var m = x.m, e = estimadoMtto(m);
+    return '<div class="tarj ' + (x.costo ? '' : 'ambar') + '"><div class="cab"><span><span class="cod mono">' + esc(m.cod) + '</span> <span class="nom">' + esc(nombreDe(m.cod)) + '</span></span>' +
+        '<span class="dias">' + dcorta(m.fecha) + '</span></div>' +
+      '<div class="pide"><b>Se cambió:</b> ' + (m.items || []).map(function(i){ return esc(i.comp) + (i.ref ? ' <span class="mono">' + esc(i.ref) + '</span>' : '') +
+        (i.cant != null ? ' × ' + String(i.cant).replace('.', ',') + ' ' + esc(i.unidad || '') : ''); }).join(' · ') + '</div>' +
+      '<div class="fila"><span class="nota">Registró ' + esc(m.por || '—') + (m.nota ? ' · ' + esc(m.nota) : '') + '</span></div>' +
+      (x.costo ? '<div class="compra"><b>' + pesos(x.costo) + '</b>' + (x.c.proveedor ? '<br>Proveedor: ' + esc(x.c.proveedor) : '') + '</div>'
+        : e ? '<div class="fila"><span class="nota">Según los precios de la ficha serían unos ' + pesos(e.valor) + (e.completo ? '' : ' (faltan precios de algunos ítems)') + '</span></div>' : '') +
+      '<button class="btn' + (x.costo ? '' : ' lleno') + '" data-costo="' + esc(m.id) + '">' + (x.costo ? 'Actualizar costo' : 'Poner costo') + '</button></div>';
+  }
+  return '<h2 class="' + (sin.length ? 'ambar' : '') + '">Mantenimientos por costear <span class="cuenta">' + sin.length + '</span></h2>' +
+    (sin.length ? sin.map(tarj).join('') : '<div class="vacio">Todos los mantenimientos tienen costo.</div>') +
+    (con.length ? '<h2>Mantenimientos con costo · últimos 30 días <span class="cuenta">' + con.length + '</span></h2>' + con.map(tarj).join('') : '');
+}
+function haceDias(n){ var d = new Date(); d.setDate(d.getDate() - n); return iso(d); }
 
 function adjHtml(l){
   if (!l || !l.length) return '';
@@ -236,7 +270,10 @@ function pedirNombre(despues){
 
 function ponerCosto(id){
   if (!yo){ pedirNombre(function(){ ponerCosto(id); }); return; }
-  var p = PARADAS.filter(function(x){ return x.id === id; })[0]; if (!p) return;
+  var p = (PARADAS || []).filter(function(x){ return x.id === id; })[0];
+  var mt = p ? null : Mantenimientos.todos().filter(function(x){ return x.id === id; })[0];
+  if (mt) p = { id:id, cod:mt.cod, novedad:'Mantenimiento del ' + dcorta(mt.fecha) + ': ' + (mt.items || []).map(function(i){ return i.comp.toLowerCase(); }).join(', ') };
+  if (!p) return;
   var R = Reparaciones.de(id), c = R.compras || {}, t = R.taller;
   function fmt(n){ return n == null ? '' : Math.round(n).toLocaleString('es-CO'); }
   abrir('<h3>' + esc(p.cod) + ' · ' + esc(nombreDe(p.cod)) + '</h3>' +
@@ -247,7 +284,7 @@ function ponerCosto(id){
     '</div>' +
     '<div class="total" id="c-total"></div>' +
     '<label class="campo"><span>Proveedor</span><input id="c-prov" value="' + esc(c.proveedor || '') + '" placeholder="Dónde se compra o quién lo repara"></label>' +
-    '<label class="campo"><span>¿Cuándo llega el repuesto? <i>— si ya se pidió</i></span><input id="c-llega" type="date" value="' + esc(c.llega || '') + '"></label>' +
+    '<label class="campo"' + (mt ? ' hidden' : '') + '><span>¿Cuándo llega el repuesto? <i>— si ya se pidió</i></span><input id="c-llega" type="date" value="' + esc(c.llega || '') + '"></label>' +
     '<label class="campo"><span>Nota <i>— opcional</i></span><textarea id="c-nota" placeholder="N.º de cotización u orden de compra, forma de pago, garantía…">' + esc(c.nota || '') + '</textarea></label>' +
     adjHtml(Adjuntos.de(id)) +
     '<label class="btn" style="display:block;text-align:center;margin-top:12px">📎 Adjuntar orden de compra, factura o cotización<input type="file" id="c-adj" accept="application/pdf,image/*" multiple hidden></label>' +
@@ -257,7 +294,7 @@ function ponerCosto(id){
       var nuevos = [];
       function sumar(){
         var a = numero($('#c-rep').value) || 0, b = numero($('#c-mano').value) || 0;
-        $('#c-total').textContent = a + b ? 'Total para ponerla a trabajar: ' + pesos(a + b) : '';
+        $('#c-total').textContent = a + b ? (mt ? 'Total del mantenimiento: ' : 'Total para ponerla a trabajar: ') + pesos(a + b) : '';
         $('#c-ok').disabled = !(a + b) && !$('#c-llega').value && !$('#c-prov').value.trim() && !nuevos.length;
         $('#c-nuevos').innerHTML = nuevos.map(function(f){ return '<span class="adj-a">📎 ' + esc(f.name) + '<small>se sube al guardar</small></span>'; }).join('');
       }
@@ -308,6 +345,7 @@ async function cargar(){
   } catch(e){}
   await Reparaciones.traer().catch(function(){});
   await Adjuntos.traer().catch(function(){});
+  await Mantenimientos.traer().catch(function(){});
   if (filas){ PARADAS = paradasDe(filas); guardar(); $('#sinhoja').hidden = true; }
   else {
     $('#sinhoja').hidden = false;

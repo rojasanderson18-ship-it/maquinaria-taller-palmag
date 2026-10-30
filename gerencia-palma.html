@@ -984,7 +984,7 @@ function pintar(){
     '<li><b>Utilización:</b> días en que la máquina trabajó (tenía labor en la Programación, o el operario hizo preoperativo o cierre) ÷ días disponibles. Solo maquinaria.</li>' +
     '<li><b>Tendencia:</b> los meses antes del primer registro del Taller salen "sin datos" en vez de 100 %.</li>' +
     '<li><b>Horas trabajadas:</b> horómetro final menos inicial de cada cierre de jornada del Preoperativo.</li>' +
-    '<li><b>Mantenimiento preventivo:</b> vencido cuando el horómetro pasa el último mantenimiento más el intervalo (' + Mtto.INTERVALO + ' h por defecto); próximo cuando faltan ' + Mtto.AVISO + ' h o menos.</li>' +
+    '<li><b>Mantenimiento preventivo:</b> cada filtro y aceite tiene su intervalo en la ficha del modelo (Taller → Máquinas → Fichas). Vencido cuando el horómetro pasa su último cambio más el intervalo; próximo cuando faltan ' + Mtto.AVISO + ' h o menos (500 km en los camiones).</li>' +
     '</ul></details>';
 
   /* ---------- pestañas ---------- */
@@ -1005,7 +1005,7 @@ function pintar(){
       '<div class="dos"><div>' + titulo('Fallas por sistema', 'Lo clasifica Tulio al dar el alta.') + secPareto + '</div>' +
       '<div>' + titulo('Fallas repetidas', 'Misma máquina y mismo sistema 2 o más veces en ' + VENTANA_REPETIDAS + ' días: la reparación no quedó bien.') + secRepetidas + '</div></div>' +
       titulo('Pendientes del taller', 'Máquinas que siguen trabajando con algo anotado por Tulio: no baja la disponibilidad, pero si no se atiende puede convertirse en una parada.') + secPendientes +
-      titulo('Mantenimiento preventivo', 'Según el horómetro que registran los operarios y el último mantenimiento que registra Tulio en el Taller (cada ' + Mtto.INTERVALO + ' h si no se indica otro intervalo).') + secMtto,
+      titulo('Mantenimiento preventivo', 'Según el horómetro que registran los operarios, lo que Tulio registra que se cambió y el intervalo de cada filtro y aceite en la ficha del modelo.') + secMtto,
     uso: titulo('Uso de la maquinaria', 'De los días en que cada máquina estuvo disponible, en cuántos trabajó: tenía labor en la Programación o el operario hizo preoperativo o cierre' +
       (U && U.desde > D.desde ? ' (desde el ' + dcorta(U.desde) + ', cuando empezó a haber registros)' : '') + '. Los días ociosos son capacidad que no se usó.' +
       (U && U.totales.sinProgramar ? ' Hubo ' + U.totales.sinProgramar + ' días-máquina trabajados que nadie programó: la Programación no se está registrando completa.' : '')) + secUso +
@@ -1166,7 +1166,7 @@ function informe(){
   }
   var mtI = mantenimientos().filter(function(m){ return m.nivel !== 'sindato'; });
   if (mtI.length){
-    h += sec('Mantenimiento preventivo', 'cada ' + Mtto.INTERVALO + ' h salvo otro intervalo') + '<table><thead><tr><th>Máquina</th><th>Estado</th><th class="n">Horómetro</th><th class="n">Último</th><th class="n">Próximo</th><th class="n">Faltan</th></tr></thead><tbody>' +
+    h += sec('Mantenimiento preventivo', 'según la ficha de cada modelo') + '<table><thead><tr><th>Máquina</th><th>Estado</th><th class="n">Horómetro</th><th class="n">Último</th><th class="n">Próximo</th><th class="n">Faltan</th></tr></thead><tbody>' +
       mtI.map(function(m){
         return fila([esc(m.equipo) + ' ' + esc(m.nombre), { vencido:'<b>Vencido</b>', proximo:'Próximo', ok:'Al día', sinhorometro:'Sin horómetro' }[m.nivel],
           hFmt(m.actual), hFmt(m.ultimo), hFmt(m.proximo), m.faltan == null ? '—' : m.faltan <= 0 ? '<b>−' + hFmt(-m.faltan) + '</b>' : hFmt(m.faltan)]);
