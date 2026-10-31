@@ -1076,8 +1076,11 @@ window.laborTxt = function(id){ var l = window.LABORES_MAQ.filter(function(x){ r
    combustible por lote. Un solo cálculo para Agrovisión y Gerencia.
    Sale de los cierres de jornada que traen la labor y los lotes escogidos
    de la lista (Preoperativo); los de texto libre no se reparten.
-   Las horas de un cierre con varios lotes se reparten por hectáreas; el
-   combustible es horas × consumo por hora de esa máquina (o de la flota).
+   Las horas de un cierre con varios lotes se reparten por hectáreas. El
+   combustible es lo realmente despachado a cada máquina en el período,
+   repartido entre sus labores y lotes según las horas de sus cierres (si un
+   cierre no trae la labor, la de la programación de ese día); así todo suma
+   lo que salió del tanque. Los camiones van a Transporte.
    ===================================================================== */
 (function(){
   function p2(n){ return ('0' + n).slice(-2); }
@@ -1103,21 +1106,13 @@ window.laborTxt = function(id){ var l = window.LABORES_MAQ.filter(function(x){ r
       });
       return Object.keys(u).map(function(k){ return u[k]; });
     },
-    /* consumo por hora de cada máquina en un período (o lo normal) y de la flota: { porCod, flota, precio } */
-    tasas: function(tanqueos, desdeTs, hastaTs){
-      var C = window.Combustible, o = { porCod:{}, flota:null, precio:0 };
-      if (!C || !tanqueos || !tanqueos.length) return o;
-      var cods = {}, g = 0, h = 0, gal = 0, costo = 0;
-      tanqueos.forEach(function(t){ if (!t.anulado && t.tipo !== 'km') cods[t.cod] = true;
-        if (!t.anulado && t.ts >= desdeTs && t.ts <= hastaTs){ gal += t.gal; costo += t.costo || 0; } });
-      Object.keys(cods).forEach(function(c){
-        var a = C.consumo(tanqueos, c, desdeTs, hastaTs), t = a && a.tasa != null && !a.km ? a.tasa : null;
-        if (t == null){ var nm = C.normal(tanqueos, c, hastaTs); t = nm && nm.tasa != null && !nm.km ? nm.tasa : null; }
-        if (t != null){ o.porCod[c] = t; if (a && a.tasa != null && a.avance > 0){ g += a.gal; h += a.avance; } }
-      });
-      var l = Object.keys(o.porCod).map(function(c){ return o.porCod[c]; }).sort(function(a, b){ return a - b; });
-      o.flota = h ? g / h : l.length ? l[Math.floor(l.length / 2)] : null;
-      o.precio = gal ? costo / gal : 0;
+    /* combustible realmente despachado a cada equipo en un período: { cod:{ gal, costo } }
+       (sin anulados ni galones mal digitados; sin precio, el promedio del período) */
+    combustible: function(tanqueos, desde, hasta){
+      var o = {}, l = (tanqueos || []).filter(function(t){ return !t.anulado && !t.dudoso && t.fecha >= desde && t.fecha <= hasta; });
+      var g = 0, c = 0; l.forEach(function(t){ if (t.costo){ g += t.gal; c += t.costo; } });
+      var precio = g ? c / g : 0;
+      l.forEach(function(t){ var x = o[t.cod] = o[t.cod] || { gal:0, costo:0 }; x.gal += t.gal; x.costo += t.costo || t.gal * precio; });
       return o;
     },
     /* Costo del taller de un período (Agrovisión, informe semanal y Gerencia):
@@ -1146,12 +1141,12 @@ window.laborTxt = function(id){ var l = window.LABORES_MAQ.filter(function(x){ r
       });
       return o;
     },
-    /* p = { desde, hasta, hoy, maquinas:[cod], prog:{ fecha:{ cod:{ labor } } }, cierres:[…],
-             trabajo(cod, f), parado(cod, f), tasas:{ porCod, flota, precio } } */
+    /* p = { desde, hasta, hoy, maquinas:[cod], prog:{ fecha:{ cod:{ labor, lotes } } }, cierres:[…],
+             trabajo(cod, f), parado(cod, f), combustible:{ cod:{ gal, costo } } (Operacion.combustible) } */
     calcular: function(p){
       var O = { prog:0, cumplidas:0, otraLabor:0, otrosLotes:0, noTrabajo:0, sinCierre:0, sinDato:0, enTaller:0, sinProgramar:0, conDato:0,
         porMaq:{}, sinProg:[], labor:{}, lotes:{}, horas:0, gal:0, costo:0 };
-      var hy = p.hoy, porDia = {}, T = p.tasas || { porCod:{}, flota:null, precio:0 };
+      var hy = p.hoy, porDia = {};
       p.cierres.forEach(function(c){ (porDia[c.cod + '|' + c.fecha] = porDia[c.cod + '|' + c.fecha] || []).push(c); });
       function pm(cod){ return O.porMaq[cod] = O.porMaq[cod] || { cod:cod, prog:0, cumplidas:0, otras:0, noTrabajo:0, sinCierre:0 }; }
       var hasta = p.hasta > hy ? hy : p.hasta;
@@ -1175,24 +1170,52 @@ window.laborTxt = function(id){ var l = window.LABORES_MAQ.filter(function(x){ r
         });
       }
       var maq = {}; p.maquinas.forEach(function(c){ maq[c] = true; });
-      p.cierres.forEach(function(c){
-        if (c.fecha < p.desde || c.fecha > p.hasta || !c.laborId || !(c.horas > 0) || !maq[c.cod]) return;
-        O.horas += c.horas;
-        O.labor[c.laborId] = (O.labor[c.laborId] || 0) + c.horas;
-        var t = T.porCod[c.cod] != null ? T.porCod[c.cod] : T.flota, gal = t != null ? c.horas * t : 0;
-        O.gal += gal; O.costo += gal * T.precio;
-        var ls = window.Lotes.partir(c.lotes);
+      function alLote(ls, horas, gal, costo){
         if (!ls.length) return;
         var ha = ls.map(function(l){ return window.Lotes.ha(l) || 0; }), tot = ha.reduce(function(a, v){ return a + v; }, 0);
         ls.forEach(function(l, i){
           var w = tot ? ha[i] / tot : 1 / ls.length, y = O.lotes[l] = O.lotes[l] || { lote:l, ha:ha[i], horas:0, gal:0, costo:0, finca:'' };
-          y.horas += c.horas * w; y.gal += gal * w; y.costo += gal * w * T.precio;
+          y.horas += horas * w; y.gal += gal * w; y.costo += costo * w;
+        });
+      }
+      function lab(id){ return O.porLabor[id] = O.porLabor[id] || { id:id, txt: id === 'sin' ? 'Sin labor registrada' : window.laborTxt(id), horas:0, gal:0, costo:0 }; }
+      O.porLabor = {};
+      // horas: los cierres con la labor confirmada
+      var unidades = {};   // por máquina: [{ laborId, lotes, horas }] para repartir su combustible
+      p.cierres.forEach(function(c){
+        if (c.fecha < p.desde || c.fecha > p.hasta || !maq[c.cod]) return;
+        var id = c.laborId, ls = c.lotes, h = c.horas > 0 ? c.horas : 0;
+        if (id && h){ O.horas += h; lab(id).horas += h; alLote(window.Lotes.partir(ls), h, 0, 0); }
+        if (!id){   // cierre sin la labor: la de la programación de ese día
+          var pr = p.prog[c.fecha] && p.prog[c.fecha][c.cod];
+          id = pr ? window.laborId(pr.labor || pr) : ''; ls = pr && pr.lotes ? pr.lotes : '';
+        }
+        if (h) (unidades[c.cod] = unidades[c.cod] || []).push({ id: id || 'sin', lotes:ls, horas:h });
+      });
+      // combustible: lo realmente despachado a cada máquina, repartido por las horas de sus labores y lotes;
+      // sin cierres con horas, por los días programados; los camiones, a transporte
+      Object.keys(p.combustible || {}).forEach(function(cod){
+        var g = p.combustible[cod]; if (!g || !(g.gal > 0)) return;
+        O.gal += g.gal; O.costo += g.costo;
+        var u = unidades[cod];
+        if (!u && !maq[cod]) u = [{ id:'transporte', lotes:'', horas:1 }];
+        if (!u){
+          u = [];
+          Object.keys(p.prog).forEach(function(f){ var pr = p.prog[f][cod]; if (pr && f >= p.desde && f <= p.hasta) u.push({ id: window.laborId(pr.labor || pr) || 'sin', lotes: pr.lotes || '', horas:1 }); });
+          if (!u.length) u = [{ id:'sin', lotes:'', horas:1 }];
+        }
+        var tot = u.reduce(function(a, x){ return a + x.horas; }, 0);
+        u.forEach(function(x){
+          var w = x.horas / tot, gl = g.gal * w, cs = g.costo * w, l = lab(x.id);
+          l.gal += gl; l.costo += cs;
+          alLote(window.Lotes.partir(x.lotes), 0, gl, cs);
         });
       });
       var fin = {}; (window.Lotes.lista() || []).forEach(function(x){ fin[x.cod] = x.finca; });
       O.listaLotes = Object.keys(O.lotes).map(function(l){ var y = O.lotes[l]; y.finca = fin[l] || ''; y.porHa = y.ha ? y.horas / y.ha : null; y.galHa = y.ha ? y.gal / y.ha : null; return y; })
-        .sort(function(a, b){ return b.horas - a.horas; });
-      O.listaLabor = Object.keys(O.labor).map(function(id){ return { id:id, txt:window.laborTxt(id), horas:O.labor[id] }; }).sort(function(a, b){ return b.horas - a.horas; });
+        .sort(function(a, b){ return b.horas - a.horas || b.gal - a.gal; });
+      O.listaLabor = Object.keys(O.porLabor).map(function(id){ return O.porLabor[id]; }).sort(function(a, b){ return b.horas - a.horas || b.gal - a.gal; });
+      O.labor = {}; O.listaLabor.forEach(function(x){ if (x.horas) O.labor[x.id] = x.horas; });
       O.pct = O.prog ? O.cumplidas / O.prog * 100 : null;
       return O;
     }

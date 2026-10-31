@@ -502,11 +502,10 @@ function calcular(eventos, anio, mes){
    El mismo cálculo de Agrovisión (Operacion en maestros.js). */
 function operacionMes(eventos, maquinaria, desde, hasta){
   var usos = Horometros.usos();
-  var fin = new Date(hasta + 'T23:59:59').getTime(), ini = new Date(desde + 'T00:00:00').getTime();
   return Operacion.calcular({ desde:desde, hasta:hasta, hoy:hoy(), maquinas: maquinaria.map(function(e){ return e.equipo; }), prog: PROG || {}, cierres: CIERRES,
     trabajo: function(cod, f){ return !!usos[cod + '|' + f]; },
     parado: function(cod, f){ return eventos.some(function(e){ return e.equipo === cod && e.inicio <= f && (!e.fin || e.fin > f); }); },
-    tasas: Operacion.tasas(TANQ, ini, fin) });
+    combustible: Operacion.combustible(TANQ, desde, hasta) });
 }
 
 /* ---------- costo del taller (lo que registra Compras) ----------
@@ -846,8 +845,9 @@ function pintar(){
 
   // labores y lotes del mes
   var vacioOp = 'Se llena con los cierres de jornada que traen la labor y los lotes (Preoperativo actualizado).';
-  var secLabor = OP && OP.listaLabor.length ? '<div class="tabla"><table><thead><tr><th>Labor</th><th class="num">Horas de máquina</th><th class="num">Del total</th></tr></thead><tbody>' +
-      OP.listaLabor.map(function(x){ return '<tr><td>' + esc(x.txt) + '</td><td class="num mono">' + hFmt(x.horas) + '</td><td class="num mono">' + pct(x.horas / OP.horas * 100) + '</td></tr>'; }).join('') +
+  var secLabor = OP && OP.listaLabor.length ? '<div class="tabla"><table><thead><tr><th>Labor</th><th class="num">Horas de máquina</th><th class="num">Del total</th><th class="num">Combustible</th></tr></thead><tbody>' +
+      OP.listaLabor.map(function(x){ return '<tr><td>' + esc(x.txt) + '</td><td class="num mono">' + (x.horas ? hFmt(x.horas) : '\u2014') + '</td><td class="num mono">' + (x.horas && OP.horas ? pct(x.horas / OP.horas * 100) : '\u2014') + '</td>' +
+        '<td class="num mono">' + (x.costo ? pesos(x.costo) : x.gal ? n1(x.gal) + ' gal' : '\u2014') + '</td></tr>'; }).join('') +
       '</tbody></table></div>' : '<div class="vacio">' + vacioOp + '</div>';
   var lotesHa = OP ? OP.listaLotes.filter(function(y){ return y.ha; }).sort(function(a, b){ return b.porHa - a.porHa; }) : [];
   var secLotes = lotesHa.length ? '<div class="tabla"><table><thead><tr><th>Lote</th><th>Finca</th><th class="num">ha</th><th class="num">Horas</th><th class="num">Horas/ha</th>' +
@@ -988,7 +988,7 @@ function pintar(){
       (U && U.totales.sinProgramar ? ' Hubo ' + U.totales.sinProgramar + ' días-máquina trabajados que nadie programó: la Programación no se está registrando completa.' : '')) + secUso +
       titulo('Horas trabajadas', 'Horómetro final menos inicial, del Cierre de jornada que registran los operarios en el Preoperativo.') + secHoras +
       '<div class="dos"><div>' + titulo('Horas por labor', 'Horas de motor ' + enPer + ', según la labor que el operario confirmó al cerrar la jornada.') + secLabor + '</div>' +
-      '<div>' + titulo('Lotes que más máquina gastan por hectárea', 'Horas y combustible por hectárea ' + enPer + '. Si una máquina trabajó varios lotes, sus horas se reparten por hectáreas; combustible = horas × consumo por hora de la máquina.') + secLotes + '</div></div>',
+      '<div>' + titulo('Lotes que más máquina gastan por hectárea', 'Horas y combustible por hectárea ' + enPer + '. Si una máquina trabajó varios lotes, sus horas se reparten por hectáreas; el combustible es lo despachado a cada máquina, repartido según las horas de cada labor y lote.') + secLotes + '</div></div>',
     conf: '<div class="dos"><div>' + titulo('MTBF por máquina', 'Cuántos días disponibles pasan en promedio entre una falla y otra (más es mejor), con los últimos ' +
         C.meses + (C.meses === 1 ? ' mes' : ' meses') + ' con datos.') + secMtbf + '</div>' +
       '<div>' + titulo('Fallas repetidas', 'Señal de que la reparación no quedó bien.') + secRepetidas + '</div></div>',
@@ -1142,8 +1142,8 @@ function informe(){
   if (OP && OP.conDato){
     var lh = OP.listaLotes.filter(function(y){ return y.ha; }).sort(function(a, b){ return b.porHa - a.porHa; }).slice(0, 8);
     h += sec('Labores y lotes', 'cierres de jornada con la labor confirmada') + '<div class="dos"><div><h3>Horas por labor</h3>' +
-      (OP.listaLabor.length ? '<table><thead><tr><th>Labor</th><th class="n">Horas</th><th class="n">%</th></tr></thead><tbody>' +
-        OP.listaLabor.map(function(x){ return fila([esc(x.txt), hFmt(x.horas), pct(x.horas / OP.horas * 100)]).replace(/<td>([0-9—])/g, '<td class="n">$1'); }).join('') + '</tbody></table>' : '<p>Sin datos.</p>') +
+      (OP.listaLabor.length ? '<table><thead><tr><th>Labor</th><th class="n">Horas</th><th class="n">%</th><th class="n">Combustible</th></tr></thead><tbody>' +
+        OP.listaLabor.map(function(x){ return fila([esc(x.txt), x.horas ? hFmt(x.horas) : '—', x.horas && OP.horas ? pct(x.horas / OP.horas * 100) : '—', x.costo ? pesos(x.costo) : '—']).replace(/<td>([0-9—$])/g, '<td class="n">$1'); }).join('') + '</tbody></table>' : '<p>Sin datos.</p>') +
       '</div><div><h3>Lotes con más máquina por hectárea</h3>' + (lh.length ? '<table><thead><tr><th>Lote</th><th class="n">ha</th><th class="n">Horas/ha</th><th class="n">Comb./ha</th></tr></thead><tbody>' +
         lh.map(function(y){ return fila([esc(y.lote) + ' <span style="color:#888">' + esc(y.finca) + '</span>', n1(y.ha), String(Math.round(y.porHa * 100) / 100).replace('.', ','),
           y.costo ? pesos(y.costo / y.ha) : '—']).replace(/<td>([0-9—$])/g, '<td class="n">$1'); }).join('') + '</tbody></table>' : '<p>Sin lotes con hectáreas.</p>') + '</div></div>';
