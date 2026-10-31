@@ -310,6 +310,7 @@ var EVENTOS = null, D = null;
 var INICIO_DATOS = null;          // primer día registrado en la hoja Taller
 var PROG = null, INICIO_PROG = null;
 var FALTAN = [];
+var CIERRES = [], TANQ = [];        // cierres de jornada con labor y lotes; tanqueos (para el consumo por hora)
 var FILAS_TALLER = [];
 var HIST = [];                    // los últimos 6 meses hasta el elegido
 var MESES_HIST = 6, VENTANA_REPETIDAS = 90;
@@ -493,7 +494,19 @@ function calcular(eventos, anio, mes){
   R.uso = utilizacion(R);
   R.horas = horasDelMes(R);
   R.costo = sinDatos ? null : costoTaller(eventos, desde, corte);
+  R.op = sinDatos || !window.Operacion ? null : operacionMes(eventos, maquinaria, desde, corte);
   return R;
+}
+
+/* ---------- operación: cumplimiento, horas por labor y por lote ----------
+   El mismo cálculo de Agrovisión (Operacion en maestros.js). */
+function operacionMes(eventos, maquinaria, desde, hasta){
+  var usos = Horometros.usos();
+  var fin = new Date(hasta + 'T23:59:59').getTime(), ini = new Date(desde + 'T00:00:00').getTime();
+  return Operacion.calcular({ desde:desde, hasta:hasta, hoy:hoy(), maquinas: maquinaria.map(function(e){ return e.equipo; }), prog: PROG || {}, cierres: CIERRES,
+    trabajo: function(cod, f){ return !!usos[cod + '|' + f]; },
+    parado: function(cod, f){ return eventos.some(function(e){ return e.equipo === cod && e.inicio <= f && (!e.fin || e.fin > f); }); },
+    tasas: Operacion.tasas(TANQ, ini, fin) });
 }
 
 /* ---------- costo del taller (lo que registra Compras) ----------
@@ -706,7 +719,7 @@ var TABS = [
   { id:'resumen',   txt:'Resumen' },
   { id:'disp',      txt:'Disponibilidad' },
   { id:'fallas',    txt:'Fallas y costo' },
-  { id:'uso',       txt:'Uso' },
+  { id:'uso',       txt:'Uso y labores' },
   { id:'conf',      txt:'Confiabilidad' },
   { id:'camiones',  txt:'Camiones' }
 ];
@@ -750,7 +763,7 @@ function pintar(){
     D.abiertos.map(function(v){ return esc(v.equipo) + ' desde el ' + dcorta(v.inicio) + ' (' + duracion(v) + ' días)'; }).join(', ') +
     '. Si ya están reparadas, Tulio debe darles el alta en el Taller antes de enviar el informe.' });
   // lo del día a día (pendientes, mantenimiento por hacer) lo maneja el Superintendente en Agrovisión
-  var CT = D.costo, CP = P && HIST[HIST.length-2].costo;
+  var CT = D.costo, CP = P && HIST[HIST.length-2].costo, OP = D.op, OPp = P && HIST[HIST.length-2].op;
   if (CT && CT.sinCosto) aten.push({ c:'al', t:'<strong>' + CT.sinCosto + (CT.sinCosto === 1 ? ' mantenimiento sin costo' : ' mantenimientos sin costo') +
     '.</strong> Compras no lo ha registrado: el costo del taller ' + enPer0() + ' está incompleto.' });
   if (D.noReconocidos.length) aten.push({ c:'al', t:'<strong>Equipos sin reconocer en la hoja Taller:</strong> ' + esc(D.noReconocidos.join(', ')) +
@@ -785,6 +798,9 @@ function pintar(){
         : 'días-máquina disponibles entre fallas · ' + C.dias + ' días laborales con datos') + '</div></div>' +
     '<div class="kpi ' + (T.diasMtto ? 'al' : '') + '"><div class="n">' + T.diasMtto + '</div>' +
       '<div class="t">Días en mantenimiento programado</div><div class="x">' + T.mttos + ' entrada(s) ' + enPer + '</div></div>' +
+    '<div class="kpi ' + (OP && OP.conDato && OP.pct != null ? (OP.pct >= Operacion.META ? 'ok' : OP.pct >= 70 ? 'al' : 'ma') : '') + '"><div class="n">' + (OP && OP.conDato && OP.pct != null ? pct(OP.pct) : '\u2014') + '</div>' +
+      '<div class="t">Cumplimiento de la programación</div><div class="x">' + (OP && OP.conDato ? OP.cumplidas + ' de ' + OP.prog + ' máquinas-día hicieron lo programado' : 'se mide con los cierres que traen la labor') + '</div>' +
+      (OPp && OPp.conDato && OPp.pct != null && OP && OP.pct != null ? delta(OP.pct, OPp.pct, ' pts', false, true) : '') + '</div>' +
     '<div class="kpi"><div class="n">' + (CT && CT.total ? millones(CT.total) : '$0') + '</div>' +
       '<div class="t">Costo del taller</div><div class="x">' + (CT && CT.total ? 'reparaciones ' + millones(CT.rep) + ' · preventivo ' + millones(CT.prev) : 'Compras no ha registrado costos ' + enPer) + '</div>' +
       (CP && CP.total ? delta(CT.total / 1e6, CP.total / 1e6, ' M', true, true) : '') + '</div>' +
@@ -804,14 +820,15 @@ function pintar(){
         '" style="height:' + altoTend(v) + '%"></i></div>';
     }).join('') + '</div><div class="tend-mes">' + HIST.map(function(h){ return '<span>' + nombreMes(h) + (h.parcial ? '<br><small>desde el ' + dcorta(h.desde) + '</small>' : '') + '</span>'; }).join('') + '</div></div>';
   var secTendTabla = '<div class="tabla"><table><thead><tr><th>Mes</th><th class="num">Disponibilidad</th><th class="num">Utilización</th>' +
-    '<th class="num">Días perdidos</th><th class="num">Fallas</th><th class="num">MTTR</th><th class="num">Horas trabajadas</th><th class="num">Costo del taller</th></tr></thead><tbody>' +
+    '<th class="num">Días perdidos</th><th class="num">Fallas</th><th class="num">MTTR</th><th class="num">Horas trabajadas</th><th class="num">Costo del taller</th><th class="num">Cumplimiento</th></tr></thead><tbody>' +
     HIST.slice().reverse().map(function(h){
-      if (h.sinDatos || h.futuro) return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + '</td><td colspan="7" class="mod">' + (h.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
+      if (h.sinDatos || h.futuro) return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + '</td><td colspan="8" class="mod">' + (h.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
       return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + (h.parcial ? ' <span class="mod">(desde el ' + dcorta(h.desde) + ')</span>' : '') + '</td><td class="num"><span class="pill ' + clase(h.totales.disponibilidad) + '">' +
         pct(h.totales.disponibilidad) + '</span></td><td class="num mono">' + (h.uso ? pct(h.uso.totales.utilizacion) : '—') + '</td>' +
         '<td class="num mono">' + h.totales.diasFalla + '</td><td class="num mono">' + h.totales.fallas + '</td>' +
         '<td class="num mono">' + n1(h.totales.diasPorFalla) + '</td><td class="num mono">' + (h.horas.hay ? hFmt(h.horas.totales.horas) : '\u2014') + '</td>' +
-        '<td class="num mono">' + (h.costo && h.costo.total ? millones(h.costo.total) : '\u2014') + '</td></tr>';
+        '<td class="num mono">' + (h.costo && h.costo.total ? millones(h.costo.total) : '\u2014') + '</td>' +
+        '<td class="num mono">' + (h.op && h.op.conDato && h.op.pct != null ? pct(h.op.pct) : '\u2014') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
 
   var secHoras = D.horas.hay
@@ -839,6 +856,21 @@ function pintar(){
       '<tr><td><b>Total</b></td><td class="num mono">' + pesos(CT.rep) + '</td><td class="num mono">' + pesos(CT.prev) + '</td><td class="num mono"><b>' + pesos(CT.total) + '</b></td>' +
       '<td class="num mono">' + (D.horas.hay && D.horas.totales.horas ? pesos(CT.total / D.horas.totales.horas) : '\u2014') + '</td></tr></tbody></table></div>' +
       (CT.sinCosto ? '<p class="mod">' + CT.sinCosto + (CT.sinCosto === 1 ? ' mantenimiento todavía no tiene' : ' mantenimientos todavía no tienen') + ' costo de Compras.</p>' : '');
+
+  // labores y lotes del mes
+  var vacioOp = 'Se llena con los cierres de jornada que traen la labor y los lotes (Preoperativo actualizado).';
+  var secLabor = OP && OP.listaLabor.length ? '<div class="tabla"><table><thead><tr><th>Labor</th><th class="num">Horas de máquina</th><th class="num">Del total</th></tr></thead><tbody>' +
+      OP.listaLabor.map(function(x){ return '<tr><td>' + esc(x.txt) + '</td><td class="num mono">' + hFmt(x.horas) + '</td><td class="num mono">' + pct(x.horas / OP.horas * 100) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' : '<div class="vacio">' + vacioOp + '</div>';
+  var lotesHa = OP ? OP.listaLotes.filter(function(y){ return y.ha; }).sort(function(a, b){ return b.porHa - a.porHa; }) : [];
+  var secLotes = lotesHa.length ? '<div class="tabla"><table><thead><tr><th>Lote</th><th>Finca</th><th class="num">ha</th><th class="num">Horas</th><th class="num">Horas/ha</th>' +
+      '<th class="num">Galones/ha</th><th class="num">Combustible/ha</th></tr></thead><tbody>' +
+      lotesHa.slice(0, 12).map(function(y){
+        return '<tr><td><span class="eqn mono">' + esc(y.lote) + '</span></td><td>' + esc(y.finca || '\u2014') + '</td><td class="num mono">' + n1(y.ha) + '</td>' +
+          '<td class="num mono">' + n1(y.horas) + '</td><td class="num mono"><b>' + String(Math.round(y.porHa * 100) / 100).replace('.', ',') + '</b></td>' +
+          '<td class="num mono">' + (y.gal ? String(Math.round(y.galHa * 100) / 100).replace('.', ',') : '\u2014') + '</td><td class="num mono">' + (y.costo ? pesos(y.costo / y.ha) : '\u2014') + '</td></tr>';
+      }).join('') + '</tbody></table></div>' + (lotesHa.length > 12 ? '<p class="mod">Los 12 de ' + lotesHa.length + ' lotes con más horas por hectárea.</p>' : '')
+    : '<div class="vacio">' + vacioOp + '</div>';
 
   var orden = D.maquinaria.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
   var secDispMaq = '<div class="graf">' + orden.map(function(e){
@@ -943,6 +975,7 @@ function pintar(){
     '<li><b>Utilización:</b> días en que la máquina trabajó (tenía labor en la Programación, o el operario hizo preoperativo o cierre) ÷ días disponibles. Solo maquinaria.</li>' +
     '<li><b>Tendencia:</b> los meses antes del primer registro del Taller salen "sin datos" en vez de 100 %.</li>' +
     '<li><b>Horas trabajadas:</b> horómetro final menos inicial de cada cierre de jornada del Preoperativo.</li>' +
+    '<li><b>Cumplimiento de la programación:</b> máquinas-día programadas (sin los días en taller) en que el operario confirmó al cerrar la jornada la labor y los lotes programados. Lotes y hectáreas: Agrovisión → Lotes.</li>' +
     '<li><b>Costo del taller:</b> lo que registra Compras: el costo de cada reparación (en el mes en que empezó la parada) y de cada mantenimiento preventivo (en su fecha). Por hora trabajada = costo ÷ horas de los cierres de jornada.</li>' +
     '<li><b>Lo del día a día</b> (pendientes del taller, mantenimiento por hacer, en qué va cada reparación) lo ve el Superintendente en Agrovisión.</li>' +
     '</ul></details>';
@@ -966,7 +999,9 @@ function pintar(){
     uso: titulo('Uso de la maquinaria', 'De los días en que cada máquina estuvo disponible, en cuántos trabajó: tenía labor en la Programación o el operario hizo preoperativo o cierre' +
       (U && U.desde > D.desde ? ' (desde el ' + dcorta(U.desde) + ', cuando empezó a haber registros)' : '') + '. Los días ociosos son capacidad que no se usó.' +
       (U && U.totales.sinProgramar ? ' Hubo ' + U.totales.sinProgramar + ' días-máquina trabajados que nadie programó: la Programación no se está registrando completa.' : '')) + secUso +
-      titulo('Horas trabajadas', 'Horómetro final menos inicial, del Cierre de jornada que registran los operarios en el Preoperativo.') + secHoras,
+      titulo('Horas trabajadas', 'Horómetro final menos inicial, del Cierre de jornada que registran los operarios en el Preoperativo.') + secHoras +
+      '<div class="dos"><div>' + titulo('Horas por labor', 'Horas de motor ' + enPer + ', según la labor que el operario confirmó al cerrar la jornada.') + secLabor + '</div>' +
+      '<div>' + titulo('Lotes que más máquina gastan por hectárea', 'Horas y combustible por hectárea ' + enPer + '. Si una máquina trabajó varios lotes, sus horas se reparten por hectáreas; combustible = horas × consumo por hora de la máquina.') + secLotes + '</div></div>',
     conf: '<div class="dos"><div>' + titulo('MTBF por máquina', 'Cuántos días disponibles pasan en promedio entre una falla y otra (más es mejor), con los últimos ' +
         C.meses + (C.meses === 1 ? ' mes' : ' meses') + ' con datos.') + secMtbf + '</div>' +
       '<div>' + titulo('Fallas repetidas', 'Señal de que la reparación no quedó bien.') + secRepetidas + '</div></div>',
@@ -1005,7 +1040,12 @@ async function cargar(forzar){
       $('#app').innerHTML = '<div class="err"><strong>No se pudo leer la hoja Taller.</strong> Revise la conexión e intente con "Actualizar". (' + esc(e.message) + ')</div>';
       return;
     }
-    await progListo; await horListo; await costoListo;
+    var opListo = Promise.all([leerHoja('CierreJornada').catch(function(){ return null; }), leerHoja('Combustible').catch(function(){ return null; }),
+      Lotes.traer().catch(function(){})]).then(function(r){
+        if (!r[0]) FALTAN.push('los cierres de jornada');
+        CIERRES = Operacion.cierres(r[0] || []); TANQ = r[1] ? Combustible.tanqueos(r[1]) : [];
+      });
+    await progListo; await horListo; await costoListo; await opListo;
     $('#act').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
   }
   HIST = historial(+mv[0], +mv[1]);
@@ -1019,7 +1059,7 @@ function informe(){
   var T = D.totales, TC = D.totalesCamiones;
   var P = HIST.length > 1 && !HIST[HIST.length-2].sinDatos && !HIST[HIST.length-2].parcial ? HIST[HIST.length-2].totales : null;
   var mesPrev = P ? MESES[HIST[HIST.length-2].mes - 1] : '';
-  var C = confiabilidad(), rep90 = fallasRepetidas(D.corte), U = D.uso, CT = D.costo, CP = P && HIST[HIST.length-2].costo;
+  var C = confiabilidad(), rep90 = fallasRepetidas(D.corte), U = D.uso, CT = D.costo, CP = P && HIST[HIST.length-2].costo, OP = D.op, OPp = P && HIST[HIST.length-2].op;
   var eqs = D.maquinaria.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
   var num = 0;
   function sec(t, extra){ num++; return '<h2>' + num + '. ' + t + (extra ? ' <span>· ' + extra + '</span>' : '') + '</h2>'; }
@@ -1053,6 +1093,7 @@ function informe(){
       '<div><b>' + T.diasFalla + '</b><span>Días-máquina perdidos por falla</span>' + dif(T.diasFalla, P && P.diasFalla, ' días', true) + '</div>' +
       '<div><b>' + (C.flota.mtbf == null ? '—' : n1(C.flota.mtbf)) + '</b><span>MTBF · días entre fallas</span></div>' +
       '<div><b>' + (D.horas.hay ? hFmt(D.horas.totales.horas) : '—') + '</b><span>Horas trabajadas</span></div>' +
+      '<div><b>' + (OP && OP.conDato && OP.pct != null ? pct(OP.pct) : '—') + '</b><span>Cumplimiento de la programación</span>' + (OPp && OPp.conDato && OPp.pct != null && OP && OP.pct != null ? dif(OP.pct, OPp.pct, ' pts', false, true) : '') + '</div>' +
       '<div><b>' + (CT && CT.total ? millones(CT.total) : '$0') + '</b><span>Costo del taller</span>' + (CP && CP.total ? dif(CT.total / 1e6, CP.total / 1e6, ' M', true, true) : '') + '</div>' +
       '<div><b>' + (D.camiones.length ? pct(TC.disponibilidad) : '—') + '</b><span>Camiones (aparte)</span></div>' +
     '</div>';
@@ -1073,11 +1114,12 @@ function informe(){
 
   /* 2. tendencia */
   h += sec('Tendencia', 'últimos ' + MESES_HIST + ' meses') + '<table><thead><tr><th>Mes</th><th class="n">Disponibilidad</th><th class="n">Utilización</th>' +
-    '<th class="n">Días perdidos</th><th class="n">Fallas</th><th class="n">MTTR</th><th class="n">Costo taller</th></tr></thead><tbody>' +
+    '<th class="n">Días perdidos</th><th class="n">Fallas</th><th class="n">MTTR</th><th class="n">Costo taller</th><th class="n">Cumplim.</th></tr></thead><tbody>' +
     HIST.map(function(x){
-      if (x.sinDatos || x.futuro) return '<tr><td>' + MESES[x.mes - 1] + ' ' + x.anio + '</td><td colspan="6" style="color:#888">' + (x.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
+      if (x.sinDatos || x.futuro) return '<tr><td>' + MESES[x.mes - 1] + ' ' + x.anio + '</td><td colspan="7" style="color:#888">' + (x.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
       return fila([MESES[x.mes - 1] + ' ' + x.anio + (x.parcial ? ' (desde el ' + dcorta(x.desde) + ')' : ''), '<b>' + pct(x.totales.disponibilidad) + '</b>', x.uso ? pct(x.uso.totales.utilizacion) : '—',
-        x.totales.diasFalla, x.totales.fallas, n1(x.totales.diasPorFalla), x.costo && x.costo.total ? millones(x.costo.total) : '—']).replace(/<td>(<b>|[0-9—$])/g, '<td class="n">$1');
+        x.totales.diasFalla, x.totales.fallas, n1(x.totales.diasPorFalla), x.costo && x.costo.total ? millones(x.costo.total) : '—',
+        x.op && x.op.conDato && x.op.pct != null ? pct(x.op.pct) : '—']).replace(/<td>(<b>|[0-9—$])/g, '<td class="n">$1');
     }).join('') + '</tbody></table>';
 
   /* 3. disponibilidad por máquina */
@@ -1109,6 +1151,17 @@ function informe(){
       D.horas.equipos.filter(function(e){ return e.dias; }).sort(function(a, b){ return b.horas - a.horas; }).map(function(e){
         return fila([esc(e.equipo) + ' ' + esc(e.nombre), e.dias, hFmt(e.horas), hFmt(e.promedio)]); }).join('') + '</tbody></table>';
   }
+  /* labores y lotes */
+  if (OP && OP.conDato){
+    var lh = OP.listaLotes.filter(function(y){ return y.ha; }).sort(function(a, b){ return b.porHa - a.porHa; }).slice(0, 8);
+    h += sec('Labores y lotes', 'cierres de jornada con la labor confirmada') + '<div class="dos"><div><h3>Horas por labor</h3>' +
+      (OP.listaLabor.length ? '<table><thead><tr><th>Labor</th><th class="n">Horas</th><th class="n">%</th></tr></thead><tbody>' +
+        OP.listaLabor.map(function(x){ return fila([esc(x.txt), hFmt(x.horas), pct(x.horas / OP.horas * 100)]).replace(/<td>([0-9—])/g, '<td class="n">$1'); }).join('') + '</tbody></table>' : '<p>Sin datos.</p>') +
+      '</div><div><h3>Lotes con más máquina por hectárea</h3>' + (lh.length ? '<table><thead><tr><th>Lote</th><th class="n">ha</th><th class="n">Horas/ha</th><th class="n">Comb./ha</th></tr></thead><tbody>' +
+        lh.map(function(y){ return fila([esc(y.lote) + ' <span style="color:#888">' + esc(y.finca) + '</span>', n1(y.ha), String(Math.round(y.porHa * 100) / 100).replace('.', ','),
+          y.costo ? pesos(y.costo / y.ha) : '—']).replace(/<td>([0-9—$])/g, '<td class="n">$1'); }).join('') + '</tbody></table>' : '<p>Sin lotes con hectáreas.</p>') + '</div></div>';
+  }
+
   /* 6. uso y 7. confiabilidad */
   h += '<div class="dos"><div>' + sec('Uso de la maquinaria', U && U.desde > D.desde ? 'desde el ' + dcorta(U.desde) : 'Programación');
   h += U ? '<table><thead><tr><th>Máquina</th><th class="n">Disp.</th><th class="n">Trabajó</th><th class="n">Ociosos</th><th class="n">Utiliz.</th></tr></thead><tbody>' +
