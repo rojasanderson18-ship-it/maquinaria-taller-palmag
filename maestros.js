@@ -651,9 +651,13 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
       (filas || []).forEach(function(r){ var id = String(r[3] || '').trim(); if (id) u[id] = r; });
       return Object.keys(u).map(function(id){
         var r = u[id], f = aIso(r[0]), tipo = String(r[2] || '').trim().toUpperCase(), nota = String(r[8] || '').trim();
-        return { id:id, fecha:f, ts:tsDeId(id, f, hm(r[1])), tipo:tipo, gal:num(r[4]) || 0, teorico:num(r[5]), dif:num(r[6]) || 0,
-          precio:num(r[7]) || 0, nota:nota, cierre: nota.indexOf('Cierre por llegada') === 0,
-          motivo: nota.indexOf('Cierre por llegada') === 0 ? nota.split(' · ').slice(2).join(' · ') : '' };
+        // un cierre: el tanque se quedó vacío (o, antes, la medida al recibir); una llegada trae lo esperado
+        // según la orden y la diferencia con lo medido con regleta en el carrotanque (PR-ALM-01)
+        var cierre = /^(Cierre por llegada|Tanque vacío)/.test(nota), lleg = tipo === 'LLEGADA';
+        return { id:id, fecha:f, ts:tsDeId(id, f, hm(r[1])), tipo:tipo, gal:num(r[4]) || 0, teorico: lleg ? null : num(r[5]), dif: lleg ? 0 : num(r[6]) || 0,
+          esperado: lleg ? num(r[5]) : null, difProv: lleg ? num(r[6]) || 0 : 0, obs: lleg ? String(r[11] || '').trim() : '',
+          precio:num(r[7]) || 0, nota:nota, cierre:cierre, vacio: nota.indexOf('Tanque vacío') === 0,
+          motivo: cierre ? nota.split(' · ').slice(2).join(' · ') : '' };
       }).filter(function(m){ return /^\d{4}-\d{2}-\d{2}$/.test(m.fecha) && (m.tipo === 'LLEGADA' || m.tipo === 'AJUSTE'); })
         .sort(function(a, b){ return a.ts - b.ts; });
     },
