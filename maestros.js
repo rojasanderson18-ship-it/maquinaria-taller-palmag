@@ -713,7 +713,9 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
      base:{ cod:{ ítem:{ h, fecha } } } }. "base" es el último cambio de cada
      ítem que traía la app Fichas técnicas: el punto de partida hasta que el
      Taller registre el primer mantenimiento.
-     Mientras no se guarde nada, cada máquina usa la plantilla de su clase.
+     Las publica la app Fichas técnicas (flota-palmagrande) cada vez que
+     cambian sus hojas de configuración o proveedores; aquí no se editan.
+     Mientras no lleguen, cada máquina usa la plantilla de su clase.
      ===================================================================== */
   var PLANTILLA = {
     horas: [['filtro','Filtro de aceite de motor','und',250], ['filtro','Filtro de aire primario','und',500],
@@ -793,22 +795,6 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
       });
       if (!Object.keys(out.modelos).length) throw new Error('El respaldo no trae hojas de configuración.');
       return out;
-    },
-    /* Lee los datos directamente del backend de la app Fichas técnicas. La
-       clave no va en el código (es público): se escribe una vez y queda en
-       el celular. */
-    URL_FT: 'https://script.google.com/macros/s/AKfycbxiM0fxmj1lYpa1XQe2gpDwabSmD88D3OdC5X6jkIiEpyz1sILXgG3CU_IwJGvomzBqyQ/exec',
-    clave: function(v){
-      try { if (v != null) localStorage.setItem('palma-fichas-clave', v); return localStorage.getItem('palma-fichas-clave') || ''; } catch(e){ return v || ''; }
-    },
-    traerDeFichasTecnicas: async function(clave){
-      if (!clave) throw new Error('Escriba la clave de Fichas técnicas.');
-      var r = await fetch(this.URL_FT + '?op=get&key=fichas-flota-v2&token=' + encodeURIComponent(clave) + '&t=' + Date.now());
-      var j = await r.json();
-      if (!j || !j.ok) throw new Error(j && j.error === 'no autorizado' ? 'La clave de Fichas técnicas no es correcta.' : 'Fichas técnicas no respondió.');
-      this.clave(clave);
-      if (!j.value) throw new Error('Fichas técnicas no tiene datos guardados.');
-      return this.desdeFichasTecnicas(JSON.parse(j.value));
     }
   };
 

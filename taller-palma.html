@@ -1113,24 +1113,18 @@ async function traerMantenimientos(){
   try { if (await Mantenimientos.traer() && $('#hoja').hidden) pintar(); pintarNoLlego(); } catch(e){}
 }
 
-/* ---------- Fichas de mantenimiento por modelo ---------- */
-function guardarFichas(d){
-  delete d.plantilla;
-  var x = Maestros.fila('FICHAS', d, estado.yo);
-  estado.cola = estado.cola.filter(function(c){ return c.id !== x.id; });
-  encolar(x.hoja, x.fila, x.encabezados, x.id);
-}
+/* ---------- Fichas de mantenimiento por modelo ----------
+   Se editan en la app Fichas técnicas (con los proveedores y la ficha
+   impresa) y llegan solas por la hoja Maestros; aquí solo se consultan. */
+var FICHAS_URL = '/flota-palmagrande/';
 function fichas(){
   var d = Fichas.datos(), mods = Object.keys(d.modelos).sort();
   function maqDe(n){ return Maestros.flota().filter(function(f){ return Fichas.modeloDe(f.cod, d) === n; }).map(function(f){ return f.cod; }); }
   abrir(tope('Fichas de mantenimiento', 'Qué lleva cada modelo y cada cuánto') +
     '<div class="cuerpo">' +
-      (d.plantilla ? '<div class="tarj alerta"><div class="vl">Están con la plantilla general, sin referencias. Traiga las de la app Fichas técnicas.</div></div>' :
-        d.importado ? '<p class="nota">Traídas de Fichas técnicas el ' + dcorta(d.importado) + '. Desde ahora se corrigen aquí.</p>' : '') +
-      '<label class="campo"><span>Clave de Fichas técnicas <i>— la misma de esa app (pestaña Datos)</i></span><input id="fi-clave" type="password" value="' + esc(Fichas.clave()) + '" autocomplete="off"></label>' +
-      '<button class="accion verde" id="fi-traer">Traer de Fichas técnicas</button>' +
-      '<button class="accion gris" id="fi-archivo">Cargar respaldo de Fichas técnicas (.json)</button>' +
-      '<input type="file" id="fi-in" accept=".json,application/json" hidden>' +
+      (d.plantilla ? '<div class="tarj alerta"><div class="vl">Todavía no han llegado las fichas de la app Fichas técnicas: se usa la plantilla general, sin referencias. Ábrala una vez con señal y llegan solas.</div></div>' :
+        '<p class="nota">Vienen de la app Fichas técnicas. Las referencias, proveedores e intervalos se corrigen allá y llegan solas aquí.</p>') +
+      '<a class="accion verde" href="' + FICHAS_URL + '" style="display:block;text-align:center;text-decoration:none">Abrir Fichas técnicas</a>' +
       '<h2>Modelos <span class="cuenta">' + mods.length + '</span></h2>' +
       mods.map(function(n){
         var q = maqDe(n), sinRef = d.modelos[n].items.filter(function(i){ return !i.ref; }).length;
@@ -1143,84 +1137,19 @@ function fichas(){
     '</div>',
     function(){
       $('#fi-volver').onclick = maquinas;
-      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-fi]'), function(b){ b.onclick = function(){ editarFicha(b.dataset.fi); }; });
-      $('#fi-traer').onclick = async function(){
-        if (!navigator.onLine){ aviso('Sin señal: no se puede leer Fichas técnicas.'); return; }
-        this.disabled = true; this.textContent = 'Leyendo Fichas técnicas…';
-        try { confirmarFichas(await Fichas.traerDeFichasTecnicas($('#fi-clave').value.trim())); }
-        catch(e){ aviso((e && e.message ? e.message : 'No se pudo leer Fichas técnicas.') + ' Puede descargar el respaldo allá (pestaña Datos) y cargarlo aquí.'); fichas(); }
-      };
-      $('#fi-archivo').onclick = function(){ $('#fi-in').click(); };
-      $('#fi-in').onchange = function(){
-        var f = this.files && this.files[0]; this.value = ''; if (!f) return;
-        var r = new FileReader();
-        r.onload = function(){ try { confirmarFichas(Fichas.desdeFichasTecnicas(JSON.parse(r.result))); } catch(e){ aviso(e && e.message ? e.message : 'No se pudo leer el archivo.'); } };
-        r.readAsText(f);
-      };
+      Array.prototype.forEach.call($('#panel').querySelectorAll('[data-fi]'), function(b){ b.onclick = function(){ verFicha(b.dataset.fi); }; });
     });
 }
-function confirmarFichas(nd){
-  if (!estado.yo){ elegirPersona(function(){ confirmarFichas(nd); }); return; }
-  var mods = Object.keys(nd.modelos), asig = Object.keys(nd.asignadas), base = Object.keys(nd.base);
-  var sinFicha = Maestros.flota().filter(function(f){ return !nd.asignadas[f.cod] && !nd.modelos[f.nombre]; }).map(function(f){ return f.cod; });
-  abrir(tope('Traer fichas', 'Revise antes de guardar') +
-    '<div class="cuerpo">' +
-      '<div class="tarj"><div class="vl"><b>' + mods.length + '</b> modelos: ' + mods.map(esc).join(', ') + '</div>' +
-      '<div class="vl" style="margin-top:6px"><b>' + asig.length + '</b> máquinas con su ficha: ' + asig.map(esc).join(', ') + '</div>' +
-      '<div class="vl" style="margin-top:6px"><b>' + base.length + '</b> máquinas traen la fecha y el horómetro del último cambio de cada ítem (punto de partida hasta que se registre el primer mantenimiento aquí).</div>' +
-      (sinFicha.length ? '<div class="vl" style="margin-top:6px;color:var(--amber)">Sin ficha: ' + sinFicha.map(esc).join(', ') + ' (usan la plantilla general; se le puede asignar una en Máquinas).</div>' : '') +
-      '</div>' +
-      '<button class="accion verde" id="fi-ok">Guardar estas fichas</button>' +
-      '<button class="accion gris" id="fi-no">Cancelar</button>' +
-      '<p class="nota">Reemplaza las fichas actuales. Los mantenimientos ya registrados aquí se conservan.</p>' +
-    '</div>',
-    function(){
-      $('#fi-no').onclick = fichas;
-      $('#fi-ok').onclick = async function(){ guardarFichas(nd); await persistir(); pintar(); fichas(); enviar(); aviso('Fichas guardadas.'); };
-    });
-}
-function editarFicha(n){
-  if (!estado.yo){ elegirPersona(function(){ editarFicha(n); }); return; }
+function verFicha(n){
   var d = Fichas.datos(), mod = d.modelos[n], un = Fichas.unidad(mod.medidor);
-  function fila(it){
-    return '<div class="fi-it" data-id="' + esc(it.id) + '">' +
-      '<input class="fi-comp" value="' + esc(it.comp) + '" placeholder="Filtro de aceite de motor" aria-label="Qué es">' +
-      '<input class="fi-ref mono" value="' + esc(it.ref || '') + '" placeholder="Referencia" aria-label="Referencia">' +
-      '<span class="fi-num"><input class="fi-cant" inputmode="decimal" value="' + (it.cant == null ? '' : String(it.cant).replace('.', ',')) + '" placeholder="Cant." aria-label="Cantidad">' +
-      '<input class="fi-uni" value="' + esc(it.unidad || '') + '" placeholder="und" aria-label="Unidad">' +
-      '<input class="fi-cada" inputmode="numeric" value="' + (it.cada || '') + '" placeholder="Cada" aria-label="Cada cuántas ' + un + '"><i>' + un + '</i>' +
-      '<button class="fi-quitar" aria-label="Quitar">×</button></span></div>';
-  }
-  abrir(tope(n, 'Cada cuánto se cambia cada cosa (en ' + (un === 'km' ? 'kilómetros' : 'horas') + ')') +
-    '<div class="cuerpo"><div id="fi-lista">' + mod.items.map(fila).join('') + '</div>' +
-      '<button class="mini" id="fi-mas">+ Agregar un ítem</button>' +
-      '<button class="accion verde" id="fi-ok" style="margin-top:16px">Guardar ficha</button>' +
+  abrir(tope(n, 'Cada cuánto se cambia cada cosa') +
+    '<div class="cuerpo"><div class="tarj" style="padding:4px 14px">' + mod.items.map(function(it){
+      return '<div class="mt-it"><span><b>' + esc(it.comp) + '</b>' + (it.ref ? ' <span class="mono">' + esc(it.ref) + '</span>' : ' <span class="pill a">sin referencia</span>') +
+        '<small>' + (it.cant != null ? String(it.cant).replace('.', ',') + ' ' + esc(it.unidad || '') + ' · ' : '') + (it.prov ? esc(it.prov) + ' · ' : '') + 'cada ' + fmtU(it.cada, un) + '</small></span></div>';
+    }).join('') + '</div>' +
+      '<a class="accion verde" href="' + FICHAS_URL + '" style="display:block;text-align:center;text-decoration:none">Corregir en Fichas técnicas</a>' +
       '<button class="accion gris" id="fi-volver">Volver</button></div>',
-    function(){
-      function quitar(){ Array.prototype.forEach.call($('#fi-lista').querySelectorAll('.fi-quitar'), function(b){ b.onclick = function(){ b.closest('.fi-it').remove(); }; }); }
-      quitar();
-      $('#fi-volver').onclick = fichas;
-      $('#fi-mas').onclick = function(){
-        $('#fi-lista').insertAdjacentHTML('beforeend', fila({ id:'n' + Date.now().toString(36), comp:'', unidad:'und', cada:null }));
-        quitar(); var l = $('#fi-lista').querySelectorAll('.fi-comp'); l[l.length - 1].focus();
-      };
-      $('#fi-ok').onclick = async function(){
-        var viejo = {}; mod.items.forEach(function(i){ viejo[i.id] = i; });
-        var items = [], mal = '';
-        Array.prototype.forEach.call($('#fi-lista').querySelectorAll('.fi-it'), function(r){
-          var comp = r.querySelector('.fi-comp').value.trim(); if (!comp) return;
-          var cada = parseInt(r.querySelector('.fi-cada').value, 10), cant = parseFloat(r.querySelector('.fi-cant').value.replace(',', '.'));
-          if (!(cada > 0)) mal = mal || comp;
-          items.push(Object.assign({}, viejo[r.dataset.id] || { cat:'' }, { id:r.dataset.id, comp:comp, ref:r.querySelector('.fi-ref').value.trim(),
-            cant: isNaN(cant) ? null : cant, unidad:r.querySelector('.fi-uni').value.trim(), cada: cada > 0 ? cada : null }));
-        });
-        if (mal){ aviso('Escriba cada cuántas ' + un + ' se cambia: ' + mal + '.'); return; }
-        if (!items.length){ aviso('La ficha quedó sin ítems.'); return; }
-        var nd = Fichas.datos(); nd.modelos[n] = { medidor:mod.medidor, items:items };
-        guardarFichas(nd); await persistir(); pintar(); fichas(); enviar();
-        aviso('Ficha de ' + n + ' guardada.');
-      };
-    });
+    function(){ $('#fi-volver').onclick = fichas; });
 }
 async function traerHorometros(){
   if (!navigator.onLine) return;
@@ -1306,9 +1235,6 @@ function editarMaquina(cod){
         '<option value="camion"' + (m.clase === 'camion' ? ' selected' : '') + '>Camión</option>' +
       '</select></label>' +
       '<label class="campo"><span>Uso <i>— opcional</i></span><input id="m-uso" value="' + esc(m.uso || '') + '" placeholder="Transporte de fruta" autocomplete="off"></label>' +
-      (function(){ var fd = Fichas.datos(), act = cod ? Fichas.modeloDe(cod, fd) : null;
-        return '<label class="campo"><span>Ficha de mantenimiento</span><select id="m-fi"><option value="">' + (act ? 'La de su modelo' : 'Plantilla general') + '</option>' +
-          Object.keys(fd.modelos).sort().map(function(n){ return '<option' + (n === act ? ' selected' : '') + '>' + esc(n) + '</option>'; }).join('') + '</select></label>'; })() +
       '<button class="accion verde" id="m-ok">' + (nueva ? 'Agregar máquina' : 'Guardar cambios') + '</button>' +
       (nueva ? '' : m.activa === false
         ? '<button class="accion gris" id="m-alta">Volver a activarla</button>'
@@ -1334,8 +1260,6 @@ function editarMaquina(cod){
           todas.forEach(function(f){ if (f.cod === cod){ Object.keys(datos).forEach(function(k){ f[k] = datos[k]; }); if (!datos.uso) delete f.uso; } });
         }
         guardarFlota(todas);
-        var cf = datos.cod || cod, fd = Fichas.datos(), fi = $('#m-fi').value;
-        if (fi && Fichas.modeloDe(cf, fd) !== fi){ fd.asignadas = fd.asignadas || {}; fd.asignadas[cf] = fi; guardarFichas(fd); }
         await persistir(); pintar(); maquinas(); enviar();
         aviso(nueva ? datos.cod + ' quedó agregada.' : 'Cambios guardados.');
       };
