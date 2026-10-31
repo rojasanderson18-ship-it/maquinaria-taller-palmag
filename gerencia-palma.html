@@ -308,7 +308,6 @@ var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
              'septiembre','octubre','noviembre','diciembre'];
 var EVENTOS = null, D = null;
 var INICIO_DATOS = null;          // primer día registrado en la hoja Taller
-var PENDIENTES = [];              // pendientes abiertos: la máquina trabaja, pero algo puede pararla
 var PROG = null, INICIO_PROG = null;
 var FALTAN = [];
 var FILAS_TALLER = [];
@@ -385,32 +384,9 @@ async function traer(){
     var f = aIso(r[0]);
     if (/^\d{4}-\d{2}-\d{2}$/.test(f) && (!INICIO_DATOS || f < INICIO_DATOS)) INICIO_DATOS = f;
   });
-  PENDIENTES = pendientesDe(d.datos || []);
   FILAS_TALLER = d.datos || [];
   return eventosDe(d.datos || []);
 }
-/* filas PENDIENTE / RESUELTO de la hoja Taller; quedan las abiertas */
-function pendientesDe(filas){
-  var nov = {};
-  filas.forEach(function(r){
-    var acc = String(r[2]||'').trim().toUpperCase(), id = String(r[3]||'').trim();
-    if (!id || (acc !== 'PENDIENTE' && acc !== 'RESUELTO')) return;
-    var n = nov[id] = nov[id] || { equipo:String(r[4]||'').trim(), txt:'', urgente:false, sistema:'', desde:'', cerrado:false };
-    if (r[6]) n.urgente = String(r[6]).trim() === 'urgente';
-    if (r[7]) n.sistema = String(r[7]);
-    if (r[8]) n.txt = String(r[8]);
-    if (r[10]) n.desde = aIso(r[10]);
-    if (acc === 'RESUELTO') n.cerrado = true;
-  });
-  return Object.keys(nov).map(function(k){ return nov[k]; })
-    .filter(function(n){ return !n.cerrado && n.txt; })
-    .sort(function(a,b){ return (a.urgente ? 0 : 1) - (b.urgente ? 0 : 1) || (a.desde < b.desde ? -1 : 1); });
-}
-
-/* Programación: hoja ProgMaquinaria, la última fila de cada fecha + máquina vale
-   (igual que en Programación). Las fechas que no están ahí se toman de la
-   hoja "Programacion" de siempre (la Programación anterior y la nueva
-   escriben en ella), así no se pierde el historial. */
 async function leerHoja(h){
   var r = await fetch(GS_URL + '?hoja=' + h + '&t=' + Date.now());
   var d = await r.json();
@@ -525,8 +501,33 @@ function calcular(eventos, anio, mes){
     noReconocidos: Object.keys(noReconocidos) };
   R.uso = utilizacion(R);
   R.horas = horasDelMes(R);
+  R.costo = sinDatos ? null : costoTaller(eventos, desde, corte);
   return R;
 }
+
+/* ---------- costo del taller (lo que registra Compras) ----------
+   Reparaciones: el costo de cada parada, en el mes en que empezó (o desde
+   el arranque del sistema). Preventivo: cada mantenimiento que registra el
+   Taller, en su fecha. Hojas Reparaciones y Mantenimientos (maestros.js). */
+function costoTaller(eventos, desde, hasta){
+  var o = { rep:0, prev:0, total:0, porMaq:{}, nMttos:0, sinCosto:0 };
+  function sumar(cod, k, v){ var x = o.porMaq[cod] = o.porMaq[cod] || { rep:0, prev:0, total:0 }; x[k] += v; x.total += v; o[k] += v; o.total += v; }
+  eventos.forEach(function(e){
+    var f = e.inicio < SISTEMA.INICIO ? SISTEMA.INICIO : e.inicio;
+    if (!eqDe(e.equipo) || f < desde || f > hasta || (e.fin && e.fin < SISTEMA.INICIO)) return;
+    var c = window.Reparaciones ? Reparaciones.de(e.id).compras : null, v = c ? (c.repuestos || 0) + (c.mano || 0) : 0;
+    if (v) sumar(e.equipo, 'rep', v);
+  });
+  (window.Mantenimientos ? Mantenimientos.todos() : []).forEach(function(m){
+    if (!eqDe(m.cod) || m.fecha < desde || m.fecha > hasta || m.fecha < SISTEMA.INICIO) return;
+    var c = window.Reparaciones ? Reparaciones.de(m.id).compras : null, v = c ? (c.repuestos || 0) + (c.mano || 0) : 0;
+    o.nMttos++;
+    if (v) sumar(m.cod, 'prev', v); else o.sinCosto++;
+  });
+  return o;
+}
+function pesos(v){ return v == null ? '\u2014' : '$' + Math.round(v).toLocaleString('es-CO'); }
+function millones(v){ return v == null ? '\u2014' : v >= 1e6 ? '$' + String(Math.round(v / 1e5) / 10).replace('.', ',') + ' M' : pesos(v); }
 
 /* ---------- uso de la maquinaria (cruce con Programación) ---------- */
 /* Utilización = días disponibles en que la máquina tuvo labor asignada ÷ días
@@ -609,15 +610,6 @@ function horasDelMes(R){
   T.horas = Math.round(T.horas * 10) / 10;
   T.promedio = T.dias ? Math.round(T.horas / T.dias * 10) / 10 : null;
   return { totales:T, equipos:equipos, hay: T.dias > 0 || equipos.some(function(e){ return e.dias; }) };
-}
-/* mantenimiento preventivo de la maquinaria activa (Mtto en maestros.js) */
-function mantenimientos(){
-  return FLOTA.filter(function(f){ return f.activa !== false; }).map(function(f){
-    var m = Mtto.estado(f.cod); m.equipo = f.cod; m.nombre = f.nombre; return m;
-  }).sort(function(a, b){
-    var o = { vencido:0, proximo:1, ok:2, sinhorometro:3, sindato:4 };
-    return o[a.nivel] - o[b.nivel] || (a.faltan || 0) - (b.faltan || 0);
-  });
 }
 function hFmt(n){ return n == null ? '\u2014' : String(Math.round(n * 10) / 10).replace('.', ',') + ' h'; }
 
@@ -722,7 +714,7 @@ function tablaGrupo(titulo, lista){
 var TABS = [
   { id:'resumen',   txt:'Resumen' },
   { id:'disp',      txt:'Disponibilidad' },
-  { id:'fallas',    txt:'Fallas y taller' },
+  { id:'fallas',    txt:'Fallas y costo' },
   { id:'uso',       txt:'Uso' },
   { id:'conf',      txt:'Confiabilidad' },
   { id:'camiones',  txt:'Camiones' }
@@ -744,7 +736,7 @@ function pintar(){
 
   var P = HIST.length > 1 && !HIST[HIST.length-2].sinDatos && !HIST[HIST.length-2].parcial ? HIST[HIST.length-2].totales : null;
   var C = confiabilidad(), U = D.uso, rep90 = fallasRepetidas(D.corte);
-  var urg = PENDIENTES.filter(function(n){ return n.urgente; }).length;
+  function enPer0(){ return D.parcial ? 'desde el ' + dcorta(D.desde) : 'del mes'; }
 
   $('#corte').innerHTML = (D.parcial ? '<strong>Cuenta desde el ' + dcorta(SISTEMA.INICIO) + ', cuando arrancó el sistema actualizado</strong> (lo de antes se registraba distinto). ' : '') +
     (D.corte < D.hasta
@@ -752,7 +744,7 @@ function pintar(){
       '). El mes completo se calcula cuando termine, porque los días que faltan todavía no se pueden medir.'
     : MESES[D.mes - 1].charAt(0).toUpperCase() + MESES[D.mes - 1].slice(1) + ' ' + D.anio + ' completo · ' + D.laboralesMes + ' días laborales.');
   if (FALTAN.length) $('#corte').innerHTML += ' <strong style="color:var(--red)">No se pudo leer ' + FALTAN.join(' ni ') +
-    ': utilización, horas o mantenimiento pueden estar incompletos. Pulse "Actualizar".</strong>';
+    ': utilización, horas o costos pueden estar incompletos. Pulse "Actualizar".</strong>';
 
   /* ---------- piezas ---------- */
   function titulo(t, hint, irA){
@@ -766,13 +758,10 @@ function pintar(){
     ' sin alta.</strong> Siguen sumando días perdidos hasta hoy: ' +
     D.abiertos.map(function(v){ return esc(v.equipo) + ' desde el ' + dcorta(v.inicio) + ' (' + duracion(v) + ' días)'; }).join(', ') +
     '. Si ya están reparadas, Tulio debe darles el alta en el Taller antes de enviar el informe.' });
-  if (PENDIENTES.length) aten.push({ c: urg ? 'ma' : 'al', t:'<strong>' + PENDIENTES.length + (PENDIENTES.length === 1 ? ' pendiente abierto' : ' pendientes abiertos') +
-    ' en el taller' + (urg ? ' (' + urg + ' urgente' + (urg === 1 ? '' : 's') + ')' : '') + '.</strong> Máquinas que trabajan pero tienen algo que puede pararlas.' });
-  if (rep90.length) aten.push({ c:'al', t:'<strong>' + rep90.length + (rep90.length === 1 ? ' falla repetida' : ' fallas repetidas') + '</strong> (misma máquina y sistema en ' +
-    VENTANA_REPETIDAS + ' días): ' + rep90.map(function(x){ return esc(x.equipo) + ' · ' + esc(x.sistema); }).join(', ') + '.' });
-  var MT = mantenimientos(), mVenc = MT.filter(function(m){ return m.nivel === 'vencido'; });
-  if (mVenc.length) aten.push({ c:'ma', t:'<strong>' + mVenc.length + (mVenc.length === 1 ? ' máquina con mantenimiento vencido' : ' máquinas con mantenimiento vencido') +
-    ':</strong> ' + mVenc.map(function(m){ return esc(m.equipo) + ' (hace ' + hFmt(-m.faltan) + ')'; }).join(', ') + '.' });
+  // lo del día a día (pendientes, mantenimiento por hacer) lo maneja el Superintendente en Agrovisión
+  var CT = D.costo, CP = P && HIST[HIST.length-2].costo;
+  if (CT && CT.sinCosto) aten.push({ c:'al', t:'<strong>' + CT.sinCosto + (CT.sinCosto === 1 ? ' mantenimiento sin costo' : ' mantenimientos sin costo') +
+    '.</strong> Compras no lo ha registrado: el costo del taller ' + enPer0() + ' está incompleto.' });
   if (D.noReconocidos.length) aten.push({ c:'al', t:'<strong>Equipos sin reconocer en la hoja Taller:</strong> ' + esc(D.noReconocidos.join(', ')) +
     '. Sus registros quedaron por fuera del informe.' });
   var secAtencion = aten.length ? '<div class="atencion"><h4>Requiere atención</h4><ul>' +
@@ -805,6 +794,9 @@ function pintar(){
         : 'días-máquina disponibles entre fallas · ' + C.dias + ' días laborales con datos') + '</div></div>' +
     '<div class="kpi ' + (T.diasMtto ? 'al' : '') + '"><div class="n">' + T.diasMtto + '</div>' +
       '<div class="t">Días en mantenimiento programado</div><div class="x">' + T.mttos + ' entrada(s) ' + enPer + '</div></div>' +
+    '<div class="kpi"><div class="n">' + (CT && CT.total ? millones(CT.total) : '$0') + '</div>' +
+      '<div class="t">Costo del taller</div><div class="x">' + (CT && CT.total ? 'reparaciones ' + millones(CT.rep) + ' · preventivo ' + millones(CT.prev) : 'Compras no ha registrado costos ' + enPer) + '</div>' +
+      (CP && CP.total ? delta(CT.total / 1e6, CP.total / 1e6, ' M', true, true) : '') + '</div>' +
     '<div class="kpi"><div class="n">' + (D.horas.hay ? hFmt(D.horas.totales.horas).replace(' h', '') : '\u2014') + '</div>' +
       '<div class="t">Horas trabajadas</div><div class="x">' + (D.horas.hay ? 'promedio ' + hFmt(D.horas.totales.promedio) + ' por jornada' : 'sin cierres de jornada ' + enPer) + '</div></div>' +
     (D.camiones.length ? '<div class="kpi ' + clase(D.totalesCamiones.disponibilidad) + '"><div class="n">' + pct(D.totalesCamiones.disponibilidad) + '</div>' +
@@ -821,13 +813,14 @@ function pintar(){
         '" style="height:' + altoTend(v) + '%"></i></div>';
     }).join('') + '</div><div class="tend-mes">' + HIST.map(function(h){ return '<span>' + nombreMes(h) + (h.parcial ? '<br><small>desde el ' + dcorta(h.desde) + '</small>' : '') + '</span>'; }).join('') + '</div></div>';
   var secTendTabla = '<div class="tabla"><table><thead><tr><th>Mes</th><th class="num">Disponibilidad</th><th class="num">Utilización</th>' +
-    '<th class="num">Días perdidos</th><th class="num">Fallas</th><th class="num">MTTR</th><th class="num">Horas trabajadas</th></tr></thead><tbody>' +
+    '<th class="num">Días perdidos</th><th class="num">Fallas</th><th class="num">MTTR</th><th class="num">Horas trabajadas</th><th class="num">Costo del taller</th></tr></thead><tbody>' +
     HIST.slice().reverse().map(function(h){
-      if (h.sinDatos || h.futuro) return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + '</td><td colspan="6" class="mod">' + (h.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
+      if (h.sinDatos || h.futuro) return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + '</td><td colspan="7" class="mod">' + (h.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
       return '<tr><td>' + MESES[h.mes - 1] + ' ' + h.anio + (h.parcial ? ' <span class="mod">(desde el ' + dcorta(h.desde) + ')</span>' : '') + '</td><td class="num"><span class="pill ' + clase(h.totales.disponibilidad) + '">' +
         pct(h.totales.disponibilidad) + '</span></td><td class="num mono">' + (h.uso ? pct(h.uso.totales.utilizacion) : '—') + '</td>' +
         '<td class="num mono">' + h.totales.diasFalla + '</td><td class="num mono">' + h.totales.fallas + '</td>' +
-        '<td class="num mono">' + n1(h.totales.diasPorFalla) + '</td><td class="num mono">' + (h.horas.hay ? hFmt(h.horas.totales.horas) : '\u2014') + '</td></tr>';
+        '<td class="num mono">' + n1(h.totales.diasPorFalla) + '</td><td class="num mono">' + (h.horas.hay ? hFmt(h.horas.totales.horas) : '\u2014') + '</td>' +
+        '<td class="num mono">' + (h.costo && h.costo.total ? millones(h.costo.total) : '\u2014') + '</td></tr>';
     }).join('') + '</tbody></table></div>';
 
   var secHoras = D.horas.hay
@@ -840,20 +833,21 @@ function pintar(){
       }).join('') + '</tbody></table></div>'
     : '<div class="vacio">Todavía no hay cierres de jornada con horómetro en este mes.</div>';
 
-  var sinReg = MT.filter(function(m){ return m.nivel === 'sindato'; }).length;
-  var secMtto = (sinReg ? '<p class="mod" style="margin:0 0 8px">' + (sinReg === MT.length
-      ? 'Todavía no hay mantenimientos registrados, así que no hay alertas. Tulio los registra en el Taller (ficha de cada máquina → "Registrar mantenimiento hecho").'
-      : sinReg + (sinReg === 1 ? ' máquina sin' : ' máquinas sin') + ' mantenimiento registrado: no tienen alerta hasta que Tulio lo registre en el Taller.') + '</p>' : '') +
-    '<div class="tabla"><table><thead><tr><th>Máquina</th><th>Estado</th><th class="num">Horómetro</th>' +
-    '<th class="num">Último mtto.</th><th class="num">Próximo</th><th class="num">Faltan</th></tr></thead><tbody>' +
-    MT.map(function(m){
-      var est = m.nivel === 'vencido' ? '<span class="pill ma">Vencido</span>' : m.nivel === 'proximo' ? '<span class="pill al">Próximo</span>' :
-        m.nivel === 'ok' ? '<span class="pill ok">Al día</span>' : m.nivel === 'sinhorometro' ? '<span class="pill na">Sin horómetro</span>' : '<span class="pill na">Sin registrar</span>';
-      return '<tr><td><span class="eqn mono">' + esc(m.equipo) + '</span> <span class="mod">' + esc(m.nombre) + '</span></td><td>' + est + '</td>' +
-        '<td class="num mono">' + hFmt(m.actual) + '</td><td class="num mono">' + (m.ultimo != null ? hFmt(m.ultimo) + (m.fecha ? ' · ' + dcorta(m.fecha) : '') : '\u2014') + '</td>' +
-        '<td class="num mono">' + (m.proximo != null ? hFmt(m.proximo) : '\u2014') + '</td>' +
-        '<td class="num mono">' + (m.faltan == null ? '\u2014' : m.faltan <= 0 ? '<b style="color:var(--red)">−' + hFmt(-m.faltan) + '</b>' : hFmt(m.faltan)) + '</td></tr>';
-    }).join('') + '</tbody></table></div>';
+  // costo del taller por máquina, con lo que costó cada hora trabajada
+  var horasDe = {}; (D.horas.equipos || []).forEach(function(e){ horasDe[e.equipo] = e.horas; });
+  var filasCosto = CT ? Object.keys(CT.porMaq).map(function(c){ var x = CT.porMaq[c]; return { cod:c, nombre:(eqDe(c) || {}).nombre || '', rep:x.rep, prev:x.prev, total:x.total, h:horasDe[c] || 0 }; })
+    .sort(function(a, b){ return b.total - a.total; }) : [];
+  var secCosto = !CT ? '<div class="vacio">Antes del sistema actualizado no hay costos.</div>' : !filasCosto.length
+    ? '<div class="vacio">Compras todavía no ha registrado costos ' + enPer + '.</div>'
+    : '<div class="tabla"><table><thead><tr><th>Máquina</th><th class="num">Reparaciones</th><th class="num">Preventivo</th><th class="num">Total</th><th class="num">Por hora trabajada</th></tr></thead><tbody>' +
+      filasCosto.map(function(x){
+        return '<tr><td><span class="eqn mono">' + esc(x.cod) + '</span> <span class="mod">' + esc(x.nombre) + '</span></td><td class="num mono">' + (x.rep ? pesos(x.rep) : '\u2014') + '</td>' +
+          '<td class="num mono">' + (x.prev ? pesos(x.prev) : '\u2014') + '</td><td class="num mono"><b>' + pesos(x.total) + '</b></td>' +
+          '<td class="num mono">' + (x.h ? pesos(x.total / x.h) : '\u2014') + '</td></tr>';
+      }).join('') +
+      '<tr><td><b>Total</b></td><td class="num mono">' + pesos(CT.rep) + '</td><td class="num mono">' + pesos(CT.prev) + '</td><td class="num mono"><b>' + pesos(CT.total) + '</b></td>' +
+      '<td class="num mono">' + (D.horas.hay && D.horas.totales.horas ? pesos(CT.total / D.horas.totales.horas) : '\u2014') + '</td></tr></tbody></table></div>' +
+      (CT.sinCosto ? '<p class="mod">' + CT.sinCosto + (CT.sinCosto === 1 ? ' mantenimiento todavía no tiene' : ' mantenimientos todavía no tienen') + ' costo de Compras.</p>' : '');
 
   var orden = D.maquinaria.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
   var secDispMaq = '<div class="graf">' + orden.map(function(e){
@@ -932,32 +926,6 @@ function pintar(){
           return dcorta(f.inicio) + (f.novedad ? ': ' + esc(f.novedad) : ''); }).join(' · ') + '</span></div>';
     }).join('') : '<div class="vacio">Sin fallas repetidas en los últimos ' + VENTANA_REPETIDAS + ' días.</div>';
 
-  var secPendientes = PENDIENTES.length
-    ? '<div class="tabla"><table><thead><tr><th>Máquina</th><th>Pendiente</th><th>Urgencia</th><th>Sistema</th>' +
-      '<th>Desde</th><th class="num">Días</th></tr></thead><tbody>' +
-      PENDIENTES.map(function(n){
-        var q = eqDe(n.equipo) || {};
-        return '<tr><td><span class="eqn mono">' + esc(n.equipo) + '</span> <span class="mod">' + esc(q.nombre || '') + '</span></td>' +
-          '<td>' + esc(n.txt) + '</td><td>' + (n.urgente ? '<span class="pill ma">Urgente</span>' : '<span class="pill al">Puede esperar</span>') + '</td>' +
-          '<td>' + (esc(n.sistema) || '<span class="mod">—</span>') + '</td><td class="mono">' + dcorta(n.desde) + '</td>' +
-          '<td class="num mono">' + (n.desde ? diasEntre(n.desde, hoy()) : '—') + '</td></tr>';
-      }).join('') + '</tbody></table></div>'
-    : '<div class="vacio">No hay pendientes abiertos.</div>';
-
-  var secParadas = D.eventos.length
-    ? '<div class="tabla"><table><thead><tr><th>Parada</th><th>Equipo</th><th>Tipo</th><th>Sistema</th>' +
-      '<th>Lo que reportaron</th><th>Trabajo realizado</th><th class="num">Días</th><th>Alta</th></tr></thead><tbody>' +
-      D.eventos.map(function(e){
-        return '<tr><td class="mono">' + dcorta(e.inicio) + '</td><td class="mono eqn">' + esc(e.equipo) + '</td>' +
-          '<td>' + (e.tipo === 'mantenimiento' ? '<span class="pill az">Mantenimiento</span>' : '<span class="pill ma">Falla</span>') + '</td>' +
-          '<td>' + (e.fin ? esc(txtSistema(e.sistema)) : '<span class="mod">al dar el alta</span>') + '</td>' +
-          '<td>' + (esc(e.novedad) || '<span class="mod">sin detalle</span>') + '</td>' +
-          '<td>' + (esc(e.trabajo) || '<span class="mod">—</span>') + '</td>' +
-          '<td class="num mono">' + duracion(e) + '</td>' +
-          '<td class="mono">' + (e.fin ? dcorta(e.fin) : '<span class="pill ma">sin alta</span>') + '</td></tr>';
-      }).join('') + '</tbody></table></div>'
-    : '<div class="vacio">No hubo paradas en el mes.</div>';
-
   var secCamiones = '';
   if (D.camiones.length){
     var TC = D.totalesCamiones;
@@ -984,7 +952,8 @@ function pintar(){
     '<li><b>Utilización:</b> días en que la máquina trabajó (tenía labor en la Programación, o el operario hizo preoperativo o cierre) ÷ días disponibles. Solo maquinaria.</li>' +
     '<li><b>Tendencia:</b> los meses antes del primer registro del Taller salen "sin datos" en vez de 100 %.</li>' +
     '<li><b>Horas trabajadas:</b> horómetro final menos inicial de cada cierre de jornada del Preoperativo.</li>' +
-    '<li><b>Mantenimiento preventivo:</b> cada filtro y aceite tiene su intervalo en la ficha del modelo (Taller → Máquinas → Fichas). Vencido cuando el horómetro pasa su último cambio más el intervalo; próximo cuando faltan ' + Mtto.AVISO + ' h o menos (500 km en los camiones).</li>' +
+    '<li><b>Costo del taller:</b> lo que registra Compras: el costo de cada reparación (en el mes en que empezó la parada) y de cada mantenimiento preventivo (en su fecha). Por hora trabajada = costo ÷ horas de los cierres de jornada.</li>' +
+    '<li><b>Lo del día a día</b> (pendientes del taller, mantenimiento por hacer, en qué va cada reparación) lo ve el Superintendente en Agrovisión.</li>' +
     '</ul></details>';
 
   /* ---------- pestañas ---------- */
@@ -1001,11 +970,8 @@ function pintar(){
       '</div>',
     disp: secGrupos +
       titulo('Tendencia mes a mes', 'Disponibilidad, utilización, días perdidos, fallas y MTTR de los últimos ' + MESES_HIST + ' meses.') + secTendTabla,
-    fallas: titulo('Paradas del mes', 'Cada parada registrada en el Taller con lo que reportaron, de qué fue y los días que estuvo parada.') + secParadas +
-      '<div class="dos"><div>' + titulo('Fallas por sistema', 'Lo clasifica Tulio al dar el alta.') + secPareto + '</div>' +
-      '<div>' + titulo('Fallas repetidas', 'Misma máquina y mismo sistema 2 o más veces en ' + VENTANA_REPETIDAS + ' días: la reparación no quedó bien.') + secRepetidas + '</div></div>' +
-      titulo('Pendientes del taller', 'Máquinas que siguen trabajando con algo anotado por Tulio: no baja la disponibilidad, pero si no se atiende puede convertirse en una parada.') + secPendientes +
-      titulo('Mantenimiento preventivo', 'Según el horómetro que registran los operarios, lo que Tulio registra que se cambió y el intervalo de cada filtro y aceite en la ficha del modelo.') + secMtto,
+    fallas: titulo('Costo del taller por máquina', 'Reparaciones y mantenimiento preventivo ' + enPer + ', con lo que registró Compras. De mayor a menor.') + secCosto +
+      titulo('Fallas por sistema', 'Lo clasifica Tulio al dar el alta. Días = días que dejaron parada la máquina.') + secPareto,
     uso: titulo('Uso de la maquinaria', 'De los días en que cada máquina estuvo disponible, en cuántos trabajó: tenía labor en la Programación o el operario hizo preoperativo o cierre' +
       (U && U.desde > D.desde ? ' (desde el ' + dcorta(U.desde) + ', cuando empezó a haber registros)' : '') + '. Los días ociosos son capacidad que no se usó.' +
       (U && U.totales.sinProgramar ? ' Hubo ' + U.totales.sinProgramar + ' días-máquina trabajados que nadie programó: la Programación no se está registrando completa.' : '')) + secUso +
@@ -1015,7 +981,7 @@ function pintar(){
       '<div>' + titulo('Fallas repetidas', 'Señal de que la reparación no quedó bien.') + secRepetidas + '</div></div>',
     camiones: titulo('Camiones', 'Transporte de fruta y de personal. Se miden aparte y no entran en la disponibilidad de la maquinaria.') + secCamiones
   };
-  var cuenta = { fallas: D.abiertos.length + PENDIENTES.length + mVenc.length, conf: rep90.length };
+  var cuenta = { conf: rep90.length };
 
   $('#pestanas').hidden = false;
   $('#pestanas').innerHTML = TABS.map(function(t){
@@ -1041,12 +1007,14 @@ async function cargar(forzar){
     var progListo = traerProgramacion();
     var horListo = Horometros.traer().then(function(ok){ if (!ok) FALTAN.push('los horómetros'); })
       .catch(function(){ FALTAN.push('los horómetros'); });
+    var costoListo = Promise.all([Reparaciones.traer(), Mantenimientos.traer()])
+      .then(function(r){ if (!r[0] || !r[1]) FALTAN.push('los costos de Compras'); }).catch(function(){ FALTAN.push('los costos de Compras'); });
     try { EVENTOS = await traer(); }
     catch(e){
       $('#app').innerHTML = '<div class="err"><strong>No se pudo leer la hoja Taller.</strong> Revise la conexión e intente con "Actualizar". (' + esc(e.message) + ')</div>';
       return;
     }
-    await progListo; await horListo;
+    await progListo; await horListo; await costoListo;
     $('#act').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
   }
   HIST = historial(+mv[0], +mv[1]);
@@ -1060,7 +1028,7 @@ function informe(){
   var T = D.totales, TC = D.totalesCamiones;
   var P = HIST.length > 1 && !HIST[HIST.length-2].sinDatos && !HIST[HIST.length-2].parcial ? HIST[HIST.length-2].totales : null;
   var mesPrev = P ? MESES[HIST[HIST.length-2].mes - 1] : '';
-  var C = confiabilidad(), rep90 = fallasRepetidas(D.corte), U = D.uso;
+  var C = confiabilidad(), rep90 = fallasRepetidas(D.corte), U = D.uso, CT = D.costo, CP = P && HIST[HIST.length-2].costo;
   var eqs = D.maquinaria.slice().sort(function(a,b){ return a.disponibilidad - b.disponibilidad; });
   var num = 0;
   function sec(t, extra){ num++; return '<h2>' + num + '. ' + t + (extra ? ' <span>· ' + extra + '</span>' : '') + '</h2>'; }
@@ -1076,7 +1044,7 @@ function informe(){
   var h = '<div class="ir">' +
     '<div class="ir-cab">' +
       '<div class="ir-marca"><div class="ir-logo">PG</div><div class="ir-emp"><b>PALMA GRANDE S.A.S.</b><span>Puerto Concordia, Meta</span></div></div>' +
-      '<div class="ir-tit"><b>Informe de disponibilidad y fallas de maquinaria</b><span>Gerencia · fuente: Taller y Programación</span></div>' +
+      '<div class="ir-tit"><b>Informe de disponibilidad y fallas de maquinaria</b><span>Gerencia · fuente: Taller, Programación y Compras</span></div>' +
       '<div class="ir-dato">' +
         '<div>Periodo</div><div><b>' + MESES[D.mes - 1].charAt(0).toUpperCase() + MESES[D.mes - 1].slice(1) + ' ' + D.anio + '</b></div>' +
         '<div>Días</div><div>' + (D.corte < D.hasta ? D.diasProgramados + ' de ' + D.laboralesMes + ' laborales · corte al ' + dcorta(D.corte) : D.laboralesMes + ' laborales (mes completo)') + '</div>' +
@@ -1094,18 +1062,15 @@ function informe(){
       '<div><b>' + T.diasFalla + '</b><span>Días-máquina perdidos por falla</span>' + dif(T.diasFalla, P && P.diasFalla, ' días', true) + '</div>' +
       '<div><b>' + (C.flota.mtbf == null ? '—' : n1(C.flota.mtbf)) + '</b><span>MTBF · días entre fallas</span></div>' +
       '<div><b>' + (D.horas.hay ? hFmt(D.horas.totales.horas) : '—') + '</b><span>Horas trabajadas</span></div>' +
+      '<div><b>' + (CT && CT.total ? millones(CT.total) : '$0') + '</b><span>Costo del taller</span>' + (CP && CP.total ? dif(CT.total / 1e6, CP.total / 1e6, ' M', true, true) : '') + '</div>' +
       '<div><b>' + (D.camiones.length ? pct(TC.disponibilidad) : '—') + '</b><span>Camiones (aparte)</span></div>' +
     '</div>';
   var aten = [];
   if (D.abiertos.length) aten.push(D.abiertos.length + (D.abiertos.length === 1 ? ' máquina parada sin alta: ' : ' máquinas paradas sin alta: ') +
     D.abiertos.map(function(v){ return esc(v.equipo) + ' desde el ' + dcorta(v.inicio); }).join(', ') + '.');
-  if (PENDIENTES.length) aten.push(PENDIENTES.length + (PENDIENTES.length === 1 ? ' pendiente abierto' : ' pendientes abiertos') + ' en el taller' +
-    (PENDIENTES.some(function(n){ return n.urgente; }) ? ', con urgentes' : '') + ' (ver sección de pendientes).');
   if (rep90.length) aten.push(rep90.length + (rep90.length === 1 ? ' falla repetida: ' : ' fallas repetidas: ') +
     rep90.map(function(x){ return esc(x.equipo) + ' · ' + esc(x.sistema); }).join(', ') + '.');
-  var mVi = mantenimientos().filter(function(m){ return m.nivel === 'vencido'; });
-  if (mVi.length) aten.push(mVi.length + (mVi.length === 1 ? ' máquina con mantenimiento vencido: ' : ' máquinas con mantenimiento vencido: ') +
-    mVi.map(function(m){ return esc(m.equipo) + ' (hace ' + hFmt(-m.faltan) + ')'; }).join(', ') + '.');
+  if (CT && CT.sinCosto) aten.push(CT.sinCosto + (CT.sinCosto === 1 ? ' mantenimiento sin costo de Compras' : ' mantenimientos sin costo de Compras') + ': el costo del taller está incompleto.');
   if (aten.length) h += '<h3>Requiere atención</h3><ul class="aten">' + aten.map(function(a){ return '<li>' + a + '</li>'; }).join('') + '</ul>';
 
   var criticos = [];
@@ -1117,11 +1082,11 @@ function informe(){
 
   /* 2. tendencia */
   h += sec('Tendencia', 'últimos ' + MESES_HIST + ' meses') + '<table><thead><tr><th>Mes</th><th class="n">Disponibilidad</th><th class="n">Utilización</th>' +
-    '<th class="n">Días perdidos</th><th class="n">Fallas</th><th class="n">MTTR</th></tr></thead><tbody>' +
+    '<th class="n">Días perdidos</th><th class="n">Fallas</th><th class="n">MTTR</th><th class="n">Costo taller</th></tr></thead><tbody>' +
     HIST.map(function(x){
-      if (x.sinDatos || x.futuro) return '<tr><td>' + MESES[x.mes - 1] + ' ' + x.anio + '</td><td colspan="5" style="color:#888">' + (x.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
+      if (x.sinDatos || x.futuro) return '<tr><td>' + MESES[x.mes - 1] + ' ' + x.anio + '</td><td colspan="6" style="color:#888">' + (x.futuro ? 'sin datos' : 'antes del sistema actualizado') + '</td></tr>';
       return fila([MESES[x.mes - 1] + ' ' + x.anio + (x.parcial ? ' (desde el ' + dcorta(x.desde) + ')' : ''), '<b>' + pct(x.totales.disponibilidad) + '</b>', x.uso ? pct(x.uso.totales.utilizacion) : '—',
-        x.totales.diasFalla, x.totales.fallas, n1(x.totales.diasPorFalla)]).replace(/<td>(<b>|[0-9—])/g, '<td class="n">$1');
+        x.totales.diasFalla, x.totales.fallas, n1(x.totales.diasPorFalla), x.costo && x.costo.total ? millones(x.costo.total) : '—']).replace(/<td>(<b>|[0-9—$])/g, '<td class="n">$1');
     }).join('') + '</tbody></table>';
 
   /* 3. disponibilidad por máquina */
@@ -1139,40 +1104,20 @@ function informe(){
     '<div><h3>Fallas repetidas (' + VENTANA_REPETIDAS + ' días)</h3>' + (rep90.length ? '<table><thead><tr><th>Máquina</th><th>Sistema</th><th>Fechas</th></tr></thead><tbody>' +
       rep90.map(function(x){ return fila([esc(x.equipo) + ' ' + esc(x.nombre), esc(x.sistema), x.fallas.map(function(f){ return dcorta(f.inicio); }).join(', ')]); }).join('') +
       '</tbody></table>' : '<p>Sin fallas repetidas.</p>') + '</div></div>';
-  if (D.eventos.length){
-    h += '<h3>Paradas registradas</h3><table><thead><tr><th>Fecha</th><th>Equipo</th><th>Tipo</th><th>Sistema</th>' +
-      '<th>Lo que reportaron</th><th>Trabajo realizado</th><th class="n">Días</th><th>Alta</th></tr></thead><tbody>' +
-      D.eventos.map(function(e){
-        return fila([dcorta(e.inicio), esc(e.equipo), e.tipo === 'mantenimiento' ? 'Mantenimiento' : 'Falla', e.fin ? esc(txtSistema(e.sistema)) : '',
-          esc(e.novedad), esc(e.trabajo), duracion(e), e.fin ? dcorta(e.fin) : '<b>sin alta</b>']);
-      }).join('') + '</tbody></table>';
-  }
+  /* costo del taller */
+  var fc = CT ? Object.keys(CT.porMaq).map(function(c){ var x = CT.porMaq[c]; return { cod:c, rep:x.rep, prev:x.prev, total:x.total }; }).sort(function(a, b){ return b.total - a.total; }) : [];
+  h += sec('Costo del taller', 'reparaciones y preventivo, registrado por Compras') + (fc.length
+    ? '<table><thead><tr><th>Máquina</th><th class="n">Reparaciones</th><th class="n">Preventivo</th><th class="n">Total</th></tr></thead><tbody>' +
+      fc.map(function(x){ return fila([esc(x.cod) + ' ' + esc((eqDe(x.cod) || {}).nombre || ''), x.rep ? pesos(x.rep) : '—', x.prev ? pesos(x.prev) : '—', '<b>' + pesos(x.total) + '</b>']).replace(/<td>(\$|—|<b>)/g, '<td class="n">$1'); }).join('') +
+      fila(['<b>Total</b>', pesos(CT.rep), pesos(CT.prev), '<b>' + pesos(CT.total) + '</b>']).replace(/<td>(\$|<b>\$)/g, '<td class="n">$1') + '</tbody></table>'
+    : '<p>Compras todavía no ha registrado costos en el período.</p>');
 
-  /* 5. pendientes */
-  if (PENDIENTES.length){
-    h += sec('Pendientes del taller', 'máquinas que trabajan con algo por atender') + '<table><thead><tr><th>Máquina</th><th>Pendiente</th>' +
-      '<th>Urgencia</th><th>Desde</th><th class="n">Días</th></tr></thead><tbody>' +
-      PENDIENTES.map(function(n){
-        return fila([esc(n.equipo) + ' ' + esc((eqDe(n.equipo) || {}).nombre || ''), esc(n.txt), n.urgente ? '<b>Urgente</b>' : 'Puede esperar',
-          dcorta(n.desde), n.desde ? diasEntre(n.desde, hoy()) : '']);
-      }).join('') + '</tbody></table>';
-  }
-
-  /* horas trabajadas y mantenimiento */
+  /* horas trabajadas */
   if (D.horas.hay){
     h += sec('Horas trabajadas', 'horómetro del cierre de jornada') + '<table><thead><tr><th>Máquina</th><th class="n">Jornadas</th><th class="n">Horas</th><th class="n">Promedio por jornada</th></tr></thead><tbody>' +
       D.horas.equipos.filter(function(e){ return e.dias; }).sort(function(a, b){ return b.horas - a.horas; }).map(function(e){
         return fila([esc(e.equipo) + ' ' + esc(e.nombre), e.dias, hFmt(e.horas), hFmt(e.promedio)]); }).join('') + '</tbody></table>';
   }
-  var mtI = mantenimientos().filter(function(m){ return m.nivel !== 'sindato'; });
-  if (mtI.length){
-    h += sec('Mantenimiento preventivo', 'según la ficha de cada modelo') + '<table><thead><tr><th>Máquina</th><th>Estado</th><th class="n">Horómetro</th><th class="n">Último</th><th class="n">Próximo</th><th class="n">Faltan</th></tr></thead><tbody>' +
-      mtI.map(function(m){
-        return fila([esc(m.equipo) + ' ' + esc(m.nombre), { vencido:'<b>Vencido</b>', proximo:'Próximo', ok:'Al día', sinhorometro:'Sin horómetro' }[m.nivel],
-          hFmt(m.actual), hFmt(m.ultimo), hFmt(m.proximo), m.faltan == null ? '—' : m.faltan <= 0 ? '<b>−' + hFmt(-m.faltan) + '</b>' : hFmt(m.faltan)]);
-      }).join('') + '</tbody></table>';
-  }
-
   /* 6. uso y 7. confiabilidad */
   h += '<div class="dos"><div>' + sec('Uso de la maquinaria', U && U.desde > D.desde ? 'desde el ' + dcorta(U.desde) : 'Programación');
   h += U ? '<table><thead><tr><th>Máquina</th><th class="n">Disp.</th><th class="n">Trabajó</th><th class="n">Ociosos</th><th class="n">Utiliz.</th></tr></thead><tbody>' +
