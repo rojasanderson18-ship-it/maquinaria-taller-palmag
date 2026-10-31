@@ -250,7 +250,7 @@ function paradaEl(eventos, cod, d){
 
 async function cargar(){
   var hoy = isoLocal(new Date());
-  var res = await Promise.all(['Taller', 'PreopDiario', 'Preoperativos', 'CierreJornada', 'ProgMaquinaria', 'Programacion']
+  var res = await Promise.all(['Taller', 'PreopDiario', 'Preoperativos', 'CierreJornada', 'ProgMaquinaria']
     .map(function(h){ return leer(h).catch(function(){ return null; }); }));
   try { await Maestros.traer(); } catch(e){}
   try { await Horometros.traer(); } catch(e){}
@@ -259,11 +259,11 @@ async function cargar(){
     // sin el Taller no se sabe el estado de hoy: se muestra la última lectura guardada
     if (!$('#flota .grupo')){
       var c = null; try { c = JSON.parse(localStorage.getItem(KEY_COPIA) || 'null'); } catch(e){}
-      if (c && c.res){ pintar(hoy, leerTaller(c.res[0]), c.res[1], c.res[2], c.res[3], c.res[4], c.res[5]); $('#hora').textContent = c.hora; }
+      if (c && c.res){ pintar(hoy, leerTaller(c.res[0]), c.res[1], c.res[2], c.res[3], c.res[4]); $('#hora').textContent = c.hora; }
     }
     return;
   }
-  pintar(hoy, leerTaller(res[0]), res[1], res[2], res[3], res[4], res[5]);
+  pintar(hoy, leerTaller(res[0]), res[1], res[2], res[3], res[4]);
   var hora = new Date().toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' });
   $('#hora').textContent = hora;
   // copia para abrir sin señal: el Taller completo y, de las demás hojas, solo lo de hoy
@@ -271,7 +271,7 @@ async function cargar(){
   try { localStorage.setItem(KEY_COPIA, JSON.stringify({ res: copia, hora: hora })); } catch(e){}
 }
 
-function pintar(hoy, T, preop, preopViejo, cierre, prog, progViejo){
+function pintar(hoy, T, preop, preopViejo, cierre, prog){
   var cod = function(t){ return Horometros.codDe(t); };
   var flota = Maestros.flota();
   var maq = flota.filter(function(f){ return f.grupo !== 'transporte'; });
@@ -339,7 +339,6 @@ function pintar(hoy, T, preop, preopViejo, cierre, prog, progViejo){
     var c = String(r[5] || '').trim(), acc = String(r[2] || '').trim().toUpperCase();
     if (acc === 'ASIGNAR') progHoy[c] = true; else if (acc === 'QUITAR') delete progHoy[c];
   });
-  (progViejo || []).forEach(function(r){ if (aIso(r[0]) === hoy && String(r[3] || '').trim()) progHoy[cod(r[2])] = true; });
   var n = trabajan.length;
   var cuenta = function(o){ return trabajan.filter(function(f){ return o[f.cod]; }).length; };
   var regs = [

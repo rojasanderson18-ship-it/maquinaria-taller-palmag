@@ -1011,3 +1011,62 @@ window.Instalar = {
     window.top.postMessage({ flota: tab }, location.origin);
   }, true);
 })();
+
+/* =====================================================================
+   LABORES Y LOTES — una sola lista para Programación, Preoperativo,
+   Tanqueo y los tableros.
+   - Labores de la maquinaria: aquí (prog:false = no se programa).
+   - Lotes: la lista de Agrovisión (finca, lote, hectáreas), que se edita
+     allá (Agrovisión → Lotes). Se guarda una copia en el celular para
+     trabajar sin señal.
+   ===================================================================== */
+window.LABORES_MAQ = [
+  { id:'alceTijera', txt:'Alce de racimos con tijera',       req:'tijera',       pri:1 },
+  { id:'alceQuinta', txt:'Alce de racimos con quinta rueda', req:'quintarueda',  pri:1 },
+  { id:'rotospeed',  txt:'Rotospeed',                        req:'rotospeed',    pri:2 },
+  { id:'rolo',       txt:'Rolo cuchilla',                    req:'rolocuchilla', pri:2 },
+  { id:'fertMezcla', txt:'Fertilización con mezcla',         req:null,           pri:2 },
+  { id:'fertBorax',  txt:'Fertilización en bórax',           req:null,           pri:2 },
+  { id:'sanidad',    txt:'Sanidad',                          req:null,           pri:2 },
+  { id:'varias',     txt:'Labores varias',                   req:null,           pri:3 },
+  { id:'transporte', txt:'Transporte',                       req:null,           pri:3, prog:false }
+];
+/* id de una labor a partir de su id o su texto ("Alce de racimos con tijera · lotes 12" → alceTijera) */
+window.laborId = function(v){
+  var t = String(v || '').split('·')[0].trim().toLowerCase();
+  if (!t) return '';
+  var l = window.LABORES_MAQ.filter(function(x){ return x.id.toLowerCase() === t || x.txt.toLowerCase() === t; })[0];
+  return l ? l.id : '';
+};
+window.laborTxt = function(id){ var l = window.LABORES_MAQ.filter(function(x){ return x.id === id; })[0]; return l ? l.txt : id || ''; };
+
+(function(){
+  var URL_AGRO = 'https://script.google.com/macros/s/AKfycbxzrPbQx5Sx4Q4G7e9CCEGqovZc-b3qTosmNhr51bQYbKqSe3-JqnhND0-mE9xb3cry/exec';
+  var KEY_L = 'palma-lotes-v1';
+  var L = (function(){ try { return JSON.parse(localStorage.getItem(KEY_L) || 'null'); } catch(e){ return null; } })();
+  function orden(a, b){
+    var fa = a.finca.localeCompare(b.finca, 'es', { numeric:true }); if (fa) return fa;
+    return a.cod.localeCompare(b.cod, 'es', { numeric:true });
+  }
+  window.Lotes = {
+    /* [{ cod, finca, ha }] de los lotes activos, o null si nunca se ha leído Agrovisión */
+    lista: function(){ return L && L.lotes ? L.lotes.slice() : null; },
+    leido: function(){ return L ? L.leido : null; },
+    fincas: function(){ var f = {}; (this.lista() || []).forEach(function(x){ f[x.finca] = true; }); return Object.keys(f).sort(function(a, b){ return a.localeCompare(b, 'es', { numeric:true }); }); },
+    ha: function(cod){ var x = (this.lista() || []).filter(function(y){ return y.cod === String(cod).trim().toUpperCase(); })[0]; return x ? x.ha : null; },
+    /* "12, 13 y 1A" → ['12','13','1A'] (solo separa; no valida) */
+    partir: function(txt){ return String(txt || '').replace(/lotes?/ig, ' ').split(/[,;\/]+|\s+y\s+|\s+/i).map(function(x){ return x.trim().toUpperCase(); }).filter(Boolean); },
+    traer: async function(){
+      var r = await fetch(URL_AGRO + '?accion=listarLotes&t=' + Date.now());
+      var d = await r.json();
+      if (!d || !d.ok || !Array.isArray(d.lotes)) return false;
+      var lotes = d.lotes.filter(function(x){ return x.lote && !/inactiv|baja|elimin/i.test(x.estado || ''); })
+        .map(function(x){ return { cod:String(x.lote).trim().toUpperCase(), finca:String(x.finca || '').trim(), ha: +x.ha || 0 }; }).sort(orden);
+      if (!lotes.length) return false;
+      var cambio = !L || JSON.stringify(L.lotes) !== JSON.stringify(lotes);
+      L = { lotes:lotes, leido:new Date().toISOString() };
+      try { localStorage.setItem(KEY_L, JSON.stringify(L)); } catch(e){}
+      return cambio;
+    }
+  };
+})();

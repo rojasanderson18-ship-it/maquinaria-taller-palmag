@@ -114,6 +114,14 @@ function doPost(e) {
       sheet.getRange(1,1,1,data.encabezados.length)
         .setBackground('#1a4731').setFontColor('#fff').setFontWeight('bold');
       sheet.setFrozenRows(1);
+    } else if (data.encabezados && data.encabezados.length) {
+      // una app agregó columnas al final (p. ej. Labor ID, Lotes y Según programación
+      // en CierreJornada): se completan los títulos que falten, sin tocar los demás
+      const tit = sheet.getRange(1,1,1,data.encabezados.length).getValues()[0];
+      data.encabezados.forEach(function(h, i){
+        if (String(tit[i] || '').trim() === '')
+          sheet.getRange(1,i+1).setValue(h).setBackground('#1a4731').setFontColor('#fff').setFontWeight('bold');
+      });
     }
     const equipoIdx = (data.hoja==='Revisiones'||data.hoja==='Altas') ? 2 : 3;
     const today = new Date().toLocaleDateString('es-CO');

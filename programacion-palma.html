@@ -274,16 +274,8 @@ var ENC_PROG = ['Registrado','Hora','Acción','ID','Fecha','Equipo','Labor','Lot
 
 /* Las labores reales que se hacen con maquinaria. 'req' es el implemento que
    necesita: si la labor lo pide, la programación no deja repetirlo el mismo día. */
-var LABORES = [
-  {id:'alceTijera', txt:'Alce de racimos con tijera',  req:'tijera',      pri:1},
-  {id:'alceQuinta', txt:'Alce de racimos con quinta rueda', req:'quintarueda', pri:1},
-  {id:'rotospeed',  txt:'Rotospeed',                   req:'rotospeed',   pri:2},
-  {id:'rolo',       txt:'Rolo cuchilla',               req:'rolocuchilla',pri:2},
-  {id:'fertMezcla', txt:'Fertilización con mezcla',    req:null,          pri:2},
-  {id:'fertBorax',  txt:'Fertilización en bórax',      req:null,          pri:2},
-  {id:'sanidad',    txt:'Sanidad',                     req:null,          pri:2},
-  {id:'varias',     txt:'Labores varias',              req:null,          pri:3}
-];
+/* la misma lista de labores del Preoperativo y los tableros (maestros.js) */
+var LABORES = LABORES_MAQ.filter(function(l){ return l.prog !== false; });
 
 var TIPOS_IMPL = {
   tijera:'Tijera de volteo', quintarueda:'Quinta rueda',
@@ -403,8 +395,20 @@ function aviso(m){ var a=$('#aviso'); a.textContent=m; a.hidden=false;
   clearTimeout(a._t); a._t=setTimeout(function(){ a.hidden=true; }, 3600); }
 
 function cfgFlota(){ return Maestros.flota().filter(function(m){ return m.grupo !== 'transporte'; }); }
-function cfgLotes(){ if (!estado.config.lotes) estado.config.lotes = lotesDefecto(); return estado.config.lotes; }
-function cfgFincas(){ if (!estado.config.fincas) estado.config.fincas = FINCAS_DEF.slice(); return estado.config.fincas; }
+/* Lotes y fincas: la lista de Agrovisión (Lotes en maestros.js). Mientras no se
+   haya podido leer, la última lista que se usó aquí. */
+function cfgLotes(){
+  var l = Lotes.lista();
+  if (l && l.length) return l.map(function(x){ return { cod:x.cod, finca:x.finca, ha:x.ha }; });
+  if (!estado.config.lotes) estado.config.lotes = lotesDefecto();
+  return estado.config.lotes;
+}
+function cfgFincas(){
+  var f = Lotes.lista() ? Lotes.fincas() : null;
+  if (f && f.length) return f;
+  if (!estado.config.fincas) estado.config.fincas = FINCAS_DEF.slice();
+  return estado.config.fincas;
+}
 /* Agrupa el maestro por finca, dejando al final los que no tienen */
 function lotesPorFinca(lista){
   var orden = cfgFincas().slice(), grupos = {}, otros = [];
@@ -952,39 +956,15 @@ function ajustes(){
             ' <span class="nota" style="margin:0">· ' + (x.grupo === 'sanidad' ? 'Sanidad' : 'Campo') + '</span></div>';
         }).join('') + '</div>';
     } else if (vista === 'lotes'){
-      var F = cfgFincas();
-      var sinF = L.filter(function(x){ return !x.finca; }).length;
-      h += '<p class="paso">Nombres de las fincas</p>' +
-        '<table class="tabla-cfg"><tbody>' +
-        F.map(function(f, i){
-          return '<tr><td><input data-fn="' + i + '" value="' + esc(f) + '"></td>' +
-            '<td style="width:34px"><button class="x" data-del-fn="' + i + '">×</button></td></tr>';
-        }).join('') + '</tbody></table>' +
-        '<button class="accion gris" id="add-fn">+ Agregar finca</button>';
-
-      h += '<p class="paso" style="margin-top:20px">Asignar varios lotes de una vez</p>' +
-        '<div class="fila-asig">' +
-        '<input id="rango" placeholder="1-18, 1A, 45B" autocomplete="off">' +
-        '<select id="rango-finca">' + F.map(function(f){ return '<option>' + esc(f) + '</option>'; }).join('') + '</select>' +
-        '<button id="rango-ok">Asignar</button></div>' +
-        '<p class="nota">Escriba los lotes separados por comas; puede usar rangos como 1-18.</p>';
-
-      h += '<p class="paso" style="margin-top:18px">Lotes <i>— ' + L.length + ' en total' +
-        (sinF ? ', ' + sinF + ' sin finca' : '') + '</i></p>' +
-        '<table class="tabla-cfg"><thead><tr><th style="width:84px">Lote</th><th>Finca</th>' +
-        '<th style="width:34px"></th></tr></thead><tbody>' +
-        L.map(function(x, i){
-          return '<tr><td><input data-l="' + i + '" data-f="cod" value="' + esc(x.cod) + '"></td>' +
-            '<td><select data-l="' + i + '" data-f="finca">' +
-              '<option value=""' + (!x.finca?' selected':'') + '>— sin finca —</option>' +
-              F.map(function(f){ return '<option value="' + esc(f) + '"' + (x.finca===f?' selected':'') + '>' + esc(f) + '</option>'; }).join('') +
-            '</select></td>' +
-            '<td><button class="x" data-del-l="' + i + '">×</button></td></tr>';
-        }).join('') + '</tbody></table>' +
-        '<button class="accion gris" id="add-l">+ Agregar lote</button>' +
-        '<label class="campo" style="margin-top:16px"><span>O pegar el maestro completo <i>— reemplaza la lista</i></span>' +
-        '<textarea id="pegar" rows="4" placeholder="Un lote por línea: codigo, finca&#10;12, Finca 1&#10;13, Finca 1&#10;1A, Finca 2"></textarea></label>' +
-        '<button class="accion gris" id="imp-l">Reemplazar la lista con lo pegado</button>';
+      var porF = lotesPorFinca(L), leido = Lotes.leido();
+      h += '<p class="nota">Los lotes y las fincas vienen de <b>Agrovisión → Lotes</b> (con sus hectáreas). Se agregan o corrigen allá y llegan solos aquí y al Preoperativo.' +
+        (leido ? ' Leídos el ' + new Date(leido).toLocaleDateString('es-CO') + '.' : ' <b>Todavía no se han podido leer:</b> se usa la lista anterior.') + '</p>' +
+        porF.map(function(g){
+          var ha = g.lotes.reduce(function(s2, x){ return s2 + (x.ha || 0); }, 0);
+          return '<p class="paso" style="margin-top:14px">' + esc(g.finca) + ' <i>— ' + g.lotes.length + ' lotes' + (ha ? ' · ' + String(Math.round(ha * 10) / 10).replace('.', ',') + ' ha' : '') + '</i></p>' +
+            '<div class="lista-maq">' + g.lotes.map(function(x){ return '<div><b class="mono">' + esc(x.cod) + '</b>' + (x.ha ? ' <span class="nota" style="margin:0">· ' + String(x.ha).replace('.', ',') + ' ha</span>' : '') + '</div>'; }).join('') + '</div>';
+        }).join('') +
+        '<button class="accion gris" id="lotes-leer">Volver a leer de Agrovisión</button>';
     } else {
       h += '<p class="nota">Las 7 tijeras de volteo y la quinta rueda ya están. Agregue las abonadoras, ' +
         'aspersoras, rotativas y tanques que tengan, para que la programación no deje asignar dos máquinas al mismo implemento.</p>' +
@@ -1008,94 +988,12 @@ function ajustes(){
       $$('#panel [data-v]').forEach(function(b){
         b.onclick = function(){ vista = b.dataset.v; pintarCfg(); }; });
 
-      $$('#panel [data-l]').forEach(function(inp){
-        inp.onchange = async function(){
-          var i = +inp.dataset.l;
-          cfgLotes()[i][inp.dataset.f] = inp.value.trim();
-          estado.config.lotesConfirmados = true;
-          await persistir();
-          if (inp.dataset.f === 'finca') pintarCfg();
-        };
-      });
-      /* nombres de fincas */
-      $$('#panel [data-fn]').forEach(function(inp){
-        inp.onchange = async function(){
-          var i = +inp.dataset.fn, viejo = cfgFincas()[i], nuevo = inp.value.trim();
-          if (!nuevo){ aviso('El nombre no puede quedar vacío.'); inp.value = viejo; return; }
-          cfgFincas()[i] = nuevo;
-          cfgLotes().forEach(function(x){ if (x.finca === viejo) x.finca = nuevo; });
-          await persistir(); pintarCfg();
-        };
-      });
-      $$('#panel [data-del-fn]').forEach(function(b){
-        b.onclick = async function(){
-          var f = cfgFincas()[+b.dataset.delFn];
-          cfgFincas().splice(+b.dataset.delFn, 1);
-          cfgLotes().forEach(function(x){ if (x.finca === f) x.finca = ''; });
-          await persistir(); pintarCfg();
-        };
-      });
-      var afn = $('#add-fn');
-      if (afn) afn.onclick = async function(){
-        cfgFincas().push('Finca ' + (cfgFincas().length + 1));
-        await persistir(); pintarCfg();
+      var ll = $('#lotes-leer');
+      if (ll) ll.onclick = async function(){
+        ll.disabled = true; ll.textContent = 'Leyendo Agrovisión…';
+        try { await Lotes.traer(); pintarCfg(); aviso('Lotes leídos de Agrovisión.'); }
+        catch(e){ ll.disabled = false; ll.textContent = 'Volver a leer de Agrovisión'; aviso('No se pudo leer Agrovisión. Revise la señal.'); }
       };
-      /* asignar un rango de lotes a una finca */
-      var rok = $('#rango-ok');
-      if (rok) rok.onclick = async function(){
-        var txt = $('#rango').value.trim();
-        var fin = $('#rango-finca').value;
-        if (!txt){ aviso('Escriba los lotes que quiere asignar.'); return; }
-        var pedidos = [];
-        txt.split(',').forEach(function(t){
-          t = t.trim(); if (!t) return;
-          var m = t.match(/^(\d+)\s*-\s*(\d+)$/);
-          if (m){ for (var i = +m[1]; i <= +m[2]; i++) pedidos.push(String(i)); }
-          else pedidos.push(t.toUpperCase());
-        });
-        var L2 = cfgLotes(), tocados = 0, noHay = [];
-        pedidos.forEach(function(c){
-          var x = L2.filter(function(y){ return String(y.cod).toUpperCase() === c; })[0];
-          if (x){ x.finca = fin; tocados++; } else noHay.push(c);
-        });
-        estado.config.lotesConfirmados = true;
-        await persistir(); pintarCfg();
-        aviso(tocados + ' lote(s) quedaron en ' + fin +
-          (noHay.length ? '. No existen en la lista: ' + noHay.join(', ') : '.'));
-      };
-      $$('#panel [data-del-l]').forEach(function(b){
-        b.onclick = async function(){
-          cfgLotes().splice(+b.dataset.delL, 1);
-          estado.config.lotesConfirmados = true;
-          await persistir(); pintarCfg();
-        };
-      });
-      var al = $('#add-l');
-      if (al) al.onclick = async function(){
-        cfgLotes().push({cod:'', finca:''});
-        estado.config.lotesConfirmados = true;
-        await persistir(); pintarCfg();
-      };
-      var il = $('#imp-l');
-      if (il) il.onclick = async function(){
-        var txt = $('#pegar').value.trim();
-        if (!txt){ aviso('No hay nada pegado.'); return; }
-        var filas = txt.split(/[\r\n]+/).map(function(ln){
-          var p = ln.split(/[;,\t]/).map(function(x){ return x.trim(); });
-          if (!p[0]) return null;
-          return { cod:p[0], finca:p[1]||'' };
-        }).filter(Boolean);
-        if (!filas.length){ aviso('No se reconoció ninguna línea.'); return; }
-        estado.config.lotes = filas;
-        /* las fincas que vengan en lo pegado se agregan a la lista */
-        filas.forEach(function(x){
-          if (x.finca && cfgFincas().indexOf(x.finca) < 0) cfgFincas().push(x.finca);
-        });
-        estado.config.lotesConfirmados = true;
-        await persistir(); pintarCfg();
-        aviso('Quedaron ' + filas.length + ' lotes en ' + cfgFincas().length + ' finca(s).');
-      };
-
       $$('#panel [data-i]').forEach(function(inp){
         inp.onchange = async function(){
           var i = +inp.dataset.i;
@@ -1397,7 +1295,7 @@ function idLabor(v){
 }
 
 /* Cada cambio de una máquina en una fecha va a la cola: una fila para
-   ProgMaquinaria y la escritura (o borrado) en la hoja Programacion de siempre. */
+   ProgMaquinaria. (La hoja Programacion anterior ya no se escribe.) */
 function registrar(fecha, cod, a){
   var d = new Date();
   estado.cola.push({ id:'prog:' + nid(), efecto:{ fecha:fecha, cod:cod, a: a ? JSON.parse(JSON.stringify(a)) : null },
@@ -1405,13 +1303,6 @@ function registrar(fecha, cod, a){
     fila: [d.toLocaleDateString('es-CO'), horaAhora(), a ? 'ASIGNAR' : 'QUITAR', nid(), fecha, cod,
       a ? txtLabor(a.labor) : '', a ? (a.lotes || []).join(', ') : '', a ? (a.implemento || '') : '',
       a ? (a.operario || '') : '', a ? (a.obs || '') : '', estado.yo, a ? (a.operario2 || '') : ''] });
-  var q = { hoja:'Programacion', fecha: fechaCO(fecha), tractor: cod + ' - ' + nombreDe(cod) };
-  if (a){ q.action = 'write'; q.supervisor = estado.yo; q.labor = txtLabor(a.labor);
-          q.lote = (a.lotes || []).join(', '); q.impl = a.implemento || ''; q.hora = ''; }
-  else q.action = 'delete';
-  var url = GS_URL + '?' + new URLSearchParams(q).toString();
-  estado.cola[estado.cola.length - 1].legado = url;
-  estado.cola.push({ id:'legado:' + nid(), url: url });
 }
 
 /* =====================================================================
@@ -1451,8 +1342,7 @@ function confirmarProg(filas){
 }
 function reencolarProg(c){
   c.enviadoEn = null;
-  estado.cola.push({ id:'prog:' + nid(), efecto:c.efecto, hoja:HOJA_PROG, encabezados:ENC_PROG, fila:c.fila, legado:c.legado });
-  if (c.legado) estado.cola.push({ id:'legado:' + nid(), url:c.legado });
+  estado.cola.push({ id:'prog:' + nid(), efecto:c.efecto, hoja:HOJA_PROG, encabezados:ENC_PROG, fila:c.fila });
 }
 function pintarNoLlego(){
   var b = $('#nollego'), l = estado.porConfirmar.filter(function(c){ return c.intentos >= MAX_INTENTOS; });
@@ -1473,7 +1363,8 @@ function pintarNoLlego(){
 }
 
 /* lotes, fincas e implementos se comparten en la hoja Maestros */
-var CFG_MAESTROS = { LOTES:'lotes', FINCAS:'fincas', IMPL:'implementos', OPERARIOS:'operarios', SUPERVISORES:'supervisores' };
+/* los lotes y las fincas ya no se publican desde aquí: vienen de Agrovisión */
+var CFG_MAESTROS = { IMPL:'implementos', OPERARIOS:'operarios', SUPERVISORES:'supervisores' };
 function pendienteMaestro(t){ return (estado.cola || []).some(function(x){ return x.id === 'maestro:' + t; }); }
 function aplicarMaestros(){
   Object.keys(CFG_MAESTROS).forEach(function(t){
@@ -1490,7 +1381,7 @@ function guardarConfig(){
     var actual = estado.config[CFG_MAESTROS[t]];
     if (!actual) return;
     var guardada = Maestros.get(t);
-    var defecto = t === 'LOTES' ? lotesDefecto() : t === 'FINCAS' ? FINCAS_DEF : t === 'IMPL' ? IMPL_DEF :
+    var defecto = t === 'IMPL' ? IMPL_DEF :
                   t === 'OPERARIOS' ? OPERARIOS_DEF : SUPERVISORES_DEF;
     if (JSON.stringify(actual) === JSON.stringify(guardada || defecto)) return;
     var x = Maestros.fila(t, actual, estado.yo);
@@ -1568,6 +1459,10 @@ async function traerProgramacion(){
   } catch(e){}
 }
 
+async function traerLotes(){
+  if (!navigator.onLine) return;
+  try { if (await Lotes.traer() && $('#hoja').hidden) pintar(); } catch(e){}
+}
 async function traerMaestros(){
   if (!navigator.onLine) return;
   var pend = {};
@@ -1673,6 +1568,7 @@ window.addEventListener('appinstalled', function(){ $('#btn-instalar').hidden = 
   if (!(await DB.guardar(estado))) { sinGuardar = true; pintarSync(); }
   await enviar();
   await traerMaestros();
+  await traerLotes();
   var hayTaller = await leerTaller();
   await traerProgramacion();
   if ($('#hoja').hidden) pintar();
@@ -1686,7 +1582,7 @@ window.addEventListener('appinstalled', function(){ $('#btn-instalar').hidden = 
     if (estado.cola.length){ await enviar(); return; }
     await leerTaller(); await traerProgramacion();
   }, 2 * 60000);
-  setInterval(traerMaestros, 10 * 60000);
+  setInterval(function(){ traerMaestros(); traerLotes(); }, 10 * 60000);
 })();
 </script>
 </body>
