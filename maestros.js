@@ -1120,6 +1120,32 @@ window.laborTxt = function(id){ var l = window.LABORES_MAQ.filter(function(x){ r
       o.precio = gal ? costo / gal : 0;
       return o;
     },
+    /* Costo del taller de un período (Agrovisión, informe semanal y Gerencia):
+       cada costo cuenta en la fecha en que Compras lo registró (la última vez
+       que lo actualizó), sea de una reparación o de un mantenimiento.
+       paradas = [{ id, cod }]; valida(cod) = si la máquina entra en la cuenta.
+       mttos = los mantenimientos hechos en el período; sinCosto = los que
+       Compras todavía no ha costeado. */
+    costoTaller: function(paradas, desde, hasta, valida){
+      var o = { rep:0, prev:0, total:0, porMaq:{}, sinCosto:[], mttos:[] }, ini = (window.SISTEMA && SISTEMA.INICIO) || '2026-10-27';
+      if (desde < ini) desde = ini;
+      function compras(id){ return window.Reparaciones ? Reparaciones.de(id).compras : null; }
+      function valor(c){ return c ? (c.repuestos || 0) + (c.mano || 0) : 0; }
+      function sumarA(cod, k, v){ var x = o.porMaq[cod] = o.porMaq[cod] || { rep:0, prev:0, total:0 }; x[k] += v; x.total += v; o[k] += v; o.total += v; }
+      paradas.forEach(function(e){
+        var c = compras(e.id), v = valor(c);
+        if (v && valida(e.cod) && c.fecha >= desde && c.fecha <= hasta) sumarA(e.cod, 'rep', v);
+      });
+      (window.Mantenimientos ? Mantenimientos.todos() : []).forEach(function(m){
+        if (!valida(m.cod)) return;
+        var c = compras(m.id), v = valor(c);
+        if (v && c.fecha >= desde && c.fecha <= hasta) sumarA(m.cod, 'prev', v);
+        if (m.fecha < desde || m.fecha > hasta) return;
+        o.mttos.push({ id:m.id, cod:m.cod, fecha:m.fecha, h:m.h, por:m.por, que:(m.items || []).map(function(i){ return i.comp.toLowerCase(); }).join(', '), costo:v });
+        if (!v) o.sinCosto.push(m);
+      });
+      return o;
+    },
     /* p = { desde, hasta, hoy, maquinas:[cod], prog:{ fecha:{ cod:{ labor } } }, cierres:[…],
              trabajo(cod, f), parado(cod, f), tasas:{ porCod, flota, precio } } */
     calcular: function(p){
