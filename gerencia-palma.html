@@ -510,24 +510,11 @@ function operacionMes(eventos, maquinaria, desde, hasta){
 }
 
 /* ---------- costo del taller (lo que registra Compras) ----------
-   Reparaciones: el costo de cada parada, en el mes en que empezó (o desde
-   el arranque del sistema). Preventivo: cada mantenimiento que registra el
-   Taller, en su fecha. Hojas Reparaciones y Mantenimientos (maestros.js). */
+   Cada costo cuenta en la fecha en que Compras lo registró (Operacion.costoTaller
+   en maestros.js, el mismo cálculo de Agrovisión). */
 function costoTaller(eventos, desde, hasta){
-  var o = { rep:0, prev:0, total:0, porMaq:{}, nMttos:0, sinCosto:0 };
-  function sumar(cod, k, v){ var x = o.porMaq[cod] = o.porMaq[cod] || { rep:0, prev:0, total:0 }; x[k] += v; x.total += v; o[k] += v; o.total += v; }
-  eventos.forEach(function(e){
-    var f = e.inicio < SISTEMA.INICIO ? SISTEMA.INICIO : e.inicio;
-    if (!eqDe(e.equipo) || f < desde || f > hasta || (e.fin && e.fin < SISTEMA.INICIO)) return;
-    var c = window.Reparaciones ? Reparaciones.de(e.id).compras : null, v = c ? (c.repuestos || 0) + (c.mano || 0) : 0;
-    if (v) sumar(e.equipo, 'rep', v);
-  });
-  (window.Mantenimientos ? Mantenimientos.todos() : []).forEach(function(m){
-    if (!eqDe(m.cod) || m.fecha < desde || m.fecha > hasta || m.fecha < SISTEMA.INICIO) return;
-    var c = window.Reparaciones ? Reparaciones.de(m.id).compras : null, v = c ? (c.repuestos || 0) + (c.mano || 0) : 0;
-    o.nMttos++;
-    if (v) sumar(m.cod, 'prev', v); else o.sinCosto++;
-  });
+  var o = Operacion.costoTaller(eventos.map(function(e){ return { id:e.id, cod:e.equipo }; }), desde, hasta, function(c){ return !!eqDe(c); });
+  o.nMttos = o.mttos.length; o.sinCosto = o.sinCosto.length;
   return o;
 }
 function pesos(v){ return v == null ? '\u2014' : '$' + Math.round(v).toLocaleString('es-CO'); }
@@ -976,7 +963,7 @@ function pintar(){
     '<li><b>Tendencia:</b> los meses antes del primer registro del Taller salen "sin datos" en vez de 100 %.</li>' +
     '<li><b>Horas trabajadas:</b> horómetro final menos inicial de cada cierre de jornada del Preoperativo.</li>' +
     '<li><b>Cumplimiento de la programación:</b> máquinas-día programadas (sin los días en taller) en que el operario confirmó al cerrar la jornada la labor y los lotes programados. Lotes y hectáreas: Agrovisión → Lotes.</li>' +
-    '<li><b>Costo del taller:</b> lo que registra Compras: el costo de cada reparación (en el mes en que empezó la parada) y de cada mantenimiento preventivo (en su fecha). Por hora trabajada = costo ÷ horas de los cierres de jornada.</li>' +
+    '<li><b>Costo del taller:</b> lo que registra Compras: el costo de cada reparación y de cada mantenimiento preventivo, en la fecha en que Compras lo registró. Por hora trabajada = costo ÷ horas de los cierres de jornada.</li>' +
     '<li><b>Lo del día a día</b> (pendientes del taller, mantenimiento por hacer, en qué va cada reparación) lo ve el Superintendente en Agrovisión.</li>' +
     '</ul></details>';
 
