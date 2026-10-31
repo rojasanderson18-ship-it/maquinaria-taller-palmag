@@ -472,10 +472,10 @@ nav button .badge.on{display:block}
   <div class="subvista" id="sv-cuadre">
   <div class="bloque">
     <h2>¿Se quedó vacío el tanque?</h2>
-    <div class="ayuda" style="margin-top:0">El tanque no tiene regleta: la forma de saber si cuadra es cuando se vacía. Cuando la motobomba ya no saque combustible, regístrelo aquí y la app compara con lo que debería haber.</div>
+    <div class="ayuda" style="margin-top:0">El tanque no tiene regleta: la forma de saber si cuadra es cuando se vacía. El día en que la motobomba ya no saque combustible, toque el botón y la app compara con lo que debería haber.</div>
     <div class="ayuda" id="ajTeorico" style="font-size:14px"></div>
     <div class="campo" id="campoVacio" style="display:none">
-      <label for="ajMotivo">No cuadra: ¿qué pasó?</label>
+      <label for="ajMotivo">¿Qué pasó?</label>
       <textarea id="ajMotivo" placeholder="Ej. tanqueo sin registrar, fuga en la manguera, llegada que no se anotó…"></textarea>
     </div>
     <button class="secundario" id="btnAjuste">El tanque se quedó vacío</button>
@@ -2180,25 +2180,36 @@ $('btnRecarga').addEventListener('click', function(){
   alert('Llegada registrada: entraron '+galTxt(g)+' gal'+(difProv ? ' ('+(difProv<0?galTxt(-difProv)+' menos':galTxt(difProv)+' más')+' que la orden)' : '')+
     '. El tanque queda en '+galTxt(saldoActual())+' gal. Precio vigente: '+pesos(precioLlegada)+'/gal.');
 });
-/* el tanque se quedó vacío: la app compara contra cero lo que debería haber */
+/* el tanque se quedó vacío: la app compara contra cero lo que debería haber.
+   Solo se usa el día en que la motobomba ya no saca combustible; antes de eso
+   solo se informa cuánto calcula la app (sin alarmas). */
+var vacioPaso = 0;     // 1 = ya tocó el botón y no cuadra: falta la explicación
 function pintarVacio(){
   var t=$('ajTeorico'); if(!t) return;
-  var P=periodoCierre(Date.now()+1), teo=P.teorico, tol=toleranciaCierre(P);
-  t.innerHTML = 'Según la app deberían quedar <b>'+galTxt(teo)+' gal</b> ('+galTxt(P.inicial)+' del cierre anterior + '+galTxt(P.totalEntradas)+' entrados − '+galTxt(P.totalSalidas)+' despachados).'+
-    (Math.abs(teo) > tol ? ' Si está vacío, '+(teo>0 ? '<b style="color:#9E2B21">faltan '+galTxt(teo)+' gal</b>' : '<b style="color:#B0600D">se despacharon '+galTxt(-teo)+' gal que no aparecen como entrada</b>')+'.' : ' Si está vacío, cuadra.');
-  $('campoVacio').style.display = Math.abs(teo) > tol ? 'block' : 'none';
+  var P=periodoCierre(Date.now()+1), teo=P.teorico, ini=P.ini && P.ini.cierre ? 'del último cierre' : 'con que arrancó la app';
+  t.innerHTML = 'Hoy la app calcula que en el tanque hay <b>'+galTxt(teo)+' gal</b>: '+galTxt(P.inicial)+' '+ini+' + '+galTxt(P.totalEntradas)+' de llegadas − '+galTxt(P.totalSalidas)+' despachados.'+
+    '<br>Mientras el tanque tenga combustible, no hay que hacer nada aquí.';
+  $('campoVacio').style.display = vacioPaso ? 'block' : 'none';
 }
 $('btnAjuste').addEventListener('click', function(){
-  var P=periodoCierre(Date.now()+1), teo=P.teorico, motivo=$('ajMotivo').value.trim();
-  if(Math.abs(teo) > toleranciaCierre(P) && !motivo){ alert('No cuadra por '+galTxt(Math.abs(teo))+' gal. Escriba qué pasó antes de registrar.'); return; }
-  if(!confirm('¿Confirma que el tanque se quedó vacío (la motobomba ya no saca combustible)?')) return;
+  var P=periodoCierre(Date.now()+1), teo=P.teorico, motivo=$('ajMotivo').value.trim(), cuadra=Math.abs(teo) <= toleranciaCierre(P);
+  if(!vacioPaso){
+    if(!confirm('¿El tanque se quedó vacío hoy (la motobomba ya no saca combustible)?\n\nLa app calcula que deberían quedar '+galTxt(teo)+' gal.')) return;
+    if(!cuadra){
+      vacioPaso = 1; pintarVacio();
+      $('campoVacio').querySelector('label').innerHTML = 'La app calculaba '+galTxt(teo)+' gal y el tanque está vacío: '+(teo>0 ? '<b style="color:#9E2B21">faltan '+galTxt(teo)+' gal</b>' : '<b style="color:#B0600D">se despacharon '+galTxt(-teo)+' gal que no aparecen como llegada</b>')+'. ¿Qué pasó?';
+      $('ajMotivo').focus();
+      $('btnAjuste').textContent='Registrar que el tanque se quedó vacío';
+      return;
+    }
+  } else if(!motivo){ alert('Escriba qué pasó con los '+galTxt(Math.abs(teo))+' gal antes de registrar.'); return; }
   var quien=cfg.despacha||'almacén';
   movimientos.push({id:'m'+Date.now(), ts:Date.now(), tipo:'ajuste', fecha:hoyISO(), galones:0, teorico:teo, diferencia:n2(-teo),
     nota:'Tanque vacío · reportó '+quien+(motivo?' · '+motivo:''), motivoDif:motivo, cierre:true, vacio:true,
     precio:Number(cfg.precio)||0, mideNombre:cfg.despacha||'', sync:false});
   var cierreGuardado = movimientos[movimientos.length-1];
   guardarTodo();
-  $('ajMotivo').value='';
+  $('ajMotivo').value=''; vacioPaso = 0; $('btnAjuste').textContent='El tanque se quedó vacío';
   pintarEncabezado(); pintarMovimientos(); pintarAlertas(); pintarCierres(); pintarVacio();
   enviarGenerico('ajuste', cierreGuardado);
   abrirInforme(cierreHTML(cierreGuardado));
