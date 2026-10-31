@@ -415,20 +415,17 @@ nav button .badge.on{display:block}
   <div class="subvista" id="sv-llegada">
   <div class="bloque">
     <h2>Llegada de combustible</h2>
-    <div class="aviso amarillo" style="margin-bottom:12px"><b>Antes de descargar:</b> mida el tanque. Con esa medida se cierra el período desde la llegada anterior.</div>
-    <div class="campo">
-      <label for="recMedido">Galones medidos en el tanque antes de descargar</label>
-      <input type="number" id="recMedido" inputmode="decimal" step="0.1" min="0" placeholder="0">
-      <div class="ayuda" id="recCuadre"></div>
-    </div>
-    <div class="campo" id="campoDif" style="display:none">
-      <label for="recDifMotivo">¿Por qué no cuadra?</label>
-      <textarea id="recDifMotivo" placeholder="Ej. fuga en la manguera, tanqueo sin registrar del 22, medición con varilla mojada…"></textarea>
-    </div>
+    <div class="aviso amarillo" style="margin-bottom:12px"><b>Antes de descargar:</b> mida con la regleta cada compartimiento del carrotanque (procedimiento PR-ALM-01, paso 2).</div>
     <div class="fila">
-      <div class="campo"><label for="recFecha">Fecha</label><input type="date" id="recFecha"></div>
-      <div class="campo"><label for="recGal">Galones</label><input type="number" id="recGal" inputmode="decimal" step="0.1" min="0" placeholder="0"></div>
+      <div class="campo"><label for="recEsperado">Galones de la orden de compra</label><input type="number" id="recEsperado" inputmode="decimal" step="0.1" min="0" value="2000"></div>
+      <div class="campo"><label for="recGal">Galones medidos con regleta</label><input type="number" id="recGal" inputmode="decimal" step="0.1" min="0" placeholder="0"></div>
     </div>
+    <div class="ayuda" id="recCuadre" style="margin:-6px 0 12px">Lo medido con regleta es lo que entra al tanque.</div>
+    <div class="campo" id="campoDif" style="display:none">
+      <label for="recDifMotivo">Diferencia con la orden: ¿qué pasó? <span style="font-weight:400">(opcional)</span></label>
+      <textarea id="recDifMotivo" placeholder="Ej. compartimiento 2 no llegó a la marca; el conductor dice que así lo cargaron…"></textarea>
+    </div>
+    <div class="campo"><label for="recFecha">Fecha</label><input type="date" id="recFecha"></div>
     <div class="campo">
       <label for="recProv">Proveedor o remisión</label>
       <input type="text" id="recProv" placeholder="Ej. Terpel, remisión 4821">
@@ -474,23 +471,20 @@ nav button .badge.on{display:block}
 
   <div class="subvista" id="sv-cuadre">
   <div class="bloque">
-    <h2>Cuadre por varillaje</h2>
-    <div class="campo">
-      <label for="ajSaldo">Galones medidos en el tanque</label>
-      <input type="number" id="ajSaldo" inputmode="decimal" step="0.1" min="0" placeholder="0">
-      <div class="ayuda" id="ajTeorico"></div>
+    <h2>¿Se quedó vacío el tanque?</h2>
+    <div class="ayuda" style="margin-top:0">El tanque no tiene regleta: la forma de saber si cuadra es cuando se vacía. Cuando la motobomba ya no saque combustible, regístrelo aquí y la app compara con lo que debería haber.</div>
+    <div class="ayuda" id="ajTeorico" style="font-size:14px"></div>
+    <div class="campo" id="campoVacio" style="display:none">
+      <label for="ajMotivo">No cuadra: ¿qué pasó?</label>
+      <textarea id="ajMotivo" placeholder="Ej. tanqueo sin registrar, fuga en la manguera, llegada que no se anotó…"></textarea>
     </div>
-    <div class="campo">
-      <label for="ajMotivo">Quién midió y cómo</label>
-      <input type="text" id="ajMotivo" placeholder="Ej. varillaje con Luis Fernando">
-    </div>
-    <button class="secundario" id="btnAjuste">Registrar cuadre</button>
+    <button class="secundario" id="btnAjuste">El tanque se quedó vacío</button>
   </div>
 
   <div class="bloque">
     <h2>Cierres del almacén</h2>
     <div id="listaCierres"></div>
-    <div class="ayuda">Se hace en cada llegada de combustible: lo que había, lo que entró, lo que salió y lo que se midió. Se imprime y se firma.</div>
+    <div class="ayuda">Se hace cada vez que el tanque se vacía: lo que había, lo que entró y lo que salió, contra cero. Se imprime y se firma.</div>
   </div>
 
   <div class="bloque">
@@ -1767,7 +1761,7 @@ function filaComb(accion, d){
   if(accion==='llegada' || accion==='ajuste'){
     return Promise.all([achicar(d.firma, 18000, 360), achicar(d.foto, 42000, 560)]).then(function(im){
       return { hoja:HOJAS_COMB[accion], encabezados:ENC_COMB.tanque, fila: d.tipo==='recarga'
-        ? [fCO(d.fecha), hhmm(d.ts), 'LLEGADA', d.id, d.galones, '', '', d.precio||'', d.nota||'', d.placa||'', d.conductor||'', d.observacion||'', im[0], im[1]]
+        ? [fCO(d.fecha), hhmm(d.ts), 'LLEGADA', d.id, d.galones, d.esperado||'', d.esperado ? d.difProv||0 : '', d.precio||'', d.nota||'', d.placa||'', d.conductor||'', d.observacion||'', im[0], im[1]]
         : [fCO(d.fecha), hhmm(d.ts), 'AJUSTE', d.id, d.galones, d.teorico, d.diferencia, '', d.nota||'', '', '', '', '', ''] };
     });
   }
@@ -1885,11 +1879,11 @@ function traerDeHoja(){
       var r=M[id], f=isoDe(r[0]), t=String(r[2]||'').trim().toUpperCase(); if(!/^\d{4}-\d{2}-\d{2}$/.test(f) || (t!=='LLEGADA' && t!=='AJUSTE')) return;
       var h=horaDe(r[1]);
       var x = t==='LLEGADA'
-        ? { id:id, ts:tsDe(f,h,id), tipo:'recarga', fecha:f, galones:numDe(r[4])||0, precio:numDe(r[7])||0, nota:String(r[8]||''), placa:String(r[9]||''),
+        ? { id:id, ts:tsDe(f,h,id), tipo:'recarga', fecha:f, galones:numDe(r[4])||0, esperado:numDe(r[5])||0, difProv:numDe(r[6])||0, precio:numDe(r[7])||0, nota:String(r[8]||''), placa:String(r[9]||''),
             conductor:String(r[10]||''), observacion:String(r[11]||''), firma: f>=hace30 ? String(r[12]||'') : '', foto:'', sync:true, deOtroEquipo:true }
         : { id:id, ts:tsDe(f,h,id), tipo:'ajuste', fecha:f, galones:numDe(r[4])||0, teorico:numDe(r[5])||0, diferencia:numDe(r[6])||0, nota:String(r[8]||''),
-            cierre: String(r[8]||'').indexOf('Cierre por llegada')===0, motivoDif: (String(r[8]||'').split(' · ').slice(2).join(' · ')),
-            mideNombre: (String(r[8]||'').match(/midió ([^·]+)/)||[])[1] ? String(r[8]).match(/midió ([^·]+)/)[1].trim() : '', sync:true, deOtroEquipo:true };
+            cierre: /^(Cierre por llegada|Tanque vacío)/.test(String(r[8]||'')), vacio: String(r[8]||'').indexOf('Tanque vacío')===0, motivoDif: (String(r[8]||'').split(' · ').slice(2).join(' · ')),
+            mideNombre: (String(r[8]||'').match(/(?:midió|reportó) ([^·]+)/)||[])[1] ? String(r[8]).match(/(?:midió|reportó) ([^·]+)/)[1].trim() : '', sync:true, deOtroEquipo:true };
       if(!movimientos.some(function(y){ return y.id===id; })){ movimientos.push(x); cambio=true; }
     });
     if(cambio){
@@ -2070,7 +2064,7 @@ $('btnRecQuitarFoto').addEventListener('click', function(){
 });
 function limpiarFormLlegada(){
   $('recGal').value=''; $('recProv').value=''; $('recPlaca').value='';
-  $('recMedido').value=''; $('recDifMotivo').value=''; $('recCuadre').textContent=''; $('campoDif').style.display='none';
+  $('recEsperado').value=2000; $('recDifMotivo').value=''; $('recCuadre').textContent='Lo medido con regleta es lo que entra al tanque.'; $('campoDif').style.display='none';
   $('recConductor').value=''; $('recObs').value=''; $('recPrecio').value=cfg.precio||'';
   recFotoActual=''; $('recFotoPrev').style.display='none'; $('btnRecQuitarFoto').style.display='none';
   $('btnRecFoto').textContent='Foto de la remisión o el carrotanque';
@@ -2097,29 +2091,36 @@ function periodoCierre(hasta){
   return { ini:ini, inicial: ini ? ini.galones : 0, entradas:entr, totalEntradas:n2(tE), salidas:sal, totalSalidas:n2(tS), por:por, teorico:teorico };
 }
 function toleranciaCierre(P){ return Math.max(2, n2(P.totalSalidas*0.01)); }
-$('recMedido').addEventListener('input', function(){
-  var med=Number(this.value);
-  if(this.value===''||isNaN(med)){ $('recCuadre').textContent=''; $('campoDif').style.display='none'; return; }
-  var P=periodoCierre(Date.now()+1), dif=n2(med-P.teorico);
-  $('recCuadre').textContent = 'Debería haber '+galTxt(P.teorico)+' gal ('+galTxt(P.inicial)+' del cierre anterior + '+galTxt(P.totalEntradas)+
-    ' entrados − '+galTxt(P.totalSalidas)+' despachados). Diferencia: '+(dif>0?'+':'')+galTxt(dif)+' gal'+(dif<0?' (falta)':dif>0?' (sobra)':'')+'.';
-  $('campoDif').style.display = Math.abs(dif) > toleranciaCierre(P) ? 'block' : 'none';
-});
+/* diferencia de recibido (PR-ALM-01, paso 4): lo medido con regleta en el carrotanque contra la orden */
+function difLlegada(){
+  var esp=Number($('recEsperado').value), med=Number($('recGal').value);
+  if(!(esp>0) || $('recGal').value==='' || isNaN(med)) return null;
+  return n2(med-esp);
+}
+function pintarDifLlegada(){
+  var d=difLlegada(), esp=Number($('recEsperado').value);
+  if(d===null){ $('recCuadre').textContent='Lo medido con regleta es lo que entra al tanque.'; $('campoDif').style.display='none'; return; }
+  $('recCuadre').innerHTML = d===0 ? 'Cuadra con la orden de compra ('+galTxt(esp)+' gal).' :
+    '<b style="color:'+(d<0?'#9E2B21':'#B0600D')+'">'+(d<0?'Llegaron '+galTxt(-d)+' gal menos':'Llegaron '+galTxt(d)+' gal más')+'</b> que la orden ('+galTxt(esp)+' gal)'+
+    (d<0 && (Number($('recPrecio').value)||cfg.precio) ? ' · '+pesos(-d*(Number($('recPrecio').value)||cfg.precio)) : '')+'. Queda anotado; la descarga sigue.';
+  $('campoDif').style.display = d===0 ? 'none' : 'block';
+}
+['recEsperado','recGal','recPrecio'].forEach(function(id){ $(id).addEventListener('input', pintarDifLlegada); });
 function cierreHTML(c){
   var P = periodoCierre(c.ts), precio = c.precio || cfg.precio || 0, dif = n2(c.galones - P.teorico);
   var nombres = { maquina:'Máquinas', camion:'Camiones', vehiculo:'Vehículos', otro:'Otros (guadañas, motobombas, estacionaria)' };
   var h='<div class="encabezado-doc"><div><h1>Cierre del almacén de combustible</h1>'+
-    '<div class="sub">Del '+(P.ini ? fechaCorta(hoyISO(new Date(P.ini.ts))) : 'inicio')+' al '+fechaCorta(hoyISO(new Date(c.ts)))+' · medido antes de recibir combustible</div></div>'+
+    '<div class="sub">Del '+(P.ini ? fechaCorta(hoyISO(new Date(P.ini.ts))) : 'inicio')+' al '+fechaCorta(hoyISO(new Date(c.ts)))+' · '+(c.vacio ? 'el tanque se quedó vacío' : 'medido antes de recibir combustible')+'</div></div>'+
     '<div class="marca-doc"><strong>Palma Grande S.A.S.</strong>Almacén de combustible</div></div>';
   h+='<div class="kpis-doc"><div><div class="v">'+galTxt(P.teorico)+'</div><div class="k">Debería haber (gal)</div></div>'+
-     '<div><div class="v">'+galTxt(c.galones)+'</div><div class="k">Medido (gal)</div></div>'+
+     '<div><div class="v">'+galTxt(c.galones)+'</div><div class="k">'+(c.vacio ? 'Quedó (tanque vacío)' : 'Medido (gal)')+'</div></div>'+
      '<div><div class="v" style="color:'+(Math.abs(dif)>toleranciaCierre(P)?'#9E2B21':'#1F5D3C')+'">'+(dif>0?'+':'')+galTxt(dif)+'</div><div class="k">Diferencia (gal)'+(precio?' · '+pesos(Math.abs(dif)*precio):'')+'</div></div></div>';
   h+='<h2>Cuentas del período</h2><table>'+
      '<tr><td>Saldo del cierre anterior</td><td style="text-align:right">'+galTxt(P.inicial)+' gal</td></tr>'+
      '<tr><td>+ Entradas ('+P.entradas.length+' llegada'+(P.entradas.length===1?'':'s')+')</td><td style="text-align:right">'+galTxt(P.totalEntradas)+' gal</td></tr>'+
      '<tr><td>− Despachado ('+P.salidas.length+' tanqueo'+(P.salidas.length===1?'':'s')+')</td><td style="text-align:right">'+galTxt(P.totalSalidas)+' gal</td></tr>'+
      '<tr><td><b>= Debería haber</b></td><td style="text-align:right"><b>'+galTxt(P.teorico)+' gal</b></td></tr>'+
-     '<tr><td>Medido en el tanque</td><td style="text-align:right">'+galTxt(c.galones)+' gal</td></tr>'+
+     '<tr><td>'+(c.vacio ? 'Quedó en el tanque (vacío)' : 'Medido en el tanque')+'</td><td style="text-align:right">'+galTxt(c.galones)+' gal</td></tr>'+
      '<tr><td><b>Diferencia</b></td><td style="text-align:right"><b>'+(dif>0?'+':'')+galTxt(dif)+' gal</b></td></tr></table>';
   if(c.motivoDif) h+='<p style="font-size:12px"><b>Explicación de la diferencia:</b> '+esc(c.motivoDif)+'</p>';
   h+='<h2>Despachado por destino</h2>';
@@ -2140,38 +2141,31 @@ function pintarCierres(){
   var l=movimientos.filter(function(m){ return m.tipo==='ajuste' && m.cierre; }).sort(function(a,b){ return b.ts-a.ts; });
   c.innerHTML = l.length ? l.map(function(m){
     var dif=m.diferencia||0;
-    return '<div class="mov"><div>'+fechaCorta(m.fecha)+' · medido '+galTxt(m.galones)+' gal<div class="ayuda">'+(dif?(dif>0?'Sobran ':'Faltan ')+galTxt(Math.abs(dif))+' gal':'Cuadró')+'</div></div>'+
+    return '<div class="mov"><div>'+fechaCorta(m.fecha)+' · '+(m.vacio ? 'tanque vacío' : 'medido '+galTxt(m.galones)+' gal')+'<div class="ayuda">'+(dif?(dif>0?'Sobran ':'Faltan ')+galTxt(Math.abs(dif))+' gal':'Cuadró')+'</div></div>'+
       '<button class="btn-accion vale" data-cierre="'+esc(m.id)+'">Ver cierre</button></div>'; }).join('')
-    : '<div class="ayuda" style="margin-top:0">Todavía no hay cierres. El primero se hace en la próxima llegada de combustible.</div>';
+    : '<div class="ayuda" style="margin-top:0">Todavía no hay cierres. El primero se hace cuando el tanque se vacíe.</div>';
   c.querySelectorAll('[data-cierre]').forEach(function(b){ b.addEventListener('click', function(){
     var m=movimientos.filter(function(x){ return x.id===b.getAttribute('data-cierre'); })[0]; if(m) abrirInforme(cierreHTML(m)); }); });
 }
 
 $('btnRecarga').addEventListener('click', function(){
   var g=Number($('recGal').value)||0, f=$('recFecha').value||hoyISO();
-  var medTxt=$('recMedido').value, medido=Number(medTxt);
-  if(medTxt==='' || isNaN(medido) || medido<0){ alert('Primero mida el tanque antes de descargar y escriba los galones medidos.'); return; }
-  var P0=periodoCierre(Date.now()+1), dif0=n2(medido-P0.teorico);
-  if(Math.abs(dif0) > toleranciaCierre(P0) && !$('recDifMotivo').value.trim()){ alert('El tanque no cuadra ('+(dif0>0?'+':'')+galTxt(dif0)+' gal). Escriba por qué antes de registrar la llegada.'); return; }
+  var esperado=Number($('recEsperado').value)||0, difProv=difLlegada(), motivo=$('recDifMotivo').value.trim();
+  if(esperado<=0){ alert('Escriba los galones de la orden de compra.'); return; }
   var placa=$('recPlaca').value.trim(), conductor=$('recConductor').value.trim();
   var precioLlegada=Number($('recPrecio').value)||0;
-  if(g<=0){ alert('Escribe cuántos galones entraron al tanque.'); return; }
+  if(g<=0){ alert('Escriba los galones medidos con regleta en el carrotanque.'); return; }
   if(!$('recProv').value.trim()){ alert('Escribe el proveedor o número de remisión.'); return; }
   if(!placa){ alert('Escribe la placa o el nombre del carrotanque.'); return; }
   if(!conductor){ alert('Escribe el nombre del conductor.'); return; }
   if(precioLlegada<=0){ alert('Escribe el precio pagado por galón.'); return; }
   if(!recHayFirma){ alert('Falta la firma del conductor que entrega.'); return; }
-  // 1. el cierre del período (medido antes de descargar)
-  var tsC=Date.now()-1, motivo=$('recDifMotivo').value.trim();
-  movimientos.push({id:'m'+tsC, ts:tsC, tipo:'ajuste', fecha:hoyISO(), galones:n2(medido), teorico:P0.teorico, diferencia:dif0,
-    nota:'Cierre por llegada · midió '+(cfg.despacha||'almacén')+(motivo?' · '+motivo:''), motivoDif:motivo, cierre:true,
-    precio:Number(cfg.precio)||0, mideNombre:cfg.despacha||'', sync:false});
-  var cierreGuardado = movimientos[movimientos.length-1];
-  // 2. la llegada
+  // la llegada: entra lo medido con regleta; la diferencia con la orden queda anotada (PR-ALM-01, paso 4)
   movimientos.push({
-    id:'m'+Date.now(), ts:Date.now(), tipo:'recarga', fecha:f, galones:n2(g),
+    id:'m'+Date.now(), ts:Date.now(), tipo:'recarga', fecha:f, galones:n2(g), esperado:n2(esperado), difProv:difProv||0,
     nota:$('recProv').value.trim(), placa:placa, conductor:conductor, precio:precioLlegada,
-    observacion:$('recObs').value.trim(), foto:recFotoActual, firma:recFirmaPNG(), sync:false
+    observacion:[difProv ? 'Regleta '+galTxt(g)+' vs. orden '+galTxt(esperado)+(motivo?': '+motivo:'') : '', $('recObs').value.trim()].filter(Boolean).join(' · '),
+    foto:recFotoActual, firma:recFirmaPNG(), sync:false
   });
   var llegadaGuardada = movimientos[movimientos.length-1];
   cfg.precio = precioLlegada; // el precio de la última llegada queda vigente para los próximos tanqueos
@@ -2181,31 +2175,33 @@ $('btnRecarga').addEventListener('click', function(){
   guardarTodo();
   limpiarFormLlegada();
   pintarEncabezado(); pintarMovimientos(); pintarAlertas();
-  enviarGenerico('ajuste', cierreGuardado).then(function(){ return enviarGenerico('llegada', llegadaGuardada); });
+  enviarGenerico('llegada', llegadaGuardada);
   if(p && p.atendida) enviarGenerico('alerta', p);
-  pintarCierres();
-  abrirInforme(cierreHTML(cierreGuardado));
-  alert('Llegada registrada. El tanque queda en '+galTxt(saldoActual())+' gal. Precio vigente: '+pesos(precioLlegada)+'/gal.\n\nAhí está el cierre del período: imprímalo o guárdelo en PDF para firmarlo.');
+  alert('Llegada registrada: entraron '+galTxt(g)+' gal'+(difProv ? ' ('+(difProv<0?galTxt(-difProv)+' menos':galTxt(difProv)+' más')+' que la orden)' : '')+
+    '. El tanque queda en '+galTxt(saldoActual())+' gal. Precio vigente: '+pesos(precioLlegada)+'/gal.');
 });
-$('ajSaldo').addEventListener('input', function(){
-  var med=Number(this.value);
-  if(isNaN(med)){ $('ajTeorico').textContent=''; return; }
-  var teo=saldoActual(), dif=n2(med-teo);
-  $('ajTeorico').textContent = 'La app tiene '+galTxt(teo)+' gal. Diferencia de '+(dif>0?'+':'')+galTxt(dif)+' gal'+
-    (dif<0?' (faltante)':dif>0?' (sobrante)':'');
-});
+/* el tanque se quedó vacío: la app compara contra cero lo que debería haber */
+function pintarVacio(){
+  var t=$('ajTeorico'); if(!t) return;
+  var P=periodoCierre(Date.now()+1), teo=P.teorico, tol=toleranciaCierre(P);
+  t.innerHTML = 'Según la app deberían quedar <b>'+galTxt(teo)+' gal</b> ('+galTxt(P.inicial)+' del cierre anterior + '+galTxt(P.totalEntradas)+' entrados − '+galTxt(P.totalSalidas)+' despachados).'+
+    (Math.abs(teo) > tol ? ' Si está vacío, '+(teo>0 ? '<b style="color:#9E2B21">faltan '+galTxt(teo)+' gal</b>' : '<b style="color:#B0600D">se despacharon '+galTxt(-teo)+' gal que no aparecen como entrada</b>')+'.' : ' Si está vacío, cuadra.');
+  $('campoVacio').style.display = Math.abs(teo) > tol ? 'block' : 'none';
+}
 $('btnAjuste').addEventListener('click', function(){
-  var g=Number($('ajSaldo').value);
-  if(isNaN(g)||g<0){ alert('Escribe los galones medidos en el tanque.'); return; }
-  if(!$('ajMotivo').value.trim()){ alert('Escribe quién midió el tanque.'); return; }
-  var teo=saldoActual();
-  movimientos.push({id:'m'+Date.now(), ts:Date.now(), tipo:'ajuste', fecha:hoyISO(),
-    galones:n2(g), teorico:teo, diferencia:n2(g-teo), nota:$('ajMotivo').value.trim(), sync:false});
-  var cuadreGuardado = movimientos[movimientos.length-1];
+  var P=periodoCierre(Date.now()+1), teo=P.teorico, motivo=$('ajMotivo').value.trim();
+  if(Math.abs(teo) > toleranciaCierre(P) && !motivo){ alert('No cuadra por '+galTxt(Math.abs(teo))+' gal. Escriba qué pasó antes de registrar.'); return; }
+  if(!confirm('¿Confirma que el tanque se quedó vacío (la motobomba ya no saca combustible)?')) return;
+  var quien=cfg.despacha||'almacén';
+  movimientos.push({id:'m'+Date.now(), ts:Date.now(), tipo:'ajuste', fecha:hoyISO(), galones:0, teorico:teo, diferencia:n2(-teo),
+    nota:'Tanque vacío · reportó '+quien+(motivo?' · '+motivo:''), motivoDif:motivo, cierre:true, vacio:true,
+    precio:Number(cfg.precio)||0, mideNombre:cfg.despacha||'', sync:false});
+  var cierreGuardado = movimientos[movimientos.length-1];
   guardarTodo();
-  $('ajSaldo').value=''; $('ajMotivo').value=''; $('ajTeorico').textContent='';
-  pintarEncabezado(); pintarMovimientos(); pintarAlertas();
-  enviarGenerico('ajuste', cuadreGuardado);
+  $('ajMotivo').value='';
+  pintarEncabezado(); pintarMovimientos(); pintarAlertas(); pintarCierres(); pintarVacio();
+  enviarGenerico('ajuste', cierreGuardado);
+  abrirInforme(cierreHTML(cierreGuardado));
 });
 function pintarMovimientos(){
   var items=[];
@@ -2444,6 +2440,7 @@ function irSubA(sv){
   });
   document.querySelectorAll('#v-tanque .subvista').forEach(function(s){ s.classList.remove('activa'); });
   $('sv-'+sv).classList.add('activa');
+  if(sv==='cuadre') pintarVacio();
   document.querySelector('#v-tanque').scrollTop = 0;
   window.scrollTo(0,0);
 }
