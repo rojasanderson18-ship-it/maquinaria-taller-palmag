@@ -394,24 +394,15 @@ async function leerHoja(h){
   return d.datos;
 }
 async function traerProgramacion(){
-  var res = await Promise.all(['ProgMaquinaria', 'Programacion'].map(function(h){ return leerHoja(h).catch(function(){ return null; }); }));
-  if (!res[0] && !res[1]){ FALTAN.push('la programación'); return; }
+  var filas = await leerHoja('ProgMaquinaria').catch(function(){ return null; });
+  if (!filas){ FALTAN.push('la programación'); return; }
   var dias = {}, ini = null;
-  function fecha(f){ if (!ini || f < ini) ini = f; }
-  (res[0] || []).forEach(function(row){
+  filas.forEach(function(row){
     var acc = String(row[2] || '').trim().toUpperCase(), f = aIso(row[4]), cod = String(row[5] || '').trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !cod) return;
-    fecha(f);
+    if (!ini || f < ini) ini = f;
     if (acc === 'QUITAR'){ if (dias[f]) delete dias[f][cod]; return; }
     if (acc === 'ASIGNAR') (dias[f] = dias[f] || {})[cod] = String(row[6] || '').trim() || 'Sin labor';
-  });
-  var nuevas = {};
-  Object.keys(dias).forEach(function(f){ nuevas[f] = true; });
-  (res[1] || []).forEach(function(row){
-    var f = aIso(row[0]), cod = Horometros.codDe(row[2]), lab = String(row[3] || '').trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(f) || !cod || !lab || nuevas[f] || !eqDe(cod)) return;
-    fecha(f);
-    (dias[f] = dias[f] || {})[cod] = lab;
   });
   PROG = dias; INICIO_PROG = ini;
 }

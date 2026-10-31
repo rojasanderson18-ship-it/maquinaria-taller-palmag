@@ -72,6 +72,11 @@
   .op .cod{font-family:'JetBrains Mono',monospace;font-size:19px;font-weight:700;display:block}
   .op[aria-pressed=true]{border-color:var(--green);background:var(--green-s);color:var(--green)}
   .op[disabled]{opacity:.45}
+  .lotes-f{font-size:13px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.04em;margin:12px 0 6px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{min-width:52px;padding:10px 10px;border:2px solid var(--line);border-radius:var(--r);background:var(--card);font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px}
+  .chip[aria-pressed=true]{border-color:var(--green);background:var(--green-s);color:var(--green)}
+  .elegidos{font-size:14px;margin:10px 0 16px;color:var(--soft)} .elegidos b{color:var(--ink)}
   .op .marca-op{display:block;font-size:12px;font-weight:700;margin-top:5px}
   .op .marca-op.rojo{color:var(--red)} .op .marca-op.ambar{color:var(--amber)} .op .marca-op.verde{color:var(--green)}
 
@@ -195,14 +200,14 @@ var NIVELES = [
 ];
 var SISTEMAS = {motor:'Motor', hidraulico:'Hidráulico', electrico:'Eléctrico', transmision:'Transmisión',
   frenos:'Frenos', llantas:'Llantas', implemento:'Implemento', otro:'Otro'};
-/* las mismas labores de la Programación */
-var LABORES = ['Alce de racimos con tijera','Alce de racimos con quinta rueda','Rotospeed','Rolo cuchilla',
-  'Fertilización con mezcla','Fertilización en bórax','Sanidad','Transporte','Labores varias'];
+/* las mismas labores de la Programación (LABORES_MAQ en maestros.js) */
+var LABORES = LABORES_MAQ.map(function(l){ return l.txt; });
 var OPERARIOS_DEF = ['Jhon Garnica','Oswaldo Sanches','Cesar Verona','Julio Vacca','Fernando Leon','Sandro Bonilla','Ever Clevez'];
 
 var ENC_PREOP = ['Fecha','Hora','Operario','Equipo','Máquina','Labor','Lotes','Horómetro Inicial',
   'Aceite Motor','Refrigerante','Aceite Hidráulico'].concat(ITEMS.map(function(i){ return i.txt; })).concat(['Estado','Observaciones']);
-var ENC_CIERRE = ['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada'];
+var ENC_CIERRE = ['Fecha','Hora','Operario','Equipo','Horómetro Final','Horómetro Inicial','Horas Trabajadas','Estado','Novedad','Labor Realizada',
+  'Labor ID','Lotes','Según programación'];
 var ENC_TALLER = ['Fecha','Hora','Acción','ID','Equipo','Máquina','Tipo','Sistema','Novedad','Reportó',
                   'Fecha Parada','Trabajo','Alta por','Días Parada'];
 
@@ -306,10 +311,11 @@ async function traerTodo(){
   if (!navigator.onLine){ R.tallerOk = false; R.intentado = true; pintarLectura(); return; }
   var hy = hoy();
   try { await Maestros.traer(); } catch(e){}
+  Lotes.traer().catch(function(){});   // la lista de lotes de Agrovisión (no se espera)
   var res = await Promise.all([leer('Taller'), leer('ProgMaquinaria'), leer('PreopDiario'), leer('CierreJornada'),
-    leer('Preoperativos'), leer('Programacion')].map(function(p){
+    leer('Preoperativos')].map(function(p){
     return p.catch(function(){ return null; }); }));
-  var taller = res[0], prog = res[1], preop = res[2], cierre = res[3], preopViejo = res[4], progViejo = res[5];
+  var taller = res[0], prog = res[1], preop = res[2], cierre = res[3], preopViejo = res[4];
   R.tallerOk = !!taller; R.intentado = true;
   if (taller){
     R.leidoTaller = new Date().toISOString();
@@ -342,16 +348,6 @@ async function traerTodo(){
         operario:String(r[9]||''), operario2:String(r[12]||''), obs:String(r[10]||''), programo:String(r[11]||'') };
     });
     R.prog = p;
-  }
-  // la hoja Programacion de siempre: por si la programaron con la versión anterior
-  if (progViejo){
-    if (!prog) R.prog = {};
-    progViejo.forEach(function(r){
-      var cod = codDe(r[2]);
-      if (aIso(r[0]) !== hy || !maqDe(cod) || R.prog[cod] || !String(r[3] || '').trim()) return;
-      R.prog[cod] = { labor:String(r[3]), lotes:String(r[4] == null ? '' : r[4]), implemento:String(r[5] || ''), operario:'', obs:'',
-        programo:String(r[1] || '').split(' — ')[0] };
-    });
   }
   var ult = {}, lecturas = {};
   function anotar(cod, f, h){ if (h == null || h <= 0 || !cod || !f || !maqDe(cod)) return; (lecturas[cod] = lecturas[cod] || []).push({ fecha:f, h:h }); }
@@ -656,15 +652,50 @@ function pLabor(){
   }
   h += '<div class="rejilla">' + LABORES.concat(p && LABORES.indexOf(p.labor) < 0 ? [p.labor] : []).map(function(l){
     return '<button class="op" data-l="' + esc(l) + '" aria-pressed="' + (F.labor === l) + '">' + esc(l) + '</button>'; }).join('') + '</div>' +
-    '<label class="campo"><span>Lotes <i>— opcional</i></span><input id="lotes" value="' + esc(F.lotes) + '" placeholder="12, 13, 14" autocomplete="off"></label>';
+    lotesHtml();
   return {
     html: h,
     listo: function(){ return !!F.labor; },
     bind: function(valido){
       elegir('[data-l]', 'data-l', function(v){ F.labor = v; valido(); });
-      $('#lotes').oninput = function(){ F.lotes = this.value; };
+      montarLotes();
     }
   };
+}
+
+/* ---------- lotes: la lista de Agrovisión, por finca (Lotes en maestros.js) ---------- */
+function listaLotes(){
+  var l = Lotes.lista();
+  if (l && l.length) return l;
+  var v = Maestros.get('LOTES');   // la lista anterior de Programación, mientras no se pueda leer Agrovisión
+  return v && v.length ? v.map(function(x){ return { cod:String(x.cod).toUpperCase(), finca:x.finca || '' }; }) : null;
+}
+function lotesDe(txt){ return Lotes.partir(txt); }
+function lotesHtml(){
+  var L = listaLotes();
+  if (!L) return '<label class="campo"><span>Lotes <i>— opcional</i></span><input id="lotes" value="' + esc(F.lotes) + '" placeholder="12, 13, 14" autocomplete="off"></label>';
+  var sel = lotesDe(F.lotes), fincas = [];
+  L.forEach(function(x){ if (fincas.indexOf(x.finca) < 0) fincas.push(x.finca); });
+  return '<p class="paso" style="margin:6px 0 0">Lotes <i>— toque los que va a trabajar</i></p>' +
+    fincas.map(function(f){
+      return '<div class="lotes-f">' + esc(f || 'Sin finca') + '</div><div class="chips">' + L.filter(function(x){ return x.finca === f; }).map(function(x){
+        return '<button class="chip" data-lote="' + esc(x.cod) + '" aria-pressed="' + (sel.indexOf(x.cod) >= 0) + '">' + esc(x.cod) + '</button>'; }).join('') + '</div>';
+    }).join('') +
+    '<p class="elegidos" id="lotes-el"></p>';
+}
+function montarLotes(alCambiar){
+  var inp = $('#lotes');
+  if (inp){ inp.oninput = function(){ F.lotes = this.value; if (alCambiar) alCambiar(); }; return; }
+  function txt(){ var l = lotesDe(F.lotes); $('#lotes-el').innerHTML = l.length ? 'Marcados: <b>' + l.map(esc).join(', ') + '</b>' : 'Ningún lote marcado'; }
+  $$('[data-lote]').forEach(function(b){
+    b.onclick = function(){
+      var l = lotesDe(F.lotes), c = b.dataset.lote, i = l.indexOf(c);
+      if (i >= 0) l.splice(i, 1); else l.push(c);
+      F.lotes = l.join(', '); b.setAttribute('aria-pressed', String(i < 0)); txt();
+      if (alCambiar) alCambiar();
+    };
+  });
+  txt();
 }
 
 /* Un horómetro que salta mucho casi siempre es un dígito de más o una coma
@@ -899,32 +930,77 @@ function pEstadoFinal(){
   };
 }
 
-/* ---------- cierre: labor realizada ---------- */
+/* ---------- cierre: labor realizada ----------
+   Lo que dijo en el preoperativo (o lo programado) se confirma con un toque;
+   si cambió, se escoge la labor y los lotes de la lista (no texto libre),
+   así se puede medir por labor, por lote y contra la programación. */
+function planeadoHoy(){
+  var l = preopDe(F.cod, F.operario), p = R.prog[F.cod];
+  if (l && l.labor) return { labor:l.labor, lotes:l.lotes || '', de:'el preoperativo' };
+  if (p && p.labor) return { labor:p.labor, lotes:p.lotes || '', de:'la programación' };
+  return null;
+}
 function pLaborFinal(){
-  if (!F.labor){
-    var l = preopDe(F.cod, F.operario) || {}, p = R.prog[F.cod] || {};
-    F.labor = l.labor || p.labor || ''; F.lotes = l.lotes || p.lotes || '';
-    if (F.labor && F.lotes) F.labor += ' · lotes ' + F.lotes;
+  var base = planeadoHoy(), ini = horInicialHoy(), n = num(F.hor);
+  if (!base) F.modoLabor = 'otra';
+  function resumen(){
+    return '<div class="tarj"><div class="dato"><span>Operario</span><b>' + esc(F.operario) + '</b></div>' +
+      '<div class="dato"><span>Máquina</span><b>' + esc(F.cod) + ' · ' + esc(nombreDe(F.cod)) + '</b></div>' +
+      '<div class="dato"><span>Horómetro final</span><b class="mono">' + fmtH(n) + '</b></div>' +
+      (ini != null && n != null && n >= ini ? '<div class="dato"><span>Horas trabajadas</span><b class="mono">' + fmtH(Math.round((n - ini) * 10) / 10) + '</b></div>' : '') +
+      '<div class="dato"><span>Quedó</span><b>' + { operativa:'Bien para mañana', novedad:'Con novedad', varada:'Varada' }[F.estado] + '</b></div></div>';
   }
-  var ini = horInicialHoy(), n = num(F.hor);
+  var h = '<h2>¿Qué labor hizo?</h2>';
+  if (base){
+    h += '<div class="rejilla" style="grid-template-columns:1fr">' +
+      '<button class="op" data-c="igual" aria-pressed="' + (F.modoLabor === 'igual') + '">Hice lo planeado<small>' + esc(base.labor) +
+        (base.lotes ? ' · lotes ' + esc(base.lotes) : '') + ' (según ' + base.de + ')</small></button>' +
+      '<button class="op" data-c="otra" aria-pressed="' + (F.modoLabor === 'otra') + '">Hice otra labor u otros lotes<small>Escoja lo que hizo</small></button></div>';
+  } else h += '<p class="ayuda">No tenía programación para hoy. Escoja lo que hizo.</p>';
+  h += '<div id="zona-otra"></div>' + resumen();
   return {
-    html: '<h2>¿Qué labor hizo?</h2><p class="ayuda">Corríjala si cambió durante el día.</p>' +
-      '<label class="campo"><textarea id="labor" placeholder="Alce de racimos con tijera · lotes 12, 13">' + esc(F.labor) + '</textarea></label>' +
-      '<div class="tarj"><div class="dato"><span>Operario</span><b>' + esc(F.operario) + '</b></div>' +
-        '<div class="dato"><span>Máquina</span><b>' + esc(F.cod) + ' · ' + esc(nombreDe(F.cod)) + '</b></div>' +
-        '<div class="dato"><span>Horómetro final</span><b class="mono">' + fmtH(n) + '</b></div>' +
-        (ini != null && n != null && n >= ini ? '<div class="dato"><span>Horas trabajadas</span><b class="mono">' + fmtH(Math.round((n - ini) * 10) / 10) + '</b></div>' : '') +
-        '<div class="dato"><span>Quedó</span><b>' + { operativa:'Bien para mañana', novedad:'Con novedad', varada:'Varada' }[F.estado] + '</b></div></div>',
-    listo: function(){ return true; },
-    bind: function(){ $('#labor').oninput = function(){ F.labor = this.value; }; }
+    html: h,
+    listo: function(){ return F.modoLabor === 'igual' || (F.modoLabor === 'otra' && !!F.labor); },
+    bind: function(valido){
+      function otra(){
+        var z = $('#zona-otra');
+        if (F.modoLabor !== 'otra'){ z.innerHTML = ''; return; }
+        z.innerHTML = '<div class="rejilla">' + LABORES.map(function(l){
+            return '<button class="op" data-l="' + esc(l) + '" aria-pressed="' + (F.labor === l) + '">' + esc(l) + '</button>'; }).join('') + '</div>' + lotesHtml();
+        elegir('[data-l]', 'data-l', function(v){ F.labor = v; valido(); });
+        montarLotes(valido);
+      }
+      elegir('[data-c]', 'data-c', function(v){
+        F.modoLabor = v;
+        if (v === 'igual'){ F.labor = base.labor; F.lotes = base.lotes; }
+        else {
+          // los lotes del día vienen marcados (casi siempre son los mismos); la labor se escoge
+          if (base && F.labor === base.labor && F.lotes === base.lotes) F.labor = '';
+          if (base && !F.lotes) F.lotes = base.lotes;
+        }
+        otra(); valido();
+      });
+      otra();
+    }
   };
+}
+
+/* "Sí" si hizo la labor y los lotes programados para esa máquina hoy */
+function segunProgramacion(){
+  var p = R.prog[F.cod];
+  if (!p || !p.labor) return 'Sin programación';
+  if (laborId(p.labor) !== laborId(F.labor)) return 'Otra labor';
+  var a = lotesDe(p.lotes).sort().join(','), b = lotesDe(F.lotes).sort().join(',');
+  return !a || !b || a === b ? 'Sí' : 'Otros lotes';
 }
 
 function enviarCierre(){
   var n = num(F.hor), ini = horInicialHoy();
   var horas = ini != null && n != null && n >= ini && n - ini <= 24 ? Math.round((n - ini) * 10) / 10 : '';
+  var lotesTxt = lotesDe(F.lotes).join(', ');
   encolar('CierreJornada', [fechaCO(hoy()), horaAhora(), F.operario, F.cod + ' - ' + nombreDe(F.cod) + ' · ' + F.operario, n, ini == null ? '' : ini, horas,
-    F.estado === 'varada' ? 'varado' : F.estado === 'novedad' ? 'novedad' : 'operativo', F.obs.trim(), F.labor.trim()], ENC_CIERRE,
+    F.estado === 'varada' ? 'varado' : F.estado === 'novedad' ? 'novedad' : 'operativo', F.obs.trim(),
+    F.labor.trim() + (lotesTxt ? ' · lotes ' + lotesTxt : ''), laborId(F.labor), lotesTxt, segunProgramacion()], ENC_CIERRE,
     { fecha:hoy(), cod:F.cod, op:F.operario, txt:'Cierre de ' + F.cod + ' (' + F.operario + ')' });
   var yaAnotado = F.repetido === 'mismo' && necesitaRep();
   if (F.estado !== 'operativa' && yaAnotado) reporteRepetido(F.cod, 'Cierre de jornada: ' + F.obs.trim(), 'Cierre de jornada', F.operario);
