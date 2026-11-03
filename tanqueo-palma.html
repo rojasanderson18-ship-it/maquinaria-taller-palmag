@@ -2355,6 +2355,22 @@ function postMaestro(x){
   if(!x) return;
   fetch(GS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({hoja:x.hoja,fila:x.fila,encabezados:x.encabezados})}).catch(function(){});
 }
+/* capacidad del tanque, nivel de alerta y días mínimos: los mismos en todos los
+   celulares (hoja Maestros, tipo TANQUE); lo demás de Ajustes es de cada celular */
+function datosTanque(){ return { capacidad:Number(cfg.capacidad)||0, alerta:Number(cfg.alerta)||0, diasMin:Number(cfg.diasMin)||0 }; }
+function publicarTanque(){
+  if(!window.Maestros) return;
+  var g=Maestros.get('TANQUE');
+  if(g && JSON.stringify(g)===JSON.stringify(datosTanque())) return;
+  postMaestro(Maestros.fila('TANQUE', datosTanque(), cfg.despacha || 'Almacén'));
+}
+function aplicarTanque(){
+  var g=window.Maestros && Maestros.get('TANQUE'); if(!g) return false;
+  var cambio=false;
+  ['capacidad','alerta','diasMin'].forEach(function(k){ if(g[k]>0 && cfg[k]!==g[k]){ cfg[k]=g[k]; cambio=true; } });
+  if(cambio){ guardarTodo(); pintarEncabezado(); if($('cfgCap')) cargarCfgEnForm(); }
+  return cambio;
+}
 function reenviarMaestros(){ if(window.Maestros && Maestros.reenviar) Maestros.reenviar().forEach(postMaestro); }
 function guardarVehiculos(lista){
   postMaestro(Maestros.fila('VEHICULOS', lista, cfg.despacha || 'Almacén'));
@@ -2419,6 +2435,7 @@ $('btnGuardarCfg').addEventListener('click', function(){
   cfg.url=$('cfgUrl').value.trim();
   cfg.foto=$('cfgFoto').value;
   guardarTodo(); pintarEncabezado();
+  publicarTanque();
   var b=this; b.textContent='Cambios guardados';
   setTimeout(function(){ b.textContent='Guardar cambios'; },1600);
 });
@@ -2521,7 +2538,7 @@ $('btnSetup').addEventListener('click', function(){
   }
   if(movimientos.length){ alert('El tanque ya tiene registros en la hoja: no se pone otro saldo inicial.'); cfg.iniciado=true; mostrarSegunSaldo(); pintarEncabezado(); return; }
   var cap=Number($('setupCap').value)||0;
-  if(cap>0) cfg.capacidad=cap;
+  if(cap>0){ cfg.capacidad=cap; publicarTanque(); }
   cfg.iniciado=true;
   movimientos.push({id:'m'+Date.now(), ts:Date.now(), tipo:'ajuste', fecha:hoyISO(),
     galones:n2(s), teorico:0, diferencia:0, nota:'Saldo inicial', sync:false});
@@ -2582,8 +2599,12 @@ traerDeHoja().then(function(c){
 });
 
 /* Lista compartida de máquinas, envío de pendientes y confirmación en la hoja */
+if(window.Maestros) aplicarTanque();
 if(window.Maestros) Maestros.traer().then(function(cambio){
   if(cambio){ equipos = equiposCompartidos(); pintarSelectores(); pintarGrilla(); pintarVehiculos(); }
+  // si aún no se ha compartido y este celular ya la tenía corregida, se comparte la de aquí
+  if(!Maestros.get('TANQUE') && (cfg.capacidad!==CFG_DEF.capacidad || cfg.alerta!==CFG_DEF.alerta || cfg.diasMin!==CFG_DEF.diasMin)) publicarTanque();
+  else aplicarTanque();
   reenviarMaestros();
 }).catch(function(){});
 traerOperarios();

@@ -50,7 +50,7 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
   var avisos = [], GRACIA_MS = 2 * 60000, MAX_INTENTOS = 3;
   var NOMBRES = { FLOTA:'la lista de máquinas', MTTO:'los mantenimientos', FICHAS:'las fichas de mantenimiento', OPERARIOS:'los tractoristas',
     SUPERVISORES:'los supervisores', LOTES:'los lotes', FINCAS:'las fincas', IMPL:'los implementos',
-    VEHICULOS:'los vehículos que tanquean' };
+    VEHICULOS:'los vehículos que tanquean', TANQUE:'la capacidad y alertas del tanque' };
 
   window.Maestros = {
     GRUPOS: GRUPOS,
