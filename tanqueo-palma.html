@@ -1851,7 +1851,7 @@ function tsDe(f, h, id){
   var p=f.split('-'), q=(h||'00:00').split(':'); return new Date(+p[0], +p[1]-1, +p[2], +q[0]||0, +q[1]||0).getTime();
 }
 function numDe(v){ if(v===''||v==null) return null; var n=Number(String(v).replace(',','.')); return isNaN(n)?null:n; }
-var trayendo=false;
+var trayendo=false, hojaLeidaOk=false;   // hojaLeidaOk: ya se leyó la hoja al menos una vez en esta sesión
 function traerDeHoja(){
   if(trayendo || !navigator.onLine) return Promise.resolve(false);
   trayendo=true;
@@ -1859,6 +1859,7 @@ function traerDeHoja(){
     .then(function(d){ if(!d || !d.ok || !Array.isArray(d.datos)) throw new Error('sin datos'); return d.datos; }); }
   function ultimos(filas){ var u={}; filas.forEach(function(r){ var id=String(r[3]||'').trim(); if(id) u[id]=r; }); return u; }
   return Promise.all([leer('Combustible'), leer('CombustibleTanque')]).then(function(res){
+    hojaLeidaOk=true;
     var cambio=false, hace30=hoyISO(new Date(Date.now()-30*86400000));
     function confirmado(x){ return x.sync===true && !x.enviadoTs; }
     var U=ultimos(res[0]);
@@ -2144,7 +2145,16 @@ function pintarCierres(){
   // los cierres (tanque vacío o, antes, medido al recibir) y los puntos de partida
   // (saldo inicial y mediciones por varillaje de la versión anterior): de ahí cuenta la app
   var l=movimientos.filter(function(m){ return m.tipo==='ajuste'; }).sort(function(a,b){ return b.ts-a.ts; });
-  var h = !l.some(function(m){ return m.cierre; }) ? '<div class="ayuda" style="margin-top:0">El tanque todavía no se ha vaciado, así que no hay cierres: se hace la primera vez que se vacíe. Mientras tanto la app cuenta desde el punto de partida.</div>' : '';
+  // un saldo inicial puesto después de llegadas o tanqueos las deja por fuera de las cuentas
+  var aviso = '';
+  l.filter(function(m){ return !m.cierre && /saldo inicial/i.test(m.nota||''); }).forEach(function(si){
+    var antes = movimientos.filter(function(m){ return m.tipo==='recarga' && m.ts < si.ts; }), tq = registros.filter(function(r){ return !r.anulado && r.ts < si.ts; });
+    if(antes.length || tq.length) aviso += '<div class="aviso amarillo" style="margin-bottom:10px"><b>Ojo:</b> el saldo inicial de '+galTxt(si.galones)+' gal del '+fechaCorta(si.fecha)+
+      ' se registró después de '+[antes.length ? (antes.length===1?'una llegada':antes.length+' llegadas')+' ('+antes.map(function(m){ return fechaCorta(m.fecha)+', '+galTxt(m.galones)+' gal'; }).join('; ')+')' : '',
+        tq.length ? (tq.length===1?'un tanqueo':tq.length+' tanqueos') : ''].filter(Boolean).join(' y ')+
+      '. La app cuenta desde ese saldo inicial, así que eso no entra en las cuentas. Si el saldo inicial se puso por error, avísele al Superintendente.</div>';
+  });
+  var h = aviso + (!l.some(function(m){ return m.cierre; }) ? '<div class="ayuda" style="margin-top:0">El tanque todavía no se ha vaciado, así que no hay cierres: se hace la primera vez que se vacíe. Mientras tanto la app cuenta desde el punto de partida.</div>' : '');
   c.innerHTML = l.length ? h + l.map(function(m){
     if(!m.cierre){
       var tit = /saldo inicial/i.test(m.nota||'') ? 'Saldo inicial' : 'Medición del tanque';
@@ -2502,6 +2512,14 @@ $('pinCancel').addEventListener('click', function(){ $('candado').classList.remo
 $('btnSetup').addEventListener('click', function(){
   var s=Number($('setupSaldo').value);
   if(isNaN(s)||s<0){ alert('Escribe cuántos galones hay en el tanque.'); return; }
+  // el saldo inicial se pone una sola vez: antes se revisa la hoja, por si otro celular ya lo puso
+  // o ya hay llegadas (otro saldo inicial dejaría por fuera de las cuentas lo anterior)
+  if(!hojaLeidaOk){
+    alert('Primero hay que revisar la hoja, por si el tanque ya tiene saldo inicial o llegadas registradas en otro celular. Conéctese a internet e intente otra vez.');
+    traerDeHoja().then(function(c){ alTraer(c); mostrarSegunSaldo(); });
+    return;
+  }
+  if(movimientos.length){ alert('El tanque ya tiene registros en la hoja: no se pone otro saldo inicial.'); cfg.iniciado=true; mostrarSegunSaldo(); pintarEncabezado(); return; }
   var cap=Number($('setupCap').value)||0;
   if(cap>0) cfg.capacidad=cap;
   cfg.iniciado=true;
