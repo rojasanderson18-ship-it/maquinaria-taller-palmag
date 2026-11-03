@@ -636,14 +636,19 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
           recibe:String(r[11] || '').trim(), despacha:String(r[12] || '').trim(), precio:num(r[13]) || 0, costo:num(r[14]) || 0,
           saldo:num(r[15]), folio:String(r[16] || ''), just:String(r[17] || '').trim(), obs:String(r[18] || '').trim() };
       }).filter(function(t){ return /^\d{4}-\d{2}-\d{2}$/.test(t.fecha) && t.gal > 0; });
-      // galones fuera de toda proporción para esa máquina (125 en vez de 12,5): no se cuentan
+      this.marcarDudosos(l);
+      return l.sort(function(a, b){ return a.ts - b.ts; });
+    },
+    /* galones fuera de toda proporción para esa máquina (125 en vez de 12,5): t.dudoso.
+       No se cuentan en el consumo; la app de Tanqueo le avisa a Leanis para corregirlos. */
+    marcarDudosos: function(l){
       var por = {};
       l.forEach(function(t){ if (!t.anulado) (por[t.cod] = por[t.cod] || []).push(t.gal); });
       l.forEach(function(t){
         var v = (por[t.cod] || []).slice().sort(function(a, b){ return a - b; }), med = v[Math.floor(v.length / 2)];
-        t.dudoso = v.length >= 5 && t.gal > Math.max(med * 4, 30);
+        t.dudoso = !t.anulado && v.length >= 5 && t.gal > Math.max(med * 4, 30);
       });
-      return l.sort(function(a, b){ return a.ts - b.ts; });
+      return l;
     },
     /* hoja CombustibleTanque → llegadas y mediciones (cuadres y cierres) */
     movimientos: function(filas){
@@ -690,6 +695,26 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
       m.forEach(function(x){ if (x.tipo === 'LLEGADA' && x.ts > desde) base += x.gal; });
       lista.forEach(function(t){ if (!t.anulado && t.ts > desde && t.ts <= hasta) base -= t.gal; });
       return Math.round(base * 100) / 100;
+    },
+    /* Balance de un período (desde/hasta en ms): saldo al inicio + llegadas − despachado
+       ± ajustes (saldo inicial o cierre por tanque vacío dentro del período) = saldo al final.
+       destino(cod) agrupa lo despachado (máquinas, camiones, vehículos, otros).
+       Lo mismo en Agrovisión, el informe semanal, Gerencia y la app de Tanqueo. */
+    balance: function(movs, lista, desde, hasta, destino){
+      movs = movs.slice().sort(function(a, b){ return a.ts - b.ts; });
+      var ini = this.saldo(movs, lista, desde - 1), fin = this.saldo(movs, lista, hasta);
+      var lleg = movs.filter(function(m){ return m.tipo === 'LLEGADA' && m.ts >= desde && m.ts <= hasta; });
+      var aj = movs.filter(function(m){ return m.tipo === 'AJUSTE' && m.ts >= desde && m.ts <= hasta; });
+      var desp = lista.filter(function(t){ return !t.anulado && t.ts >= desde && t.ts <= hasta; });
+      var anul = lista.filter(function(t){ return t.anulado && t.ts >= desde && t.ts <= hasta; });
+      var gl = lleg.reduce(function(a, m){ return a + m.gal; }, 0), gd = desp.reduce(function(a, t){ return a + t.gal; }, 0);
+      var por = {};
+      desp.forEach(function(t){ var k = destino ? destino(t.cod) : 'otro', x = por[k] = por[k] || { gal:0, costo:0, n:0, cods:{} };
+        x.gal += t.gal; x.costo += t.costo || 0; x.n++; x.cods[t.cod] = (x.cods[t.cod] || 0) + t.gal; });
+      var r2 = function(v){ return Math.round(v * 100) / 100; };
+      return { inicial:ini, llegadas:lleg, galLlegadas:r2(gl), despachos:desp, galDespachos:r2(gd), costoDespachos:r2(desp.reduce(function(a, t){ return a + (t.costo || 0); }, 0)),
+        porDestino:por, ajustes:aj, ajusteNeto:r2(fin - (ini + gl - gd)), final:fin, anulados:anul,
+        dudosos: desp.filter(function(t){ return t.dudoso; }) };
     },
     /* galones por día de los últimos días, y cuántos días alcanza el saldo */
     autonomia: function(lista, saldo, dias){

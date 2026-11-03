@@ -400,6 +400,7 @@ nav button .badge.on{display:block}
   </div>
 
   <div class="subvista activa" id="sv-estado">
+  <div class="bloque" id="bloqueDudosos" style="display:none"></div>
   <div class="bloque" id="bloqueReqEstado">
     <h2>Requisición de combustible</h2>
     <div id="reqEstadoTxt" class="ayuda" style="font-size:14px;margin-top:0"></div>
@@ -490,8 +491,13 @@ nav button .badge.on{display:block}
   <div class="bloque">
     <h2>Movimientos</h2>
     <div id="listaMov"></div>
-    <button class="secundario" id="btnInformeTraza" style="margin-top:12px">Descargar informe de trazabilidad (CSV)</button>
-    <button class="secundario" id="btnInformeTrazaPDF" style="margin-top:10px">Descargar informe de trazabilidad (PDF)</button>
+  </div>
+  <div class="bloque">
+    <h2>Informe del mes para firmar</h2>
+    <div class="ayuda" style="margin-top:0">Balance del tanque, en qué se gastó, tanqueos con justificación, llegadas contra la orden, cierres, correcciones y anulados, y el detalle de todos los tanqueos del mes. Se imprime o se guarda en PDF y lo firman almacén y Superintendencia.</div>
+    <div class="campo" style="margin-top:10px"><label for="infMes">Mes</label><input type="month" id="infMes"></div>
+    <button class="principal" id="btnInformeTrazaPDF">Ver informe del mes</button>
+    <button class="secundario" id="btnInformeTraza" style="margin-top:10px">Descargar todos los registros (CSV)</button>
   </div>
   </div>
 
@@ -742,7 +748,7 @@ function guardarTodo(){
 /* ---------------- Saldo y consumo ---------------- */
 /* El consumo, el saldo y los cierres salen del cálculo compartido
    (Combustible en maestros.js), el mismo que usa Agrovisión. */
-function tqComb(){ return registros.map(function(r){ return { id:r.id, ts:r.ts, fecha:r.fecha, cod:r.equipo, gal:r.galones, lec:r.lectura,
+function tqComb(){ return registros.map(function(r){ return { id:r.id, ts:r.ts, fecha:r.fecha, cod:r.equipo, gal:r.galones, lec:r.lectura, costo:r.costo||0,
   tipo: r.lecturaTipo==='kilometraje' ? 'km' : r.lecturaTipo==='ninguna' ? 'ninguna' : 'horometro', anulado:!!r.anulado }; }); }
 function movComb(){ return movimientos.map(function(m){ return { id:m.id, ts:m.ts, fecha:m.fecha, tipo: m.tipo==='recarga' ? 'LLEGADA' : 'AJUSTE', gal:m.galones }; }); }
 function saldoActual(){
@@ -1013,7 +1019,21 @@ function pintarChipSync(){
     chip.disabled=true;
   }
 }
+function pintarDudosos(){
+  var c=$('bloqueDudosos'); if(!c || !window.Combustible || !Combustible.marcarDudosos) return;
+  var l=Combustible.marcarDudosos(tqComb()).filter(function(t){ return t.dudoso; });
+  if(!l.length){ c.style.display='none'; return; }
+  c.style.display='block';
+  c.innerHTML='<h2 style="color:#B0600D">'+(l.length===1?'Un tanqueo parece mal digitado':l.length+' tanqueos parecen mal digitados')+'</h2>'+
+    '<div class="ayuda" style="margin-top:0">Tienen muchos más galones de lo que esa máquina suele recibir (¿125 en vez de 12,5?). Restan del tanque, pero no se cuentan en el consumo. Revíselos en Registros y corríjalos con "Editar".</div>'+
+    l.map(function(t){ var r=registros.filter(function(x){ return x.id===t.id; })[0]||{};
+      return '<div class="mov"><div>'+fechaCorta(t.fecha)+' · '+esc(t.cod)+' · <b>'+galTxt(t.gal)+' gal</b><div class="ayuda">'+esc(r.folio||'')+(r.recibe?' · '+esc(r.recibe):'')+'</div></div>'+
+        '<button class="btn-accion editar" data-editar-dud="'+esc(t.id)+'">Editar</button></div>'; }).join('');
+  c.querySelectorAll('[data-editar-dud]').forEach(function(b){ b.addEventListener('click', function(){
+    var r=registros.filter(function(x){ return x.id===b.getAttribute('data-editar-dud'); })[0]; if(r) abrirEdicionTanqueo(r); }); });
+}
 function pintarEncabezado(){
+  pintarDudosos();
   pintarChipSync();
   var s = saldoActual();
   $('saldoTxt').textContent = galTxt(s);
@@ -1512,83 +1532,80 @@ $('btnPDFRegistros').addEventListener('click', function(){
   abrirInforme(informeTanqueosHTML(lista, 'Informe de tanqueos', rango));
 });
 
-function informeTrazabilidadHTML(){
-  var h='';
-  h+='<div class="encabezado-doc"><div><h1>Informe de trazabilidad de combustible</h1>'+
-     '<div class="sub">Generado el '+fechaCorta(hoyISO())+' · saldo actual del tanque: '+galTxt(saldoActual())+' gal</div></div>'+
-     '<div class="marca-doc"><strong>Palma Grande S.A.S.</strong>Almacén de combustible</div></div>';
-
-  h+='<h2>Tanqueos a equipos</h2>';
-  var tq = registros.slice().sort(function(a,b){ return a.ts-b.ts; });
-  if(tq.length){
-    h+='<table><tr><th>Fecha</th><th>Equipo</th><th>Gal</th><th>Despacha</th><th>Recibe</th>'+
-       '<th>Lectura</th><th>Costo</th><th>Firma</th><th>Observación</th></tr>';
-    tq.forEach(function(r){ h+=filaTanqueoDoc(r); });
-    h+='</table>';
-  }else{ h+='<div class="vacio-doc">No hay tanqueos registrados.</div>'; }
-
-  h+='<h2>Llegadas de combustible</h2>';
-  var lleg = movimientos.filter(function(m){ return m.tipo==='recarga'; }).sort(function(a,b){ return a.ts-b.ts; });
-  if(lleg.length){
-    h+='<table><tr><th>Fecha</th><th>Gal</th><th>Precio/gal</th><th>Proveedor/Remisión</th><th>Carrotanque</th><th>Conductor</th><th>Firma</th><th>Observación</th></tr>';
-    lleg.forEach(function(m){
-      var firmaCel = m.firma
-        ? '<img src="'+m.firma+'" alt="Firma" style="max-width:90px;max-height:34px;display:block">'
-        : '<span style="color:#999">Sin firma</span>';
-      h+='<tr><td>'+fechaCorta(m.fecha)+'</td><td>'+galTxt(m.galones)+'</td><td>'+(m.precio?pesos(m.precio):'—')+'</td><td>'+esc(m.nota)+'</td>'+
-         '<td>'+esc(m.placa||'')+'</td><td>'+esc(m.conductor||'')+'</td>'+
-         '<td>'+firmaCel+'</td><td>'+esc(m.observacion||'')+'</td></tr>';
-    });
-    h+='</table>';
-  }else{ h+='<div class="vacio-doc">No hay llegadas registradas.</div>'; }
-
-  h+='<h2>Cuadres por varillaje</h2>';
-  var cua = movimientos.filter(function(m){ return m.tipo==='ajuste'; }).sort(function(a,b){ return a.ts-b.ts; });
-  if(cua.length){
-    h+='<table><tr><th>Fecha</th><th>Medido</th><th>Diferencia</th><th>Quién midió</th></tr>';
-    cua.forEach(function(m){
-      var d = typeof m.diferencia==='number' ? (m.diferencia>0?'+':'')+galTxt(m.diferencia)+' gal' : '—';
-      h+='<tr><td>'+fechaCorta(m.fecha)+'</td><td>'+galTxt(m.galones)+' gal</td><td>'+d+'</td><td>'+esc(m.nota)+'</td></tr>';
-    });
-    h+='</table>';
-  }else{ h+='<div class="vacio-doc">No se han hecho cuadres.</div>'; }
-
-  h+='<h2>Alertas de requisición</h2>';
-  var al = alertasReq.slice().sort(function(a,b){ return a.ts-b.ts; });
-  if(al.length){
-    h+='<table><tr><th>Fecha</th><th>Motivo</th><th>Saldo</th><th>Estado</th></tr>';
-    al.forEach(function(a){
-      var est = a.atendida ? 'Enviada el '+fechaCorta(a.atendidaFecha)+' por '+esc(a.atendidaPor) : 'Sin atender';
-      h+='<tr><td>'+fechaCorta(a.fecha)+'</td><td>'+esc(a.motivo)+'</td><td>'+galTxt(a.saldo)+' gal</td><td>'+est+'</td></tr>';
-    });
-    h+='</table>';
-  }else{ h+='<div class="vacio-doc">No se han disparado alertas.</div>'; }
-
-  h+='<h2>Correcciones a tanqueos ya registrados</h2>';
-  var ediciones=[];
-  registros.forEach(function(r){
-    (r.historialEdicion||[]).forEach(function(e){
-      ediciones.push({ts:e.ts, folio:r.folio, equipo:r.equipo, motivo:e.motivo, antes:e.antes, ahora:{galones:r.galones,lectura:r.lectura,costo:r.costo}});
-    });
-  });
-  ediciones.sort(function(a,b){ return a.ts-b.ts; });
-  if(ediciones.length){
-    h+='<table><tr><th>Fecha</th><th>Folio</th><th>Equipo</th><th>Antes</th><th>Después</th><th>Motivo</th></tr>';
-    ediciones.forEach(function(e){
-      h+='<tr><td>'+fechaCorta(hoyISO(new Date(e.ts)))+'</td><td>'+esc(e.folio)+'</td><td>'+esc(e.equipo)+'</td>'+
-         '<td>'+galTxt(e.antes.galones)+' gal / lect. '+galTxt(e.antes.lectura)+'</td>'+
-         '<td>'+galTxt(e.ahora.galones)+' gal / lect. '+galTxt(e.ahora.lectura)+'</td>'+
-         '<td>'+esc(e.motivo)+'</td></tr>';
-    });
-    h+='</table>';
-  }else{ h+='<div class="vacio-doc">No se ha corregido ningún tanqueo.</div>'; }
-
-  h+='<div class="pie">Documento generado por la app de tanqueo de Palma Grande, con base en los registros guardados en el celular.</div>';
+/* Informe del mes para firmar: las mismas 4 preguntas de Agrovisión (¿cuadra?,
+   ¿en qué se gastó?, ¿se gastó bien?, ¿hubo pérdidas?) y el detalle de los
+   tanqueos como anexo. Usa todo lo que hay en la hoja (incluido lo registrado
+   en otros celulares) y el mismo balance de Agrovisión y Gerencia. */
+var MESES_TQ=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+function grupoDestino(cod){ var e=eqPorCod(cod); return e ? (e.grupo==='camion'?'camion':e.grupo==='vehiculo'?'vehiculo':e.grupo==='maquina'?'maquina':'otro') : 'otro'; }
+function informeMesHTML(mes){
+  var p=mes.split('-'), ini=new Date(+p[0], +p[1]-1, 1).getTime(), fin=Math.min(Date.now(), new Date(+p[0], +p[1], 1).getTime()-1);
+  var nombre=MESES_TQ[+p[1]-1]+' de '+p[0];
+  var B=Combustible.balance(movComb().map(function(m){ var o=movimientos.filter(function(x){ return x.id===m.id; })[0]||{}; m.cierre=!!o.cierre; return m; }), tqComb(), ini, fin, grupoDestino);
+  var enMes=function(x){ return x.ts>=ini && x.ts<=fin; };
+  var tq=registros.filter(enMes).sort(function(a,b){ return a.ts-b.ts; });
+  var lleg=movimientos.filter(function(m){ return m.tipo==='recarga' && enMes(m); }).sort(function(a,b){ return a.ts-b.ts; });
+  var aj=movimientos.filter(function(m){ return m.tipo==='ajuste' && enMes(m); }).sort(function(a,b){ return a.ts-b.ts; });
+  var dud=Combustible.marcarDudosos(tqComb()).filter(function(t){ return t.dudoso && t.ts>=ini && t.ts<=fin; });
+  var precio=Number(cfg.precio)||0;
+  var NOM={ maquina:'Máquinas', camion:'Camiones', vehiculo:'Vehículos', otro:'Otros (guadañas, motobombas, estacionaria)' };
+  function n(t){ return '<div style="display:flex;align-items:center;gap:8px;margin:18px 0 6px"><span style="width:22px;height:22px;border-radius:50%;background:#1F5D3C;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:12px">'+t[0]+'</span><h2 style="margin:0">'+t[1]+'</h2></div>'; }
+  var h='<div class="encabezado-doc"><div><h1>Informe de combustible · '+nombre+'</h1>'+
+    '<div class="sub">Almacén de combustible · generado el '+fechaCorta(hoyISO())+(fin<new Date(+p[0], +p[1], 1).getTime()-1?' · mes en curso, hasta hoy':'')+'</div></div>'+
+    '<div class="marca-doc"><strong>Palma Grande S.A.S.</strong>Procedimiento PR-ALM-01</div></div>';
+  // 1. ¿cuadra?
+  h+=n(['1','¿Cuadra? Balance del tanque'])+'<table>'+
+    '<tr><td>Saldo al inicio del mes</td><td style="text-align:right">'+galTxt(B.inicial)+' gal</td></tr>'+
+    '<tr><td>+ Llegadas ('+B.llegadas.length+')</td><td style="text-align:right">'+galTxt(B.galLlegadas)+' gal</td></tr>'+
+    '<tr><td>− Despachado ('+B.despachos.length+' tanqueos)</td><td style="text-align:right">'+galTxt(B.galDespachos)+' gal</td></tr>'+
+    (B.ajusteNeto ? '<tr><td>'+(B.ajusteNeto>0?'+':'−')+' Ajustes (saldo inicial o tanque vacío)</td><td style="text-align:right">'+galTxt(Math.abs(B.ajusteNeto))+' gal</td></tr>' : '')+
+    '<tr><td><b>= Saldo al final</b></td><td style="text-align:right"><b>'+galTxt(B.final)+' gal</b></td></tr></table>';
+  // 2. ¿en qué se gastó?
+  var gs=Object.keys(B.porDestino).sort(function(a,b){ return B.porDestino[b].gal-B.porDestino[a].gal; });
+  h+=n(['2','¿En qué se gastó?'])+(gs.length ? '<table><tr><th>Destino</th><th>Equipo</th><th>Tanqueos</th><th>Galones</th><th>Costo</th></tr>'+gs.map(function(g){
+      var x=B.porDestino[g], cods=Object.keys(x.cods).sort(function(a,b){ return x.cods[b]-x.cods[a]; });
+      return cods.map(function(cod, i){ var e=eqPorCod(cod), nT=B.despachos.filter(function(t){ return t.cod===cod; });
+        return '<tr><td>'+(i===0?NOM[g]:'')+'</td><td>'+esc(cod)+(e&&e.nom?' · '+esc(e.nom):'')+'</td><td>'+nT.length+'</td><td>'+galTxt(x.cods[cod])+'</td><td>'+pesos(nT.reduce(function(a,t){ return a+(t.costo||0); },0))+'</td></tr>'; }).join('')+
+        '<tr><td></td><td><b>Total '+NOM[g].toLowerCase()+'</b></td><td><b>'+x.n+'</b></td><td><b>'+galTxt(x.gal)+'</b></td><td><b>'+pesos(x.costo)+'</b></td></tr>';
+    }).join('')+'<tr><td colspan="3"><b>Total despachado</b></td><td><b>'+galTxt(B.galDespachos)+'</b></td><td><b>'+pesos(B.costoDespachos)+'</b></td></tr></table>' : '<div class="vacio-doc">No hubo despachos en el mes.</div>')+
+    '<div style="font-size:11px;color:#555">El reparto por labor y por lote está en Agrovisión → Combustible.</div>';
+  // 3. ¿se gastó bien?
+  var just=tq.filter(function(r){ return !r.anulado && r.justificacion; });
+  h+=n(['3','¿Se gastó bien?'])+(just.length ? '<div style="font-size:12px;margin-bottom:4px">Tanqueos que la app marcó al registrarlos (horómetro o consumo fuera de lo normal) y su justificación:</div><table><tr><th>Fecha</th><th>Equipo</th><th>Galones</th><th>Justificación</th></tr>'+
+      just.map(function(r){ return '<tr><td>'+fechaCorta(r.fecha)+'</td><td>'+esc(r.equipo)+'</td><td>'+galTxt(r.galones)+'</td><td>'+esc(r.justificacion)+'</td></tr>'; }).join('')+'</table>'
+    : '<div class="vacio-doc">Ningún tanqueo necesitó justificación. El consumo de cada máquina contra lo normal está en Agrovisión → Combustible.</div>');
+  // 4. ¿hubo pérdidas?
+  h+=n(['4','¿Hubo pérdidas?'])+'<h3 style="margin:6px 0 4px;font-size:13px">Llegadas contra la orden (regleta del carrotanque)</h3>'+(lleg.length ? '<table><tr><th>Fecha</th><th>Orden</th><th>Regleta</th><th>Diferencia</th><th>Valor</th><th>Proveedor / remisión</th><th>Carrotanque</th></tr>'+
+      lleg.map(function(m){ var d=m.esperado ? m.difProv||0 : null;
+        return '<tr><td>'+fechaCorta(m.fecha)+'</td><td>'+(m.esperado?galTxt(m.esperado):'—')+'</td><td>'+galTxt(m.galones)+'</td><td>'+(d===null?'—':d===0?'Completo':(d>0?'+':'')+galTxt(d)+' gal')+'</td>'+
+          '<td>'+(d&&d<0?pesos(-d*(m.precio||precio)):'—')+'</td><td>'+esc(m.nota||'')+'</td><td>'+esc(m.placa||'')+(m.conductor?' · '+esc(m.conductor):'')+'</td></tr>'; }).join('')+'</table>'
+    : '<div class="vacio-doc">No hubo llegadas en el mes.</div>')+
+    '<h3 style="margin:10px 0 4px;font-size:13px">Cierres del tanque y saldo inicial</h3>'+(aj.length ? '<table><tr><th>Fecha</th><th>Qué</th><th>Debería</th><th>Quedó</th><th>Diferencia</th><th>Explicación</th></tr>'+
+      aj.map(function(m){ var q=m.vacio?'Tanque vacío':m.cierre?'Medido al recibir':/saldo inicial/i.test(m.nota||'')?'Saldo inicial':'Medición';
+        return '<tr><td>'+fechaCorta(m.fecha)+'</td><td>'+q+'</td><td>'+(m.cierre?galTxt(m.teorico)+' gal':'—')+'</td><td>'+galTxt(m.galones)+' gal</td><td>'+(m.cierre?(m.diferencia?(m.diferencia>0?'+':'')+galTxt(m.diferencia)+' gal':'Cuadró'):'—')+'</td><td>'+esc(m.motivoDif||'')+'</td></tr>'; }).join('')+'</table>'
+    : '<div class="vacio-doc">El tanque no se vació en el mes (se cuadra cuando se vacía).</div>');
+  var corr=tq.filter(function(r){ return (r.historialEdicion||[]).length || r.estadoHoja==='EDITADO'; }), anul=tq.filter(function(r){ return r.anulado; });
+  h+='<h3 style="margin:10px 0 4px;font-size:13px">Correcciones, anulados y tanqueos mal digitados</h3>'+((corr.length||anul.length||dud.length) ? '<table><tr><th>Fecha</th><th>Folio</th><th>Equipo</th><th>Galones</th><th>Qué pasó</th></tr>'+
+      corr.map(function(r){ var e=(r.historialEdicion||[]).slice(-1)[0];
+        return '<tr><td>'+fechaCorta(r.fecha)+'</td><td>'+esc(r.folio||'')+'</td><td>'+esc(r.equipo)+'</td><td>'+galTxt(r.galones)+'</td><td>Corregido'+(e?': antes '+galTxt(e.antes.galones)+' gal · '+esc(e.motivo):'')+'</td></tr>'; }).join('')+
+      anul.map(function(r){ return '<tr><td>'+fechaCorta(r.fecha)+'</td><td>'+esc(r.folio||'')+'</td><td>'+esc(r.equipo)+'</td><td>'+galTxt(r.galones)+'</td><td>Anulado: '+esc(r.anuladoMotivo||'')+'</td></tr>'; }).join('')+
+      dud.map(function(t){ var r=registros.filter(function(x){ return x.id===t.id; })[0]||{}; return '<tr><td>'+fechaCorta(t.fecha)+'</td><td>'+esc(r.folio||'')+'</td><td>'+esc(t.cod)+'</td><td>'+galTxt(t.gal)+'</td><td><b>Parece mal digitado: corregir</b></td></tr>'; }).join('')+'</table>'
+    : '<div class="vacio-doc">Ninguno.</div>');
+  // anexo
+  h+='<h2 style="margin-top:22px">Anexo · Tanqueos del mes ('+tq.length+')</h2>'+(tq.length ? '<table><tr><th>Fecha</th><th>Equipo</th><th>Gal</th><th>Despacha</th><th>Recibe</th><th>Lectura</th><th>Costo</th><th>Firma</th><th>Observación</th></tr>'+tq.map(filaTanqueoDoc).join('')+'</table>' : '<div class="vacio-doc">No hubo tanqueos en el mes.</div>');
+  h+='<div style="display:flex;gap:40px;margin-top:46px;font-size:12px"><div style="flex:1;border-top:1px solid #16211C;padding-top:4px"><b>'+esc(cfg.despacha||'Responsable del almacén')+'</b><br>Responsable del almacén</div>'+
+     '<div style="flex:1;border-top:1px solid #16211C;padding-top:4px"><b>&nbsp;</b><br>Revisó · Superintendencia</div></div>'+
+     '<div class="pie">Generado por la app de tanqueo con lo registrado en la hoja (todos los celulares). Balance: saldo al inicio + llegadas medidas con regleta − despachado ± saldo inicial o cierre por tanque vacío = saldo al final.</div>';
   return h;
 }
+(function(){ var i=$('infMes'); if(i){ var d=new Date(); i.value=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); i.max=i.value; } })();
 $('btnInformeTrazaPDF').addEventListener('click', function(){
-  abrirInforme(informeTrazabilidadHTML());
+  var mes=$('infMes').value; if(!mes){ alert('Escoja el mes.'); return; }
+  var ir=function(){ abrirInforme(informeMesHTML(mes)); };
+  // con señal, primero trae lo de los otros celulares para que el informe esté completo
+  if(navigator.onLine) traerDeHoja().then(function(c){ alTraer(c); ir(); }); else { alert('Sin señal: el informe sale solo con lo que tiene este celular.'); ir(); }
 });
+
 function filtrados(){
   var d=$('fDesde').value, h=$('fHasta').value, eq=$('fEquipo').value;
   var q=$('fBusca').value.trim().toLowerCase();
