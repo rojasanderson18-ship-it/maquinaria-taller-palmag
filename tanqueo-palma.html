@@ -2141,12 +2141,19 @@ function cierreHTML(c){
 }
 function pintarCierres(){
   var c=$('listaCierres'); if(!c) return;
-  var l=movimientos.filter(function(m){ return m.tipo==='ajuste' && m.cierre; }).sort(function(a,b){ return b.ts-a.ts; });
-  c.innerHTML = l.length ? l.map(function(m){
+  // los cierres (tanque vacío o, antes, medido al recibir) y los puntos de partida
+  // (saldo inicial y mediciones por varillaje de la versión anterior): de ahí cuenta la app
+  var l=movimientos.filter(function(m){ return m.tipo==='ajuste'; }).sort(function(a,b){ return b.ts-a.ts; });
+  var h = !l.some(function(m){ return m.cierre; }) ? '<div class="ayuda" style="margin-top:0">El tanque todavía no se ha vaciado, así que no hay cierres: se hace la primera vez que se vacíe. Mientras tanto la app cuenta desde el punto de partida.</div>' : '';
+  c.innerHTML = l.length ? h + l.map(function(m){
+    if(!m.cierre){
+      var tit = /saldo inicial/i.test(m.nota||'') ? 'Saldo inicial' : 'Medición del tanque';
+      return '<div class="mov"><div>'+fechaCorta(m.fecha)+' · '+tit+': '+galTxt(m.galones)+' gal<div class="ayuda">Punto de partida'+(m.nota && !/saldo inicial/i.test(m.nota) ? ' · '+esc(m.nota) : '')+'</div></div></div>';
+    }
     var dif=m.diferencia||0;
     return '<div class="mov"><div>'+fechaCorta(m.fecha)+' · '+(m.vacio ? 'tanque vacío' : 'medido '+galTxt(m.galones)+' gal')+'<div class="ayuda">'+(dif?(dif>0?'Sobran ':'Faltan ')+galTxt(Math.abs(dif))+' gal':'Cuadró')+'</div></div>'+
       '<button class="btn-accion vale" data-cierre="'+esc(m.id)+'">Ver cierre</button></div>'; }).join('')
-    : '<div class="ayuda" style="margin-top:0">Todavía no hay cierres. El primero se hace cuando el tanque se vacíe.</div>';
+    : '<div class="ayuda" style="margin-top:0">Todavía no hay saldo inicial ni cierres.</div>';
   c.querySelectorAll('[data-cierre]').forEach(function(b){ b.addEventListener('click', function(){
     var m=movimientos.filter(function(x){ return x.id===b.getAttribute('data-cierre'); })[0]; if(m) abrirInforme(cierreHTML(m)); }); });
 }
@@ -2454,7 +2461,7 @@ function irSubA(sv){
   });
   document.querySelectorAll('#v-tanque .subvista').forEach(function(s){ s.classList.remove('activa'); });
   $('sv-'+sv).classList.add('activa');
-  if(sv==='cuadre') pintarVacio();
+  if(sv==='cuadre'){ pintarVacio(); pintarCierres(); }
   document.querySelector('#v-tanque').scrollTop = 0;
   window.scrollTo(0,0);
 }
