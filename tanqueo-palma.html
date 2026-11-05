@@ -128,6 +128,16 @@ textarea{min-height:70px;resize:vertical}
 .registro .gal{font-family:'JetBrains Mono',ui-monospace,monospace;font-weight:700;font-size:18px;color:var(--green)}
 .registro .r2{font-size:14px;color:var(--steel);margin-top:4px}
 .registro .r3{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
+/* lista compacta: una línea por tanqueo, se abre al tocarla */
+.dia-reg{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.05em;margin:14px 2px 6px}
+.registro.compacto{padding:9px 12px;margin-bottom:6px;cursor:pointer}
+.registro.compacto .eq{font-size:15px}
+.registro.compacto .gal{font-size:16px}
+.registro.compacto .r2{margin-top:2px;font-size:13px}
+.registro .det{display:none}
+.registro.abierto .det{display:block}
+.registro .flecha{color:var(--steel);font-size:12px;margin-left:6px}
+.registro .alerta-chip{display:inline-block;font-size:11px;font-weight:700;color:#B0600D;background:#FFF3E0;border-radius:6px;padding:1px 6px;margin-left:6px}
 .btn-accion{padding:7px 12px;border-radius:var(--r);font-size:14px;font-weight:600;border:1px solid var(--line);background:var(--card)}
 .btn-accion.vale{border-color:var(--green);color:var(--green)}
 .btn-accion.editar{color:var(--soft)}
@@ -1794,16 +1804,27 @@ function pintarRegistros(){
     cont.innerHTML='<div class="vacio">No hay tanqueos con estos filtros.</div>'; return;
   }
   cont.innerHTML='';
+  var porDia={};
+  lista.forEach(function(r){ var x=porDia[r.fecha]=porDia[r.fecha]||{n:0,g:0}; if(!r.anulado){ x.n++; x.g+=r.galones; } });
+  var diaAnt=null;
   lista.slice(0,150).forEach(function(r){
+    if(r.fecha!==diaAnt){
+      diaAnt=r.fecha; var x=porDia[r.fecha], hd=document.createElement('div'); hd.className='dia-reg';
+      hd.innerHTML='<span>'+fechaCorta(r.fecha)+'</span><span>'+x.n+(x.n===1?' tanqueo':' tanqueos')+' · '+galTxt(x.g)+' gal</span>';
+      cont.appendChild(hd);
+    }
     var u = r.lecturaTipo==='kilometraje'?' km/gal':' gal/h';
-    var d=document.createElement('div'); d.className='registro'+(r.anulado?' anulado':'');
+    var d=document.createElement('div'); d.className='registro compacto'+(r.anulado?' anulado':'');
     var h='';
-    if(r.anulado) h+='<div class="aviso rojo" style="margin-bottom:8px">Anulado el '+fechaCorta(r.anuladoFecha)+': '+esc(r.anuladoMotivo)+'</div>';
-    h+='<div class="r1"><span class="eq">'+esc(r.equipo)+' · '+esc(r.equipoNom)+'</span><span class="gal num">'+galTxt(r.galones)+' gal</span></div>';
-    h+='<div class="r2">'+fechaCorta(r.fecha)+' '+esc(r.hora)+' · recibió '+esc(r.recibe)+'<span class="pend '+(r.sync?'ok':'')+'"></span></div>';
-    h+='<div class="r2 num">'+(r.lecturaTipo==='kilometraje'?'Km ':'Horómetro ')+galTxt(r.lectura)+
-       (r.rendimiento?' · '+galTxt(r.rendimiento)+u:'')+' · '+pesos(r.costo)+'</div>';
+    h+='<div class="r1"><span class="eq">'+esc(r.equipo)+' · '+esc(r.equipoNom)+(r.justificacion?'<span class="alerta-chip">con alerta</span>':'')+'</span><span class="gal num">'+galTxt(r.galones)+' gal<span class="flecha">▾</span></span></div>';
+    h+='<div class="r2 num">'+esc(r.hora)+' · '+esc(r.recibe)+
+       (r.lectura ? ' · '+(r.lecturaTipo==='kilometraje'?'Km ':'Hr ')+galTxt(r.lectura) : '')+
+       (r.rendimiento?' · '+galTxt(r.rendimiento)+u:'')+' · '+pesos(r.costo)+'<span class="pend '+(r.sync?'ok':'')+'"></span></div>';
+    h+='<div class="det">';
+    if(r.anulado) h+='<div class="aviso rojo" style="margin:8px 0">Anulado el '+fechaCorta(r.anuladoFecha)+': '+esc(r.anuladoMotivo)+'</div>';
     if(r.justificacion) h+='<div class="r2">Justificación: '+esc(r.justificacion)+'</div>';
+    if(r.observacion) h+='<div class="r2">Observación: '+esc(r.observacion)+'</div>';
+    if(r.folio) h+='<div class="r2">Folio '+esc(r.folio)+'</div>';
     if(r.firma){
       h+='<div class="mini-zona">';
       h+='<img class="mini-img" src="'+r.firma+'" data-ampliar="'+r.id+'" data-tipo="firma" alt="Firma" style="background:#fff">';
@@ -1814,8 +1835,12 @@ function pintarRegistros(){
       h+='<button class="btn-accion editar" data-editar="'+r.id+'">Editar</button>'+
          '<button class="btn-accion anular" data-anular="'+r.id+'">Anular</button>';
     }
-    h+='</div>';
+    h+='</div></div>';
     d.innerHTML=h; cont.appendChild(d);
+    d.addEventListener('click', function(ev){
+      if(ev.target.closest('button,img')) return;
+      d.classList.toggle('abierto'); d.querySelector('.flecha').textContent = d.classList.contains('abierto') ? '▴' : '▾';
+    });
   });
   cont.querySelectorAll('[data-vale]').forEach(function(b){
     b.addEventListener('click',function(){
