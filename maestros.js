@@ -723,6 +723,23 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
         porDestino:por, ajustes:aj, ajusteNeto:r2(fin - (ini + gl - gd)), final:fin, anulados:anul,
         dudosos: desp.filter(function(t){ return t.dudoso; }) };
     },
+    /* La gasolina (canecas) de un período, para Agrovisión, Gerencia y Tanqueo:
+       movs y lista = Combustible.movimientos(…, 'gasolina') y tanqueos(…, 'gasolina').
+       Lo que había + lo que despachó la estación − lo entregado ± conteos. */
+    gasolina: function(movs, lista, desde, hasta){
+      movs = (movs || []).slice().sort(function(a, b){ return a.ts - b.ts; }); lista = lista || [];
+      if (!movs.length && !lista.length) return null;
+      var B = this.balance(movs, lista, desde, hasta, null), por = {};
+      B.despachos.forEach(function(t){ var x = por[t.cod] = por[t.cod] || { cod:t.cod, nom:t.nom || '', gal:0, costo:0, n:0 }; x.gal += t.gal; x.costo += t.costo || 0; x.n++; });
+      var precio = (movs.filter(function(m){ return m.tipo === 'LLEGADA' && m.precio > 0 && m.ts <= hasta; }).pop() || {}).precio || (B.galDespachos ? B.costoDespachos / B.galDespachos : 0);
+      var conteos = B.ajustes.filter(function(m){ return !/saldo inicial/i.test(m.nota || ''); })
+        .map(function(m){ return { fecha:m.fecha, teorico:m.teorico, gal:m.gal, dif:m.dif || 0 }; });
+      var falt = conteos.reduce(function(a, c){ return a + (c.dif < 0 ? -c.dif : 0); }, 0);
+      return { bal:B, gal:B.galDespachos, costo:B.costoDespachos, saldo:this.saldo(movs, lista, Date.now()), precio:precio,
+        porEq: Object.keys(por).map(function(k){ return por[k]; }).sort(function(a, b){ return b.gal - a.gal; }),
+        llegadas:B.llegadas, conteos:conteos, ultimoConteo: movs.filter(function(m){ return m.tipo === 'AJUSTE'; }).pop() || null,
+        faltante:Math.round(falt * 100) / 100, faltanteValor:falt * precio };
+    },
     /* galones por día de los últimos días, y cuántos días alcanza el saldo */
     autonomia: function(lista, saldo, dias){
       dias = dias || 15;
