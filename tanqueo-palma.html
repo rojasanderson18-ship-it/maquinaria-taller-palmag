@@ -387,6 +387,8 @@ nav button .badge.on{display:block}
 
   <div id="listaRegistros"></div>
 
+  <button class="principal" id="btnPDFRegistros" style="margin-bottom:10px">Informe en PDF con gráficas</button>
+  <div class="ayuda" style="margin:-4px 0 12px">Del período y el equipo escogidos arriba: galones por día, por equipo, consumo de cada máquina, en qué labores y lotes se gastó, y el detalle de los tanqueos.</div>
   <button class="secundario" id="btnCSV" style="margin-bottom:10px">Descargar Excel (CSV)</button>
   <button class="secundario" id="btnSync">Enviar pendientes a la hoja</button>
 </section>
@@ -1544,6 +1546,155 @@ function filaTanqueoDoc(r){
     '<td>'+firmaCel+'</td>'+
     '<td>'+obs+'</td></tr>';
 }
+
+/* ---------------- Informe de Registros: gráficas, consumo y labores ----------------
+   El período y el equipo son los de los filtros. Las labores y lotes salen del
+   cierre de jornada con el mismo cálculo de Agrovisión y Gerencia (Operacion). */
+var GRUPO_TXT = { maquina:'Máquinas', camion:'Camiones', vehiculo:'Vehículos', otro:'Otros' };
+var GRUPO_COLOR = { maquina:'#1F5D3C', camion:'#5B7A8C', vehiculo:'#8FA3AE', otro:'#B9C4BE' };
+function n1(x){ return Math.round(x*10)/10; }
+function svgBarrasH(items, fmt, opc){
+  opc = opc || {};
+  var max = Math.max.apply(null, items.map(function(x){ return x.v; }).concat([0])) || 1;
+  var fila = 24, izq = opc.izq || 150, ancho = 680, der = 150, h = items.length*fila + 6;
+  var s = '<svg viewBox="0 0 '+ancho+' '+h+'" width="100%" role="img" aria-label="'+esc(opc.titulo||'')+'" style="display:block;margin:4px 0 6px">';
+  items.forEach(function(x, i){
+    var y = i*fila + 3, w = Math.max(2, (ancho-izq-der) * x.v / max);
+    s += '<text x="'+(izq-8)+'" y="'+(y+15)+'" text-anchor="end" font-size="12" fill="#16211C">'+esc(x.k)+'</text>'+
+         '<rect x="'+izq+'" y="'+(y+3)+'" width="'+w.toFixed(1)+'" height="16" rx="2" fill="'+(x.color||'#1F5D3C')+'"></rect>'+
+         '<text x="'+(izq+w+6).toFixed(1)+'" y="'+(y+15)+'" font-size="11.5" fill="#4A5B53">'+esc(fmt(x))+'</text>';
+  });
+  return s + '</svg>';
+}
+function svgBarrasDia(dias){
+  var max = Math.max.apply(null, dias.map(function(d){ return d.v; }).concat([0])) || 1;
+  var ancho = 680, alto = 158, izq = 34, base = 128, n = dias.length, paso = (ancho-izq-6)/Math.max(1,n), bw = Math.max(3, Math.min(22, paso*0.7));
+  var s = '<svg viewBox="0 0 '+ancho+' '+alto+'" width="100%" role="img" aria-label="Galones por día" style="display:block;margin:4px 0 6px">';
+  [0, 0.5, 1].forEach(function(t){ var y = base - t*(base-14);
+    s += '<line x1="'+izq+'" x2="'+ancho+'" y1="'+y+'" y2="'+y+'" stroke="#E3E8E5"></line><text x="'+(izq-5)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="#7E8C86">'+galTxt(Math.round(max*t))+'</text>'; });
+  var cada = Math.ceil(n/12);
+  dias.forEach(function(d, i){
+    var x = izq + i*paso + (paso-bw)/2, hh = (base-14) * d.v / max;
+    if(d.v>0){ s += '<rect x="'+x.toFixed(1)+'" y="'+(base-hh).toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hh.toFixed(1)+'" rx="1.5" fill="#1F5D3C"><title>'+fechaCorta(d.f)+': '+galTxt(d.v)+' gal</title></rect>';
+      if(n<=31) s += '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(base-hh-4).toFixed(1)+'" text-anchor="middle" font-size="10" fill="#16211C">'+galTxt(Math.round(d.v))+'</text>'; }
+    if(i%cada===0) s += '<text x="'+(x+bw/2).toFixed(1)+'" y="'+(base+15)+'" text-anchor="middle" font-size="10" fill="#7E8C86">'+(+d.f.slice(8))+'/'+(+d.f.slice(5,7))+'</text>';
+  });
+  return s + '</svg>';
+}
+function leerHojaInf(h){ return fetch(GS_URL+'?hoja='+h+'&t='+Date.now()).then(function(r){ return r.json(); })
+  .then(function(d){ return d && d.ok && Array.isArray(d.datos) ? d.datos : null; }).catch(function(){ return null; }); }
+function datosLabores(){
+  return Promise.all([leerHojaInf('CierreJornada'), leerHojaInf('ProgMaquinaria'),
+    window.Lotes && !Lotes.lista() ? Lotes.traer().catch(function(){}) : Promise.resolve()]).then(function(r){
+    var prog = {};
+    (r[1]||[]).forEach(function(row){
+      var acc=String(row[2]||'').trim().toUpperCase(), f=isoDe(row[4]), cod=String(row[5]||'').trim();
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(f) || !cod) return;
+      if(acc==='QUITAR'){ if(prog[f]) delete prog[f][cod]; return; }
+      if(acc==='ASIGNAR') (prog[f]=prog[f]||{})[cod] = { labor:String(row[6]||'').trim(), lotes:String(row[7]||'').trim() };
+    });
+    return { cierres: r[0] && window.Operacion ? Operacion.cierres(r[0]) : null, prog: prog };
+  });
+}
+function informeRegistrosHTML(lista, desde, hasta, eqFiltro, L){
+  var act = lista.filter(function(r){ return !r.anulado; });
+  var tg=0, tc=0; act.forEach(function(r){ tg+=r.galones; tc+=r.costo; });
+  var hasta2 = hasta > hoyISO() ? hoyISO() : hasta;
+  var ndias = Math.max(1, Math.round((new Date(hasta2+'T12:00:00') - new Date(desde+'T12:00:00'))/86400000) + 1);
+  var h='';
+  h+='<div class="encabezado-doc"><div><h1>Informe de tanqueos'+(eqFiltro ? ' · '+esc(eqFiltro) : '')+'</h1>'+
+     '<div class="sub">'+fechaCorta(desde)+' al '+fechaCorta(hasta2)+' · generado el '+fechaCorta(hoyISO())+'</div></div>'+
+     '<div class="marca-doc"><strong>Palma Grande S.A.S.</strong>Almacén de combustible</div></div>';
+  h+='<div class="kpis-doc">'+
+     '<div><div class="v">'+galTxt(tg)+'</div><div class="k">galones</div></div>'+
+     '<div><div class="v">'+act.length+'</div><div class="k">tanqueos</div></div>'+
+     '<div><div class="v">'+pesos(tc)+'</div><div class="k">costo</div></div>'+
+     '<div><div class="v">'+galTxt(n2(tg/ndias))+'</div><div class="k">gal por día</div></div></div>';
+  if(!act.length) return h+'<div class="vacio-doc">No hay tanqueos en este período.</div>';
+  var T = window.Combustible && Combustible.marcarDudosos ? Combustible.marcarDudosos(tqComb()) : tqComb();
+
+  // 1. por día
+  var pd={}; act.forEach(function(r){ pd[r.fecha]=(pd[r.fecha]||0)+r.galones; });
+  var dias=[]; for(var f=desde; f<=hasta2; f=hoyISO(new Date(new Date(f+'T12:00:00').getTime()+86400000))) dias.push({ f:f, v:n2(pd[f]||0) });
+  h+='<h2>Galones por día</h2>'+svgBarrasDia(dias);
+
+  // 2. por equipo
+  var pe={}; act.forEach(function(r){ var x=pe[r.equipo]=pe[r.equipo]||{ cod:r.equipo, nom:r.equipoNom, gal:0, costo:0, n:0 }; x.gal+=r.galones; x.costo+=r.costo; x.n++; });
+  var eqs=Object.keys(pe).map(function(k){ var x=pe[k], e=eqPorCod(k); x.grupo=e?e.grupo:'otro'; return x; }).sort(function(a,b){ return b.gal-a.gal; });
+  var grupos={}; eqs.forEach(function(x){ grupos[x.grupo]=(grupos[x.grupo]||0)+x.gal; });
+  h+='<h2>En qué equipos se gastó</h2>'+
+     '<div class="sub" style="margin-bottom:4px">'+Object.keys(grupos).map(function(g){ return '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+GRUPO_COLOR[g]+';margin-right:4px"></span>'+GRUPO_TXT[g]+' '+galTxt(grupos[g])+' gal ('+Math.round(grupos[g]/tg*100)+' %)'; }).join(' &nbsp; ')+'</div>'+
+     svgBarrasH(eqs.map(function(x){ return { k:x.cod+' · '+x.nom, v:n2(x.gal), color:GRUPO_COLOR[x.grupo], x:x }; }),
+       function(i){ return galTxt(i.v)+' gal · '+pesos(i.x.costo); }, { izq:190, titulo:'Galones por equipo' });
+
+  // 3. consumo por máquina
+  if(window.Combustible && Combustible.consumo){
+    var d0=new Date(desde+'T00:00:00').getTime(), d1=new Date(hasta2+'T23:59:59').getTime();
+    var cons = eqs.filter(function(x){ return x.grupo!=='otro'; }).map(function(x){
+      var c=Combustible.consumo(T, x.cod, d0, d1), nm=Combustible.normal(T, x.cod, d1+1, 10);
+      return { x:x, c:c, nm:nm, km:c.km };
+    }).filter(function(y){ return y.c.tasa!=null; });
+    if(cons.length){
+      h+='<h2>Consumo por máquina</h2><table><tr><th>Equipo</th><th>Horas / km</th><th>Consumo</th><th>Lo normal</th><th>Diferencia</th></tr>';
+      cons.forEach(function(y){
+        var u=y.km?' km/gal':' gal/h', dif = y.nm.tasa ? (y.c.tasa-y.nm.tasa)/y.nm.tasa*100 : null;
+        var malo = dif!=null && (y.km ? dif < -20 : dif > 20);
+        h+='<tr><td>'+esc(y.x.cod)+'</td><td>'+galTxt(n2(y.c.avance))+(y.km?' km':' h')+'</td><td><b>'+galTxt(n2(y.c.tasa))+u+'</b></td>'+
+           '<td>'+(y.nm.tasa!=null ? galTxt(n2(y.nm.tasa))+u : '<span style="color:#7E8C86">faltan tanqueos</span>')+'</td>'+
+           '<td style="color:'+(malo?'#B42318':'#4A5B53')+'">'+(dif==null ? '—' : (dif>0?'+':'')+Math.round(dif)+' %')+'</td></tr>';
+      });
+      h+='</table><div class="vacio-doc" style="padding:2px 0">Entre dos tanqueos seguidos de la misma máquina. "Lo normal" son sus últimos 10 tanqueos; hace falta tener al menos 3.</div>';
+    }
+  }
+
+  // 4. labores y lotes
+  h+='<h2>En qué labores y lotes</h2>';
+  if(!L || !L.cierres || !window.Operacion){
+    h+='<div class="vacio-doc">No se pudieron leer los cierres de jornada (sin conexión). Vuelva a generar el informe con internet.</div>';
+  } else {
+    var maqs = eqs.filter(function(x){ return x.grupo==='maquina'; }).map(function(x){ return x.cod; });
+    var comb = {}, todo = Operacion.combustible(T, desde, hasta2);
+    Object.keys(todo).forEach(function(c){ var e=eqPorCod(c); if(e && (e.grupo==='maquina' || e.grupo==='camion') && (!eqFiltro || c===eqFiltro)) comb[c]=todo[c]; });
+    var O = Operacion.calcular({ desde:desde, hasta:hasta2, hoy:hoyISO(), maquinas:maqs,
+      prog:L.prog, cierres:L.cierres.filter(function(c){ return !eqFiltro || c.cod===eqFiltro; }),
+      trabajo:function(){ return false; }, parado:function(){ return false; }, combustible:comb });
+    var labs = O.listaLabor.filter(function(x){ return x.gal>0 || x.horas>0; }).sort(function(a,b){ return b.gal-a.gal; });
+    if(!labs.length) h+='<div class="vacio-doc">No hay combustible de máquinas ni cierres con labor en este período.</div>';
+    else {
+      var sin = labs.filter(function(x){ return x.id==='sin'; })[0];
+      h+=svgBarrasH(labs.map(function(x){ return { k:x.txt, v:n1(x.gal), color: x.id==='sin' ? '#B9C4BE' : x.id==='transporte' ? '#5B7A8C' : '#1F5D3C', x:x }; }),
+        function(i){ return galTxt(i.v)+' gal'+(i.x.horas ? ' · '+galTxt(n1(i.x.horas))+' h' : '')+' · '+pesos(i.x.costo); }, { izq:210, titulo:'Galones por labor' });
+      h+='<div class="vacio-doc" style="padding:2px 0">El combustible de cada máquina se reparte entre sus labores según las horas del cierre de jornada; si ese día no hubo cierre, según la programación. Los camiones van a Transporte.'+
+         (sin && O.gal ? ' <b>'+Math.round(sin.gal/O.gal*100)+' % no tiene labor</b> (máquinas sin cierre ni programación).' : '')+'</div>';
+      var lotes = O.listaLotes.filter(function(y){ return y.gal>0; }).sort(function(a,b){ return b.gal-a.gal; }).slice(0,12);
+      if(lotes.length){
+        h+='<table style="margin-top:8px"><tr><th>Lote</th><th>Finca</th><th>Ha</th><th>Horas</th><th>Galones</th><th>Gal/ha</th><th>Costo</th></tr>';
+        lotes.forEach(function(y){
+          h+='<tr><td><b>'+esc(y.lote)+'</b></td><td>'+esc(y.finca)+'</td><td>'+(y.ha||'—')+'</td><td>'+(y.horas>0.05 ? galTxt(n1(y.horas)) : '—')+'</td><td>'+galTxt(n1(y.gal))+'</td><td>'+(y.galHa!=null?galTxt(n2(y.galHa)):'—')+'</td><td>'+pesos(y.costo)+'</td></tr>';
+        });
+        h+='</table><div class="vacio-doc" style="padding:2px 0">Lotes con más combustible'+(O.listaLotes.length>12?' (12 de '+O.listaLotes.length+')':'')+'. Si una máquina trabajó varios lotes, se reparte por hectáreas.</div>';
+      }
+    }
+  }
+
+  // 5. anexo
+  h+='<h2>Anexo · Tanqueos ('+lista.length+')</h2><table><tr><th>Fecha</th><th>Equipo</th><th>Gal</th><th>Despacha</th><th>Recibe</th>'+
+     '<th>Lectura</th><th>Costo</th><th>Firma</th><th>Observación</th></tr>';
+  lista.slice().sort(function(a,b){ return a.ts-b.ts; }).forEach(function(r){ h+=filaTanqueoDoc(r); });
+  h+='</table>';
+  h+='<div class="pie">Generado por la app de tanqueo con lo registrado en la hoja (todos los celulares). Los totales excluyen tanqueos anulados. Las labores y lotes usan el mismo cálculo de Agrovisión y Gerencia.</div>';
+  return h;
+}
+$('btnPDFRegistros').addEventListener('click', function(){
+  var b=this, desde=$('fDesde').value, hasta=$('fHasta').value || hoyISO(), eqF=$('fEquipo').value;
+  var lista=filtrados();
+  if(!desde){ desde = lista.length ? lista.map(function(r){ return r.fecha; }).sort()[0] : hoyISO(); }
+  b.disabled=true; b.textContent='Preparando el informe…';
+  datosLabores().then(function(L){ return L; }, function(){ return null; }).then(function(L){
+    abrirInforme(informeRegistrosHTML(lista, desde, hasta, eqF, L));
+  }).then(function(){ b.disabled=false; b.textContent='Informe en PDF con gráficas'; },
+          function(e){ b.disabled=false; b.textContent='Informe en PDF con gráficas'; alert('No se pudo armar el informe: '+(e&&e.message)); });
+});
 
 /* Informe del mes para firmar: las mismas 4 preguntas de Agrovisión (¿cuadra?,
    ¿en qué se gastó?, ¿se gastó bien?, ¿hubo pérdidas?) y el detalle de los
