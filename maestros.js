@@ -1135,6 +1135,21 @@ window.laborTxt = function(id){ var l = window.LABORES_MAQ.filter(function(x){ r
       });
       return Object.keys(u).map(function(k){ return u[k]; });
     },
+    /* Labores de campo hechas con máquina, tomadas del cierre de jornada (el
+       operario confirma labor y lotes). Mantenimiento de Agrovisión las lee de
+       aquí para que no se registren dos veces:
+       { rotospeed:{ 'LOTE':{ 'aaaa-mm-dd':[{ cod, op, horas }] } }, rolo:{…} } */
+    laboresCampo: function(filas){
+      var out = { rotospeed:{}, rolo:{} };
+      window.Operacion.cierres(filas).forEach(function(c){
+        if (!out[c.laborId]) return;
+        window.Lotes.partir(c.lotes).forEach(function(l){
+          var x = out[c.laborId][l] = out[c.laborId][l] || {};
+          (x[c.fecha] = x[c.fecha] || []).push({ cod:c.cod, op:c.op, horas:c.horas });
+        });
+      });
+      return out;
+    },
     /* combustible realmente despachado a cada equipo en un período: { cod:{ gal, costo } }
        (sin anulados ni galones mal digitados; sin precio, el promedio del período) */
     combustible: function(tanqueos, desde, hasta){
