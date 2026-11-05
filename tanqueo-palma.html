@@ -140,7 +140,9 @@ textarea{min-height:70px;resize:vertical}
 .resumen{display:flex;gap:10px;margin-bottom:12px}
 .resumen > div{flex:1;background:var(--card);border:1px solid var(--line);border-top:3px solid var(--green);border-radius:var(--r);padding:10px 12px}
 .resumen > div{min-width:0}
-.resumen .v{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:18px;font-weight:700;overflow-wrap:anywhere}
+.resumen .v{font-family:'JetBrains Mono',ui-monospace,monospace;font-size:clamp(14px,4.4vw,18px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.resumen > div:last-child{flex:1.5}
+.aviso .usar{display:block;margin-top:8px;width:100%;padding:10px;border-radius:10px;border:0;background:var(--green);color:#fff;font-weight:700;font-size:15px}
 .resumen .k{font-size:11px;color:var(--steel);margin-top:2px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 
 .mov{display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
@@ -304,6 +306,7 @@ nav button .badge.on{display:block}
         <label id="lblLectura" for="lectura">Horómetro</label>
         <input type="number" id="lectura" inputmode="decimal" step="0.1" min="0" placeholder="0">
         <div class="ayuda" id="ayudaLectura"></div>
+        <label class="ayuda" id="lblDanado" style="display:none;margin-top:8px;align-items:center;gap:8px;font-size:14px;color:var(--ink)"><input type="checkbox" id="horDanado" style="width:20px;height:20px;margin:0"> El horómetro no sirve (le avisa al Taller)</label>
       </div>
 
       <div class="campo">
@@ -385,7 +388,6 @@ nav button .badge.on{display:block}
   <div id="listaRegistros"></div>
 
   <button class="secundario" id="btnCSV" style="margin-bottom:10px">Descargar Excel (CSV)</button>
-  <button class="secundario" id="btnPDFRegistros" style="margin-bottom:10px">Descargar informe en PDF</button>
   <button class="secundario" id="btnSync">Enviar pendientes a la hoja</button>
 </section>
 
@@ -721,8 +723,7 @@ function hoyISO(d){ d = d||new Date();
 function mesISO(d){ d = d||new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
 function fechaCorta(iso){ if(!iso) return ''; var p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
-function horaTxt(ts){ var d=new Date(ts),h=d.getHours(),m=String(d.getMinutes()).padStart(2,'0');
-  var ap=h>=12?'pm':'am', h12=h%12===0?12:h%12; return h12+':'+m+' '+ap; }
+function horaTxt(ts){ var d=new Date(ts); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function n2(x){ return Math.round(x*100)/100; }
 function galTxt(x){ return n2(x).toLocaleString('es-CO',{minimumFractionDigits:0,maximumFractionDigits:2}); }
 function pesos(x){ return '$'+Math.round(x).toLocaleString('es-CO'); }
@@ -786,6 +787,20 @@ function promedioDiario(dias){
   return n ? n2(t/n) : 0;
 }
 /* rendimiento de un registro: gal/hora en máquinas, km/gal en camiones */
+/* horas (o km) desde el tanqueo anterior y rendimiento, en orden, por equipo.
+   Así una lectura corregida arregla también el tanqueo siguiente. */
+function recalcularRend(){
+  var prev={}, cambiados=[];
+  registros.filter(function(r){ return !r.anulado && r.lectura>0 && r.lecturaTipo!=='ninguna'; })
+    .sort(function(a,b){ return a.ts-b.ts; }).forEach(function(r){
+      var p=prev[r.equipo]; prev[r.equipo]=r;
+      if(!p) return;                        // sin el anterior no se toca lo que trae
+      var d = r.lectura>p.lectura ? n2(r.lectura-p.lectura) : 0, antes=[r.deltaLectura||0, r.rendimiento||null];
+      r.deltaLectura=d; r.rendimiento=rendimientoDe(r);
+      if(antes[0]!==d || antes[1]!==(r.rendimiento||null)) cambiados.push(r);
+    });
+  return cambiados;
+}
 function rendimientoDe(r){
   if(!r.deltaLectura || r.deltaLectura<=0 || !r.galones) return null;
   return r.lecturaTipo==='kilometraje' ? n2(r.deltaLectura/r.galones) : n2(r.galones/r.deltaLectura);
@@ -1122,7 +1137,7 @@ $('btnCambiarEquipo').addEventListener('click', function(){
   $('bloqueGrilla').style.display='block';
   $('buscarEquipo').value='';
   $('recibe').value=''; $('recibeOtro').value=''; $('campoOtro').style.display='none';
-  $('lectura').value=''; $('galones').value='0';
+  $('lectura').value=''; $('galones').value='0'; $('horDanado').checked=false; $('lblDanado').style.display='none';
   $('justificacion').value=''; $('observacion').value='';
   $('campoJust').style.display='none'; $('banderas').innerHTML='';
   fotoActual=''; $('fotoPrev').style.display='none'; $('btnQuitarFoto').style.display='none';
@@ -1233,8 +1248,13 @@ function chipsGalones(){
 function revisar(){
   var e=eqPorCod(equipoSel);
   var gal=Number($('galones').value)||0, lec=Number($('lectura').value)||0;
-  var avisos=[];
+  var avisos=[], sugerida=null;
+  var danado = e && e.lec==='horometro' && $('horDanado').checked;
+  $('lblDanado').style.display = e && e.lec==='horometro' ? 'flex' : 'none';
   if(e && e.lec==='ninguna'){ /* guadañas, motobombas…: sin lectura */ }
+  else if(danado){
+    $('ayudaLectura').textContent = 'Si no marca, deje la lectura vacía. Este tanqueo no cuenta en el consumo por hora.';
+  }
   else if(e){
     $('lblLectura').textContent = (e.lec==='kilometraje'?'Kilometraje':'Horómetro') + (e.lecOpcional ? ' (si tiene)' : '');
     var ult=ultimoDe(e.cod);
@@ -1247,11 +1267,19 @@ function revisar(){
     }
     // el horómetro que anotaron en el preoperativo o el cierre de jornada
     var hc = e.lec==='horometro' && window.Horometros ? Horometros.ultimo()[e.cod] : null;
-    if(hc && hc.h){
-      $('ayudaLectura').textContent += ' · Preoperativo/cierre: '+galTxt(hc.h)+' el '+fechaCorta(hc.fecha);
-      var dias = Math.max(1, Math.round((Date.now() - new Date(hc.fecha+'T12:00:00').getTime())/86400000));
-      if(lec>0 && (lec < hc.h - 1 || lec > hc.h + 24*dias))
-        avisos.push(['amarillo','El horómetro que anotaron en el preoperativo o el cierre es '+galTxt(hc.h)+' ('+fechaCorta(hc.fecha)+'). Revise que '+galTxt(lec)+' esté bien digitado.']);
+    // la referencia: el preoperativo o cierre, y si no hay, el último tanqueo
+    var ref = hc && hc.h ? { h:hc.h, fecha:hc.fecha, de:'preoperativo o cierre' } : (ult && e.lec==='horometro' ? { h:ult.lectura, fecha:ult.fecha, de:'último tanqueo' } : null);
+    if(hc && hc.h) $('ayudaLectura').textContent += ' · Preoperativo/cierre: '+galTxt(hc.h)+' el '+fechaCorta(hc.fecha);
+    if(ref && lec>0){
+      var dias = Math.max(1, Math.round((Date.now() - new Date(ref.fecha+'T12:00:00').getTime())/86400000));
+      var cabe = function(v){ return v >= ref.h - 1 && v <= ref.h + 24*dias; };
+      if(!cabe(lec)){
+        // el horómetro muestra la décima en una casilla aparte: 2402 es 240,2
+        if(cabe(n2(lec/10))) sugerida = n2(lec/10);
+        avisos.push(['rojo', sugerida!==null
+          ? 'Parece que se leyó la décima como un número más: el '+ref.de+' dice '+galTxt(ref.h)+' ('+fechaCorta(ref.fecha)+'). ¿Es '+galTxt(sugerida)+'?'
+          : 'El '+ref.de+' dice '+galTxt(ref.h)+' ('+fechaCorta(ref.fecha)+'). '+galTxt(lec)+(lec>ref.h ? ' serían '+galTxt(n2(lec-ref.h))+' horas en '+dias+(dias===1?' día':' días') : ' es menor')+': revise el tablero.']);
+      }
     }
     if(ult && lec>0 && lec<ult.lectura)
       avisos.push(['rojo','La lectura es menor que la anterior ('+galTxt(ult.lectura)+'). Verifica el dato antes de registrar.']);
@@ -1279,8 +1307,14 @@ function revisar(){
     avisos.push(['amarillo','Falta la foto del horómetro, que está configurada como obligatoria.']);
 
   var cont=$('banderas'); cont.innerHTML='';
-  avisos.forEach(function(a){
-    var d=document.createElement('div'); d.className='aviso '+a[0]; d.textContent=a[1]; cont.appendChild(d);
+  avisos.forEach(function(a, i){
+    var d=document.createElement('div'); d.className='aviso '+a[0]; d.textContent=a[1];
+    if(i===0 && sugerida!==null){
+      var b=document.createElement('button'); b.type='button'; b.className='usar'; b.textContent='Sí, es '+galTxt(sugerida);
+      b.addEventListener('click', function(){ $('lectura').value=sugerida; revisar(); });
+      d.appendChild(b);
+    }
+    cont.appendChild(d);
   });
   var requiereJust = avisos.some(function(a){ return a[0]==='rojo' || a[0]==='amarillo'; });
   $('campoJust').style.display = requiereJust ? 'block' : 'none';
@@ -1288,6 +1322,7 @@ function revisar(){
 }
 $('galones').addEventListener('input', revisar);
 $('lectura').addEventListener('input', revisar);
+$('horDanado').addEventListener('change', revisar);
 $('menos').addEventListener('click',function(){ $('galones').value=Math.max(0,n2((Number($('galones').value)||0)-1)); revisar(); });
 $('mas').addEventListener('click',function(){ $('galones').value=n2((Number($('galones').value)||0)+1); revisar(); });
 $('recibe').addEventListener('change',function(){ $('campoOtro').style.display = this.value==='__otro'?'block':'none'; });
@@ -1301,7 +1336,8 @@ $('guardar').addEventListener('click', function(){
   if(!cod){ alert('Selecciona el equipo que se está tanqueando.'); return; }
   if(!quien){ alert('Falta el nombre de quien recibe el combustible.'); return; }
   if(gal<=0){ alert('Escribe cuántos galones se entregaron.'); return; }
-  var eSel = eqPorCod(cod), pideLec = eSel && eSel.lec!=='ninguna' && !eSel.lecOpcional;
+  var eSel = eqPorCod(cod), danado = eSel && eSel.lec==='horometro' && $('horDanado').checked,
+      pideLec = eSel && eSel.lec!=='ninguna' && !eSel.lecOpcional && !danado;
   if(pideLec && lec<=0){ alert('Falta la lectura del horómetro o el kilometraje.'); return; }
   if(cfg.foto==='obligatoria' && !fotoActual && pideLec){ alert('Toma la foto del horómetro para poder registrar.'); return; }
   if(!hayFirma){ alert('Falta la firma de quien recibe.'); return; }
@@ -1324,6 +1360,8 @@ $('guardar').addEventListener('click', function(){
     despacha:cfg.despacha||'',
     firma:firmaPNG(), foto:fotoActual, sync:false
   };
+  if(danado){ pendienteReg.horDanado=true; pendienteReg.lectura=lec; pendienteReg.deltaLectura=0;
+    if(!/hor[oó]metro/i.test(pendienteReg.observacion)) pendienteReg.observacion=('Horómetro dañado. '+pendienteReg.observacion).trim(); }
   pendienteReg.rendimiento = rendimientoDe(pendienteReg);
   mostrarConfirmacionTanqueo(pendienteReg, lecIgual);
 });
@@ -1368,9 +1406,22 @@ $('btnConfirmarNo').addEventListener('click', function(){
   if(handlerConfirmarActivo){ $('btnConfirmarSi').removeEventListener('click', handlerConfirmarActivo); handlerConfirmarActivo=null; }
 });
 
+var ENC_TALLER = ['Fecha','Hora','Acción','ID','Equipo','Máquina','Tipo','Sistema','Novedad','Reportó','Fecha Parada','Trabajo','Alta por','Días Parada'];
+function avisarHorometroDanado(reg){
+  var dice = reg.horDanado || /hor[oó]metro[^.]{0,30}(da[ñn]ad|malo|no (sirve|funciona|marca|prende)|no tiene)/i.test(reg.observacion||'');
+  if(!dice || !navigator.onLine) return;
+  var memo={}; try{ memo=JSON.parse(localStorage.getItem('tq-hor-danado')||'{}'); }catch(e){}
+  if(memo[reg.equipo] && Date.now()-memo[reg.equipo] < 15*86400000) return;
+  memo[reg.equipo]=Date.now(); try{ localStorage.setItem('tq-hor-danado', JSON.stringify(memo)); }catch(e){}
+  var id='q'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  fetch(GS_URL, { method:'POST', mode:'no-cors', body:JSON.stringify({ hoja:'Taller', encabezados:ENC_TALLER,
+    fila:[fCO(reg.fecha), hhmm(reg.ts), 'PENDIENTE', id, reg.equipo, reg.equipoNom||'', 'normal', 'Eléctrico',
+      'Horómetro no sirve (avisado en el tanqueo)'+(function(o){ return o ? ': '+o : ''; })(String(reg.observacion||'').replace(/^Horómetro dañado\.\s*/,'')), reg.recibe||'', reg.fecha, '', '', ''] }) }).catch(function(){});
+}
 function guardarTanqueoConfirmado(reg){
   registros.push(reg);
   guardarTodo();
+  avisarHorometroDanado(reg);
   limpiarFormulario();
   pintarEncabezado(); pintarGrilla(); pintarRegistros(); pintarMovimientos();
   enviar(reg);
@@ -1380,7 +1431,7 @@ function guardarTanqueoConfirmado(reg){
 function limpiarFormulario(){
   equipoSel='';
   $('recibe').value=''; $('recibeOtro').value=''; $('campoOtro').style.display='none';
-  $('lectura').value=''; $('galones').value='0';
+  $('lectura').value=''; $('galones').value='0'; $('horDanado').checked=false; $('lblDanado').style.display='none';
   $('justificacion').value=''; $('observacion').value='';
   $('campoJust').style.display='none'; $('banderas').innerHTML='';
   $('ayudaLectura').textContent='';
@@ -1421,10 +1472,10 @@ function abrirEdicionTanqueo(r){
     r.lectura = lec;
     r.observacion = $('editObs').value.trim();
     r.costo = n2(r.galones*(r.precio||0));
-    var ult = ultimoDe2(r.equipo, r.id);
-    r.deltaLectura = ult && lec>ult.lectura ? n2(lec-ult.lectura) : 0;
-    r.rendimiento = rendimientoDe(r);
     r.sync = false; // el cambio debe volver a subirse a la hoja
+    // el tanqueo siguiente de la misma máquina también cambia de horas y rendimiento
+    // (solo se reenvía si se tiene su foto, para no dejar en la hoja una fila sin ella)
+    recalcularRend().forEach(function(x){ if(x!==r && x.sync && (x.foto || !x.tuvoFoto)){ x.sync=false; enviar(x); } });
 
     guardarTodo();
     $('confirmar').classList.remove('abierto');
@@ -1441,15 +1492,6 @@ function abrirEdicionTanqueo(r){
   };
   fijarHandlerConfirmar(alGuardar);
 }
-/* como ultimoDe() no puede excluirse a sí mismo, esta variante ignora el registro que se está editando */
-function ultimoDe2(cod, excluirId){
-  var u=null;
-  for(var i=0;i<registros.length;i++){
-    var r=registros[i];
-    if(r.equipo===cod && r.id!==excluirId && !r.anulado && r.lectura>0 && (!u || r.ts>u.ts)) u=r;
-  } return u;
-}
-
 /* ---------------- Vale ---------------- */
 function mostrarVale(r){
   var u = r.lecturaTipo==='kilometraje'?' km/gal':' gal/h';
@@ -1502,35 +1544,6 @@ function filaTanqueoDoc(r){
     '<td>'+firmaCel+'</td>'+
     '<td>'+obs+'</td></tr>';
 }
-function informeTanqueosHTML(lista, titulo, rango){
-  var tg=0, tc=0, activos=0;
-  lista.forEach(function(r){ if(!r.anulado){ tg+=r.galones; tc+=r.costo; activos++; } });
-  var h='';
-  h+='<div class="encabezado-doc"><div><h1>'+esc(titulo)+'</h1>'+
-     '<div class="sub">'+esc(rango)+' · generado el '+fechaCorta(hoyISO())+'</div></div>'+
-     '<div class="marca-doc"><strong>Palma Grande S.A.S.</strong>Almacén de combustible</div></div>';
-  h+='<div class="kpis-doc">'+
-     '<div><div class="v">'+galTxt(tg)+'</div><div class="k">galones entregados</div></div>'+
-     '<div><div class="v">'+activos+'</div><div class="k">tanqueos</div></div>'+
-     '<div><div class="v">'+pesos(tc)+'</div><div class="k">costo total</div></div></div>';
-  h+='<h2>Detalle de tanqueos</h2>';
-  if(lista.length){
-    h+='<table><tr><th>Fecha</th><th>Equipo</th><th>Gal</th><th>Despacha</th><th>Recibe</th>'+
-       '<th>Lectura</th><th>Costo</th><th>Firma</th><th>Observación</th></tr>';
-    lista.forEach(function(r){ h+=filaTanqueoDoc(r); });
-    h+='</table>';
-  }else{
-    h+='<div class="vacio-doc">No hay tanqueos en este rango.</div>';
-  }
-  h+='<div class="pie">Trazabilidad de combustible — Palma Grande. Cada tanqueo queda con firma de quien recibe' +
-     (cfg.foto!=='off' ? ' y foto de respaldo.' : '.') + ' Los totales excluyen tanqueos anulados.</div>';
-  return h;
-}
-$('btnPDFRegistros').addEventListener('click', function(){
-  var lista=filtrados().slice().sort(function(a,b){ return a.ts-b.ts; });
-  var rango = fechaCorta($('fDesde').value)+' — '+fechaCorta($('fHasta').value);
-  abrirInforme(informeTanqueosHTML(lista, 'Informe de tanqueos', rango));
-});
 
 /* Informe del mes para firmar: las mismas 4 preguntas de Agrovisión (¿cuadra?,
    ¿en qué se gastó?, ¿se gastó bien?, ¿hubo pérdidas?) y el detalle de los
@@ -1858,7 +1871,10 @@ function isoDe(v){
 function horaDe(v){
   var s=String(v==null?'':v);
   if(s.indexOf('1899-')===0){ var d=new Date(s); return isNaN(d)?'':String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
-  var m=s.match(/(\d{1,2}):(\d{2})/); return m ? String(m[1]).padStart(2,'0')+':'+m[2] : '';
+  var m=s.match(/(\d{1,2}):(\d{2})\s*([ap])?\.?\s*m?/i); if(!m) return '';
+  var h=+m[1], ap=(m[3]||'').toLowerCase();
+  if(ap==='p' && h<12) h+=12; if(ap==='a' && h===12) h=0;
+  return String(h).padStart(2,'0')+':'+m[2];
 }
 /* el momento exacto va en el ID (r/m + milisegundos): así se sabe qué fue primero
    aunque el saldo y el tanqueo se hayan registrado en el mismo minuto */
@@ -1907,6 +1923,9 @@ function traerDeHoja(){
             mideNombre: (String(r[8]||'').match(/(?:midió|reportó) ([^·]+)/)||[])[1] ? String(r[8]).match(/(?:midió|reportó) ([^·]+)/)[1].trim() : '', sync:true, deOtroEquipo:true };
       if(!movimientos.some(function(y){ return y.id===id; })){ movimientos.push(x); cambio=true; }
     });
+    // horas y rendimiento salen de las lecturas en orden: si en la hoja se corrigió
+    // una lectura, se corrige también lo que se muestra de ese tanqueo y del siguiente
+    if(recalcularRend().length) cambio=true;
     if(cambio){
       registros.sort(function(a,b){ return a.ts-b.ts; });
       movimientos.sort(function(a,b){ return a.ts-b.ts; });
