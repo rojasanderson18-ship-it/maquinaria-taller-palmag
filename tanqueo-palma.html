@@ -129,6 +129,7 @@ textarea{min-height:70px;resize:vertical}
 .registro .r2{font-size:14px;color:var(--steel);margin-top:4px}
 .registro .r3{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
 /* lista compacta: una línea por tanqueo, se abre al tocarla */
+.chips .chip.on{background:var(--green);color:#fff;border-color:var(--green)}
 .dia-reg{display:flex;justify-content:space-between;font-size:12.5px;font-weight:700;color:var(--steel);text-transform:uppercase;letter-spacing:.05em;margin:14px 2px 6px}
 .registro.compacto{padding:9px 12px;margin-bottom:6px;cursor:pointer}
 .registro.compacto .eq{font-size:15px}
@@ -1795,13 +1796,16 @@ function filtrados(){
   }).sort(function(a,b){ return b.ts-a.ts; });
 }
 function pintarRegistros(){
+  // si la app quedó abierta de un día para otro, "Hoy" sigue siendo hoy
+  var bh=document.querySelector('[data-rango="hoy"]');
+  if(bh && bh.classList.contains('on') && $('fDesde').value!==hoyISO()){ $('fDesde').value=hoyISO(); $('fHasta').value=hoyISO(); }
   var lista=filtrados(), cont=$('listaRegistros'), tg=0, tc=0;
   lista.forEach(function(r){ if(!r.anulado){ tg+=r.galones; tc+=r.costo; } });
   $('rTotal').textContent=galTxt(tg);
   $('rCant').textContent=lista.filter(function(r){ return !r.anulado; }).length;
   $('rCosto').textContent=pesos(tc);
   if(!lista.length){
-    cont.innerHTML='<div class="vacio">No hay tanqueos con estos filtros.</div>'; return;
+    cont.innerHTML='<div class="vacio">'+(bh && bh.classList.contains('on') ? 'Hoy todavía no hay tanqueos. Toque "7 días" o "Este mes", o escoja las fechas, para ver los anteriores.' : 'No hay tanqueos con estos filtros.')+'</div>'; return;
   }
   cont.innerHTML='';
   var porDia={};
@@ -1889,7 +1893,9 @@ function ampliarImagen(src, titulo){
     '<img src="'+src+'" style="max-width:100%;border:1px solid #ddd;border-radius:8px;display:block;margin:0 auto">';
   $('informe').classList.add('abierto');
 }
-['fDesde','fHasta','fEquipo'].forEach(function(id){ $(id).addEventListener('change', pintarRegistros); });
+function marcarRango(r){ document.querySelectorAll('[data-rango]').forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-rango')===r); }); }
+['fDesde','fHasta'].forEach(function(id){ $(id).addEventListener('change', function(){ marcarRango(''); pintarRegistros(); }); });
+$('fEquipo').addEventListener('change', pintarRegistros);
 $('fBusca').addEventListener('input', pintarRegistros);
 document.querySelectorAll('[data-rango]').forEach(function(b){
   b.addEventListener('click', function(){
@@ -1898,7 +1904,7 @@ document.querySelectorAll('[data-rango]').forEach(function(b){
     else if(r==='semana'){ d.setDate(d.getDate()-6); $('fDesde').value=hoyISO(d); }
     else { $('fDesde').value=mesISO()+'-01'; }
     $('fHasta').value=hoyISO();
-    pintarRegistros();
+    marcarRango(r); pintarRegistros();
   });
 });
 
@@ -2766,8 +2772,8 @@ function iniciar(){
   if(hayFirma) limpiarFirma();
   if(recHayFirma) recLimpiarFirma();
   pintarSelectores(); pintarGrilla(); pintarEncabezado(); chipsGalones();
-  var d=new Date(); d.setDate(d.getDate()-30);
-  $('fDesde').value=hoyISO(d); $('fHasta').value=hoyISO();
+  // de entrada, lo de hoy; con los filtros se ve lo demás
+  $('fDesde').value=hoyISO(); $('fHasta').value=hoyISO(); marcarRango('hoy');
   $('recFecha').value=hoyISO(); $('recPrecio').value=cfg.precio||'';
   $('avisoAlmacen').textContent = hayLS
     ? 'Los datos quedan guardados en este celular aunque cierres la app. Aun así, descarga el respaldo cada semana.'
