@@ -623,9 +623,14 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
     return { gal:gal, avance:av, pares:pares.length, km:km,
       tasa: av > 0 && gal > 0 ? (km ? av / gal : gal / av) : null };   // gal/h, o km/gal en camiones y vehículos
   }
+  /* gasolina (canecas) y ACPM (tanque) llevan cuentas aparte; columna
+     "Combustible" de la hoja; lo viejo sin marca: gasolina si es de estos equipos */
+  var GAS_COD = { 'GUADAÑAS':1, 'MOTOBOMBAS':1, 'ESTACIONARIA':1, 'STIHL':1 };
+  function combDe(txt, cod){ return /gasolina/i.test(String(txt || '')) ? 'gasolina' : /acpm/i.test(String(txt || '')) ? 'acpm' : GAS_COD[cod] ? 'gasolina' : 'acpm'; }
   window.Combustible = {
-    /* hoja Combustible → tanqueos (vale la última fila de cada ID; sin anulados) */
-    tanqueos: function(filas){
+    /* hoja Combustible → tanqueos de ACPM (vale la última fila de cada ID; sin anulados);
+       con soloComb = 'gasolina', los de gasolina */
+    tanqueos: function(filas, soloComb){
       var u = {};
       (filas || []).forEach(function(r){ var id = String(r[3] || '').trim(); if (id) u[id] = r; });
       var l = Object.keys(u).map(function(id){
@@ -634,8 +639,9 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
           cod:String(r[4] || '').trim(), nom:String(r[5] || ''), gal:num(r[6]) || 0, lec:num(r[7]),
           tipo: tl === 'Km' ? 'km' : tl === 'Ninguna' ? 'ninguna' : 'horometro',
           recibe:String(r[11] || '').trim(), despacha:String(r[12] || '').trim(), precio:num(r[13]) || 0, costo:num(r[14]) || 0,
-          saldo:num(r[15]), folio:String(r[16] || ''), just:String(r[17] || '').trim(), obs:String(r[18] || '').trim() };
-      }).filter(function(t){ return /^\d{4}-\d{2}-\d{2}$/.test(t.fecha) && t.gal > 0; });
+          saldo:num(r[15]), folio:String(r[16] || ''), just:String(r[17] || '').trim(), obs:String(r[18] || '').trim(),
+          comb: combDe(r[21], String(r[4] || '').trim()) };
+      }).filter(function(t){ return /^\d{4}-\d{2}-\d{2}$/.test(t.fecha) && t.gal > 0 && t.comb === (soloComb || 'acpm'); });
       this.marcarDudosos(l);
       return l.sort(function(a, b){ return a.ts - b.ts; });
     },
@@ -650,8 +656,9 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
       });
       return l;
     },
-    /* hoja CombustibleTanque → llegadas y mediciones (cuadres y cierres) */
-    movimientos: function(filas){
+    /* hoja CombustibleTanque → llegadas y mediciones (cuadres y cierres) del ACPM;
+       con soloComb = 'gasolina', las de gasolina */
+    movimientos: function(filas, soloComb){
       var u = {};
       (filas || []).forEach(function(r){ var id = String(r[3] || '').trim(); if (id) u[id] = r; });
       return Object.keys(u).map(function(id){
@@ -662,8 +669,8 @@ window.SISTEMA = window.SISTEMA || { INICIO: '2026-10-27' };   // las pruebas pu
         return { id:id, fecha:f, ts:tsDeId(id, f, hm(r[1])), tipo:tipo, gal:num(r[4]) || 0, teorico: lleg ? null : num(r[5]), dif: lleg ? 0 : num(r[6]) || 0,
           esperado: lleg ? num(r[5]) : null, difProv: lleg ? num(r[6]) || 0 : 0, obs: lleg ? String(r[11] || '').trim() : '',
           precio:num(r[7]) || 0, nota:nota, cierre:cierre, vacio: nota.indexOf('Tanque vacío') === 0,
-          motivo: cierre ? nota.split(' · ').slice(2).join(' · ') : '' };
-      }).filter(function(m){ return /^\d{4}-\d{2}-\d{2}$/.test(m.fecha) && (m.tipo === 'LLEGADA' || m.tipo === 'AJUSTE'); })
+          motivo: cierre ? nota.split(' · ').slice(2).join(' · ') : '', comb: combDe(r[14]) };
+      }).filter(function(m){ return /^\d{4}-\d{2}-\d{2}$/.test(m.fecha) && (m.tipo === 'LLEGADA' || m.tipo === 'AJUSTE') && m.comb === (soloComb || 'acpm'); })
         .sort(function(a, b){ return a.ts - b.ts; });
     },
     /* consumo de una máquina con los tanqueos de un período (desde/hasta en ms):
