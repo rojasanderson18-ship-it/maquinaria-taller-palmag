@@ -206,10 +206,12 @@ nav button .badge.on{display:block}
 .pin-caja input{text-align:center;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:26px;letter-spacing:.4em;font-weight:700}
 .pin-caja .secundario{background:transparent;color:#C9D8D0;border-color:#34443C}
 
+@page{margin:0}
 @media print{
   body{background:#fff !important}
   body > *{display:none !important}
-  .capa.abierto{display:block !important;position:static;background:#fff;padding:0}
+  .capa.abierto{display:block !important;position:static;background:#fff;padding:12mm 14mm}
+  #btnImprimir,#btnImprimirInforme,#btnImprimirLlegada,.no-imprimir{display:none !important}
   .vale-hoja{max-width:none;border-radius:0;padding:0;border-top:0}
   .capa-cerrar{display:none !important}
 }
@@ -1506,6 +1508,10 @@ function abrirEdicionTanqueo(r){
   fijarHandlerConfirmar(alGuardar);
 }
 /* ---------------- Vale ---------------- */
+/* las fotos del horómetro viven en la hoja; se guardan en memoria al leerla
+   (el celular las borra después de enviarlas, para no llenarse) */
+var FOTOS={};
+function fotoDe(r){ return r.foto || FOTOS[r.id] || ''; }
 function mostrarVale(r){
   var u = r.lecturaTipo==='kilometraje'?' km/gal':' gal/h';
   var h='';
@@ -1525,9 +1531,18 @@ function mostrarVale(r){
   h+='<div class="vale-firma">';
   if(r.firma) h+='<img src="'+r.firma+'" alt="Firma">';
   h+='<div class="ln"></div><strong>'+esc(r.recibe)+'</strong><br><small>Recibí conforme</small></div>';
-  if(r.foto) h+='<div class="vale-foto"><img src="'+r.foto+'" alt="Foto del horómetro"><br><small style="color:#555">Lectura registrada</small></div>';
+  var ft=fotoDe(r);
+  if(ft) h+='<div class="vale-foto"><img src="'+ft+'" alt="Foto del horómetro"><br><small style="color:#555">Foto del '+(r.lecturaTipo==='kilometraje'?'kilometraje':'horómetro')+' · '+galTxt(r.lectura)+'</small></div>';
+  else if(r.tuvoFoto) h+='<div class="vale-foto no-imprimir" id="valeFotoCarga"><small style="color:#555">'+(navigator.onLine?'Trayendo la foto del horómetro…':'La foto está en la hoja; se ve con internet.')+'</small></div>';
   h+='<button class="principal" style="margin-top:18px" id="btnImprimir">Imprimir o guardar en PDF</button>';
   $('valeHoja').innerHTML=h;
+  if(!ft && r.tuvoFoto && navigator.onLine && !mostrarVale.trayendo){
+    mostrarVale.trayendo=true;
+    traerDeHoja().then(function(){ mostrarVale.trayendo=false;
+      if($('vale').classList.contains('abierto') && $('valeFotoCarga')){
+        if(FOTOS[r.id]) mostrarVale(r); else $('valeFotoCarga').innerHTML='<small style="color:#555">No se pudo traer la foto. Cierre el vale y ábralo otra vez.</small>'; }
+    }, function(){ mostrarVale.trayendo=false; });
+  }
   var bi=$('btnImprimir'); if(bi) bi.addEventListener('click',function(){ window.print(); });
   $('vale').classList.add('abierto');
 }
@@ -2087,6 +2102,7 @@ function traerDeHoja(){
         precio:numDe(r[13])||0, costo:numDe(r[14])||0, saldoDespues:numDe(r[15]), folio:String(r[16]||''),
         justificacion:String(r[17]||''), observacion:String(r[18]||''), anulado:anul,
         firma: f>=hace30 ? String(r[19]||'') : '', foto:'', tuvoFoto:!!r[20], sync:true, deOtroEquipo:true };
+      if(r[20] && f>=hace30) FOTOS[id]=String(r[20]);
       var i=registros.findIndex(function(y){ return y.id===id; });
       if(i<0){ registros.push(x); cambio=true; }
       else if(confirmado(registros[i]) && (registros[i].anulado!==x.anulado || registros[i].galones!==x.galones || registros[i].lectura!==x.lectura)){
