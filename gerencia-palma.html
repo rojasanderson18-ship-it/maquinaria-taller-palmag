@@ -310,7 +310,7 @@ var EVENTOS = null, D = null;
 var INICIO_DATOS = null;          // primer día registrado en la hoja Taller
 var PROG = null, INICIO_PROG = null;
 var FALTAN = [];
-var CIERRES = [], TANQ = [], MOVS = [];   // MOVS: llegadas, saldo inicial y cierres del tanque        // cierres de jornada con labor y lotes; tanqueos (para el consumo por hora)
+var CIERRES = [], TANQ = [], MOVS = [], GAS_T = [], GAS_M = [];   // GAS_*: gasolina (canecas), aparte del tanque de ACPM   // MOVS: llegadas, saldo inicial y cierres del tanque        // cierres de jornada con labor y lotes; tanqueos (para el consumo por hora)
 var FILAS_TALLER = [];
 var HIST = [];                    // los últimos 6 meses hasta el elegido
 var MESES_HIST = 6, VENTANA_REPETIDAS = 90;
@@ -496,6 +496,8 @@ function calcular(eventos, anio, mes){
   R.costo = sinDatos ? null : costoTaller(eventos, desde, corte);
   R.op = sinDatos || !window.Operacion ? null : operacionMes(eventos, maquinaria, desde, corte);
   R.comb = sinDatos || !window.Combustible || !Combustible.balance || (!TANQ.length && !MOVS.length) ? null : combustibleMes(desde, corte);
+  R.gas = sinDatos || !window.Combustible || !Combustible.gasolina ? null :
+    Combustible.gasolina(GAS_M, GAS_T, new Date(desde + 'T00:00:00').getTime(), Math.min(Date.now(), new Date(corte + 'T23:59:59').getTime()));
   return R;
 }
 
@@ -808,7 +810,8 @@ function pintar(){
       '<div class="t">Cumplimiento de la programación</div><div class="x">' + (OP && OP.conDato ? OP.cumplidas + ' de ' + OP.prog + ' máquinas-día hicieron lo programado' : 'se mide con los cierres que traen la labor') + '</div>' +
       (OPp && OPp.conDato && OPp.pct != null && OP && OP.pct != null ? delta(OP.pct, OPp.pct, ' pts', false, true) : '') + '</div>' +
     '<div class="kpi ' + (CB ? (CB.perdidas ? 'al' : 'ok') : '') + '"><div class="n">' + (CB && CB.costo ? millones(CB.costo) : CB ? galF(CB.gal) : '\u2014') + '</div>' +
-      '<div class="t">Combustible</div><div class="x">' + (CB ? galF(CB.gal) + ' despachados' + (CB.perdidas ? ' · pérdidas ' + millones(CB.perdidas) : '') : 'sin datos de la app de Tanqueo') + '</div>' +
+      '<div class="t">Combustible (ACPM)</div><div class="x">' + (CB ? galF(CB.gal) + ' despachados' + (CB.perdidas ? ' · pérdidas ' + millones(CB.perdidas) : '') : 'sin datos de la app de Tanqueo') +
+        (D.gas && D.gas.gal ? '<br>Gasolina: ' + galF(D.gas.gal) + ' · ' + millones(D.gas.costo) + (D.gas.faltante ? ' · faltaron ' + galF(D.gas.faltante) : '') : '') + '</div>' +
       (CBp && CBp.costo && CB ? delta(CB.costo / 1e6, CBp.costo / 1e6, ' M', true, true) : '') + '</div>' +
     '<div class="kpi"><div class="n">' + (CT && CT.total ? millones(CT.total) : '$0') + '</div>' +
       '<div class="t">Costo del taller</div><div class="x">' + (CT && CT.total ? 'reparaciones ' + millones(CT.rep) + ' · preventivo ' + millones(CT.prev) : 'Compras no ha registrado costos ' + enPer) + '</div>' +
@@ -868,7 +871,7 @@ function pintar(){
       (CT.sinCosto ? '<p class="mod">' + CT.sinCosto + (CT.sinCosto === 1 ? ' mantenimiento todavía no tiene' : ' mantenimientos todavía no tienen') + ' costo de Compras.</p>' : '');
 
   // combustible del mes: las mismas 4 preguntas de Agrovisión, en resumen
-  var NOMD = { maquina:'Máquinas', camion:'Camiones', vehiculo:'Vehículos', otro:'Otros (guadañas, motobombas, estacionaria)' };
+  var NOMD = { maquina:'Máquinas', camion:'Camiones', vehiculo:'Vehículos', otro:'Otros' };
   var secComb = !CB ? '<div class="vacio">Sin datos de la app de Tanqueo ' + enPer + '.</div>' :
     '<div class="tabla"><table><tbody>' +
       '<tr><td>Saldo al inicio</td><td class="num mono">' + galF(CB.bal.inicial) + '</td></tr>' +
@@ -885,6 +888,20 @@ function pintar(){
       CB.faltaProv ? 'el proveedor entregó ' + galF(CB.faltaProv) + ' menos (regleta)' : '',
       CB.dudosos ? CB.dudosos + ' tanqueo(s) mal digitado(s) por corregir' : ''].filter(Boolean).join(' · ') +
       '. El detalle (consumo por máquina, tanqueos que no cuadran, llegadas y cierres) está en Agrovisión → Combustible.</p>';
+  var G = D.gas;
+  var secGas = !G ? '' : '<h3 style="margin:16px 0 6px">Gasolina en canecas</h3><div class="dos"><div class="tabla"><table><tbody>' +
+      '<tr><td>Había al inicio</td><td class="num mono">' + galF(G.bal.inicial) + '</td></tr>' +
+      '<tr><td>+ Llegó de la estación (' + G.llegadas.length + ')</td><td class="num mono">' + galF(G.bal.galLlegadas) + '</td></tr>' +
+      '<tr><td>− Entregado</td><td class="num mono">' + galF(G.gal) + '</td></tr>' +
+      (G.bal.ajusteNeto ? '<tr><td>' + (G.bal.ajusteNeto > 0 ? '+' : '−') + ' Conteos de canecas</td><td class="num mono">' + galF(Math.abs(G.bal.ajusteNeto)) + '</td></tr>' : '') +
+      '<tr><td><b>= Debe haber al final</b></td><td class="num mono"><b>' + galF(G.bal.final) + '</b></td></tr></tbody></table></div>' +
+    '<div class="tabla"><table><thead><tr><th>Equipo</th><th class="num">Galones</th><th class="num">Costo</th></tr></thead><tbody>' +
+      (G.porEq.length ? G.porEq.map(function(x){ return '<tr><td>' + esc(x.cod) + '</td><td class="num mono">' + galF(x.gal) + '</td><td class="num mono">' + pesos(x.costo) + '</td></tr>'; }).join('') +
+        '<tr><td><b>Total</b></td><td class="num mono"><b>' + galF(G.gal) + '</b></td><td class="num mono"><b>' + pesos(G.costo) + '</b></td></tr>' : '<tr><td colspan="3">Sin entregas ' + enPer + '.</td></tr>') +
+      '</tbody></table></div></div>' +
+    '<p class="mod"><b>Conteos:</b> ' + (G.conteos.length ? G.conteos.map(function(c){ return c.dif ? (c.dif < 0 ? 'faltaron ' : 'sobraron ') + galF(Math.abs(c.dif)) + ' el ' + c.fecha.slice(8) + '/' + c.fecha.slice(5, 7) : 'cuadró el ' + c.fecha.slice(8) + '/' + c.fecha.slice(5, 7); }).join(' · ') +
+      (G.faltante ? ' (' + pesos(G.faltanteValor) + ')' : '') : 'no se contaron las canecas ' + enPer) + '.</p>';
+  secComb += secGas;
 
   // labores y lotes del mes
   var vacioOp = 'Se llena con los cierres de jornada que traen la labor y los lotes (Preoperativo actualizado).';
@@ -1076,6 +1093,7 @@ async function cargar(forzar){
       Lotes.traer().catch(function(){}), leerHoja('CombustibleTanque').catch(function(){ return null; })]).then(function(r){
         if (!r[0]) FALTAN.push('los cierres de jornada');
         CIERRES = Operacion.cierres(r[0] || []); TANQ = r[1] ? Combustible.tanqueos(r[1]) : []; MOVS = r[3] ? Combustible.movimientos(r[3]) : [];
+        GAS_T = r[1] ? Combustible.tanqueos(r[1], 'gasolina') : []; GAS_M = r[3] ? Combustible.movimientos(r[3], 'gasolina') : [];
       });
     await progListo; await horListo; await costoListo; await opListo;
     $('#act').textContent = 'Actualizado ' + new Date().toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' });
@@ -1190,6 +1208,14 @@ function informe(){
       '<td>' + galF(CB.bal.inicial) + '</td><td class="n">' + galF(CB.bal.galLlegadas) + '</td><td class="n">' + galF(CB.bal.galDespachos) + '</td>' +
       (CB.bal.ajusteNeto ? '<td class="n">' + (CB.bal.ajusteNeto > 0 ? '+' : '−') + galF(Math.abs(CB.bal.ajusteNeto)) + '</td>' : '') +
       '<td class="n"><b>' + galF(CB.bal.final) + '</b></td><td class="n">' + pesos(CB.costo) + '</td><td class="n">' + (CB.perdidas ? '<b>' + pesos(CB.perdidas) + '</b>' : 'Ninguna') + '</td></tr></tbody></table>';
+  }
+  if (D.gas){
+    var G2 = D.gas;
+    h += '<h3>Gasolina en canecas</h3><table><thead><tr><th>Había al inicio</th><th class="n">+ Llegó de la estación</th><th class="n">− Entregado</th>' +
+      (G2.bal.ajusteNeto ? '<th class="n">± Conteos</th>' : '') + '<th class="n">= Debe haber</th><th class="n">Costo entregado</th><th class="n">Faltante en conteos</th></tr></thead><tbody><tr>' +
+      '<td>' + galF(G2.bal.inicial) + '</td><td class="n">' + galF(G2.bal.galLlegadas) + '</td><td class="n">' + galF(G2.gal) + '</td>' +
+      (G2.bal.ajusteNeto ? '<td class="n">' + (G2.bal.ajusteNeto > 0 ? '+' : '−') + galF(Math.abs(G2.bal.ajusteNeto)) + '</td>' : '') +
+      '<td class="n"><b>' + galF(G2.bal.final) + '</b></td><td class="n">' + pesos(G2.costo) + '</td><td class="n">' + (G2.faltante ? '<b>' + galF(G2.faltante) + ' · ' + pesos(G2.faltanteValor) + '</b>' : G2.conteos.length ? 'Ninguno' : 'Sin conteo') + '</td></tr></tbody></table>';
   }
 
   /* labores y lotes */
