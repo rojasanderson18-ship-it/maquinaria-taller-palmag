@@ -1111,8 +1111,9 @@ function fincasDe(cods){
 /* En la hoja impresa las novedades largas se acortan (deja el "desde el …")
    para que todo quepa en una sola hoja. */
 function corta(t, n){
-  t = String(t || '');
-  var m = t.match(/^(.*?)(\s*\(desde el [^)]*\))?$/), cuerpo = m[1], desde = m[2] || '';
+  // una novedad puede traer saltos de línea: se vuelven espacios (antes rompían esto y los botones no hacían nada)
+  t = String(t || '').replace(/\s+/g, ' ').trim();
+  var m = t.match(/^([\s\S]*?)(\s*\(desde el [^)]*\))?$/) || [t, t, ''], cuerpo = m[1], desde = m[2] || '';
   return (cuerpo.length > n ? cuerpo.slice(0, n - 1).replace(/[\s,;.]+\S*$/, '') + '…' : cuerpo) + desde;
 }
 
